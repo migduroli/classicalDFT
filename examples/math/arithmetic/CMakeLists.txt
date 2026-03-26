@@ -1,0 +1,2 @@
+add_executable(example_arithmetic main.cpp)
+target_link_libraries(example_arithmetic PRIVATE classicaldft)

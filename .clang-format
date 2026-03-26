@@ -1,5 +1,47 @@
-# Run manually to reformat a file:
-# clang-format -i --style=file <file>
+---
 Language: Cpp
-BasedOnStyle:  Google
-ColumnLimit: 100
+BasedOnStyle: Google
+
+ColumnLimit: 120
+IndentWidth: 2
+ContinuationIndentWidth: 4
+AccessModifierOffset: -1
+
+# Include sorting (isort equivalent)
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Related header (e.g. foo.cpp includes foo.h)
+  - Regex: '^"classicaldft_bits/'
+    Priority: 2
+  # System/library headers
+  - Regex: '^<'
+    Priority: 3
+  # Other project headers
+  - Regex: '.*'
+    Priority: 1
+
+# Braces
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+
+# Alignment
+AlignAfterOpenBracket: BlockIndent
+AlignOperands: DontAlign
+AlignTrailingComments: true
+PointerAlignment: Left
+BinPackArguments: false
+BinPackParameters: false
+
+# Namespaces
+NamespaceIndentation: All
+FixNamespaceComments: true
+
+# Other
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+ReflowComments: true

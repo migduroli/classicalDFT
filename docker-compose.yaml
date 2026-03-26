@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      dockerfile: Dockerfile
+    image: classicaldft:local
+    volumes:
+      - ./include:/app/include
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./examples:/app/examples
+      - ./scripts:/app/scripts
+      - ./build:/app/build
+      - ./build-coverage:/app/build-coverage
+      - ./coverage:/app/coverage
+      - ./CMakeLists.txt:/app/CMakeLists.txt
+      - ./.clang-format:/app/.clang-format
+      - ./.clang-tidy:/app/.clang-tidy

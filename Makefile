@@ -1,68 +1,32 @@
-INCLUDE= ./include
-SRC_DIR= ./src
-OBJ_DIR= .
-DEP_DIR= .
+.PHONY: help check clean build test format format-check lint lint-fix install
+.DEFAULT_GOAL := help
 
-SRC_FILES := $(wildcard $(SRC_DIR)/*.cpp)
-OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-all: $(OBJ_FILES)
+install: ## Install local dependencies and build the library
+	@./scripts/install
 
-DEBUG= -O3
+check: ## Check project dependencies
+	@./scripts/check
 
-###########################################################################
-# gcc version egcs-2.95.2 19991024 (release) on a Linux system
-# Intel Pentium PC, use -m486 for 486 CPU or -mpentium for Pentium Systems
-###########################################################################
+clean: ## Remove build artifacts
+	@./scripts/clean
 
-## What processor?
+build: ## Build the Docker image
+	@./scripts/build
 
-I686=i686
+test: ## Run tests with coverage (fail under 60%, override with DFT_COV_FAIL_UNDER)
+	@./scripts/test
 
-MACHINE := $(shell uname -m)	
+format: ## Format source code with clang-format
+	@./scripts/format
 
-ifeq ($(strip $(MACHINE)),$(I686))
-	PROCESSOR=pentium
-	COPTS= $(DEBUG)  -march=${PROCESSOR} 
-	CCC= mpic++
-	CCOPTS= $(DEBUG) -std=gnu++11 -march=${PROCESSOR} -MMD
-#	LIBINTEL= iode_ia32
-else
-	PROCESSOR=opteron
-	COPTS= $(DEBUG)  -march=${PROCESSOR} -fopenmp -MMD
-	CCC= mpic++
-	CCOPTS= $(DEBUG) -std=gnu++11 -march=${PROCESSOR}  -MMD -fopenmp  -D USE_OMP 
-#	LIBINTEL =iode_intel64
-endif
+format-check: ## Check formatting without modifying files
+	@./scripts/format --check
 
-###########################################################################
-### general rules							  #
-###########################################################################
+lint: ## Lint source code (format check + clang-tidy)
+	@./scripts/lint
 
-.SUFFIXES: .cpp .o .d
-
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	${CCC} $(CCOPTS) -I ${INCLUDE} -c -o $@ $<
-
-$(DEP_DIR)/%.d: $(SRC_DIR)/%.cpp
-	${CCC} $(CCOPTS) -I ${INCLUDE} -c -o $@ $<
-
-.cpp.d:
-	mpic++ -MMD -E -march=${PROCESSOR} -std=gnu++11 -I ${INCLUDE} $< > /dev/null
-
-sourcescpp := $(wildcard ./src/*.cpp)
-sourcesc := $(wildcard ./*.c)
-sources := ${sourcescpp} ${sourcesc}
-
-depscpp = $(sourcescpp:.cpp=.d)
-depsc= $(sourcesc:.c=.d)
-
--include $(depscpp) $(depsc)
-
-LIBS= 
-
-.PHONY : clean
-clean :
-	-rm -f ${OBJ_DIR}/*.o
-	-rm -f *.d
-	-rm -f *~
+lint-fix: ## Auto-fix lint issues (format + clang-tidy --fix)
+	@./scripts/lint --fix

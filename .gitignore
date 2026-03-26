@@ -1,9 +1,35 @@
 *~
 log.*
+
+# Build directories
 **/build
+**/build-coverage
+**/build-examples
+**/build-local
+**/build-tests
 **/debug
 **/cmake-build*
 **/dummy
 **/*.o
 **/*.d
+
+
+# Coverage
+coverage/
+
+# IDE
 .idea/**
+.vscode/
+*.swp
+*.swo
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# macOS
+.DS_Store
+
+# Test/example plot output
+exports/
