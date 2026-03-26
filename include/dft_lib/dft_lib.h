@@ -5,12 +5,12 @@
 //endregion
 
 //region Exceptions
-#include "dft_lib/exceptions/grace_exception.h"
-#include "dft_lib/exceptions/parameter_exceptions.h"
+#include "dft_lib/exceptions/grace.h"
+#include "dft_lib/exceptions/parameter.h"
 //endregion
 
 //region IO
-#include "dft_lib/io/config_parser.h"
+#include "dft_lib/io/config.h"
 #include "dft_lib/io/console.h"
 //endregion
 

@@ -1,4 +1,4 @@
-#include "dft_lib/io/config_parser.h"
+#include "dft_lib/io/config.h"
 
 #include <gtest/gtest.h>
 

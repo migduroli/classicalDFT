@@ -1,4 +1,4 @@
-#include "dft_lib/exceptions/parameter_exceptions.h"
+#include "dft_lib/exceptions/parameter.h"
 
 #include <utility>
 

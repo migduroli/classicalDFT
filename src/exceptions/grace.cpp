@@ -1,6 +1,6 @@
 #include <utility>
 
-#include "dft_lib/exceptions/grace_exception.h"
+#include "dft_lib/exceptions/grace.h"
 
 namespace dft_core
 {

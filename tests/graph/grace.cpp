@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "dft_lib/graph/grace.h"
-#include "dft_lib/exceptions/grace_exception.h"
+#include "dft_lib/exceptions/grace.h"
 
 template<class T = double>
 using Vector = std::vector<T>;

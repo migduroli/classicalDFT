@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "dft_lib/exceptions/grace_exception.h"
+#include "dft_lib/exceptions/grace.h"
 
 TEST(grace_exceptions, grace_exception_cttor_test)
 {

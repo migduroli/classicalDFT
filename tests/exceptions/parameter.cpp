@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "dft_lib/exceptions/parameter_exceptions.h"
+#include "dft_lib/exceptions/parameter.h"
 
 TEST(general_exceptions, wrong_parameter_exception_cttor_test)
 {

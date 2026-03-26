@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "dft_lib/exceptions/grace_exception.h"
+#include "dft_lib/exceptions/grace.h"
 #include "dft_lib/io/console.h"
 
 namespace dft_core

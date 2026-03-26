@@ -59,10 +59,10 @@ endif()
 
 set(DFT_LIB_SOURCES
     # Exceptions
-    src/exceptions/grace_exceptions.cpp
-    src/exceptions/parameter_exceptions.cpp
+    src/exceptions/grace.cpp
+    src/exceptions/parameter.cpp
     # IO
-    src/io/config_parser.cpp
+    src/io/config.cpp
     # Numerics
     src/numerics/arithmetic.cpp
     src/numerics/integration.cpp
