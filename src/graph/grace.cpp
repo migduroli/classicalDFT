@@ -165,15 +165,15 @@ namespace dft_core {
   namespace grace_plot {
     // region static methods
 
-    static void AddDatasetToGraceObject(const Grace* g, std::vector<double> const& x, std::vector<double> const& y,
-                                        const int& dataset_id, const int& graph_id) {
+    static void add_dataset_to_grace_object(const Grace* g, std::vector<double> const& x, std::vector<double> const& y,
+                                            const int& dataset_id, const int& graph_id) {
       unsigned int length = x.size();
       for (uint k = 0; k < length; k++) {
-        g->AddPoint(x[k], y[k], dataset_id, graph_id);
+        g->add_point(x[k], y[k], dataset_id, graph_id);
       }
     }
 
-    static bool CheckEqualLength(std::vector<double> const& x, std::vector<double> const& y) {
+    static bool check_equal_length(std::vector<double> const& x, std::vector<double> const& y) {
       if (x.size() != y.size()) {
         throw exception::GraceException(
             "The dataset must have equal-size X and Y:"
@@ -183,7 +183,7 @@ namespace dft_core {
       return true;
     }
 
-    static bool CheckGraphIdInBounds(const int& graph_id, const int& total_number_of_graphs) {
+    static bool check_graph_id_in_bounds(const int& graph_id, const int& total_number_of_graphs) {
       if ((graph_id > (total_number_of_graphs - 1)) || (graph_id < 0)) {
         throw exception::GraceException("The graph id is out of bounds: Min id = 0; Max id =" +
                                         std::to_string(total_number_of_graphs));
@@ -191,7 +191,7 @@ namespace dft_core {
       return true;
     }
 
-    static bool CheckDatasetInBounds(const int& dataset_id, const int& last_dataset_id) {
+    static bool check_dataset_in_bounds(const int& dataset_id, const int& last_dataset_id) {
       if (dataset_id < 0 || dataset_id > last_dataset_id) {
         throw exception::GraceException("The dataset id is out of bounds: Min id = 0; Last dataset id =" +
                                         std::to_string(last_dataset_id));
@@ -274,8 +274,8 @@ namespace dft_core {
     // region Grace
 
     /// The configuration command which eventually sets up the graph
-    void SetupGrace(const double& x_min, const double& x_max, const double& y_min, const double& y_max,
-                    const int& number_of_graphs, const float& offset, const float& hspace, float const& vspace) {
+    void setup_grace(const double& x_min, const double& x_max, const double& y_min, const double& y_max,
+                     const int& number_of_graphs, const float& offset, const float& hspace, float const& vspace) {
       if (number_of_graphs > 1) {
         int number_of_rows = get_number_of_rows(number_of_graphs);
         int number_of_columns = get_number_of_columns(number_of_graphs, number_of_rows);
@@ -313,27 +313,27 @@ namespace dft_core {
       if (show_) {
         register_grace_error_function();
         start_grace_communication(x_size, y_size);
-        SetupGrace(x_min_, x_max_, y_min_, y_max_, number_of_graphs_, offset_, horizontal_space_, vertical_space_);
+        setup_grace(x_min_, x_max_, y_min_, y_max_, number_of_graphs_, offset_, horizontal_space_, vertical_space_);
       }
     }
 
-    void Grace::SetXMin(const double& value) {
+    void Grace::set_x_min(const double& value) {
       x_min_ = value;
     }
 
-    void Grace::SetXMax(const double& value) {
+    void Grace::set_x_max(const double& value) {
       x_max_ = value;
     }
 
-    void Grace::SetYMin(const double& value) {
+    void Grace::set_y_min(const double& value) {
       y_min_ = value;
     }
 
-    void Grace::SetYMax(const double& value) {
+    void Grace::set_y_max(const double& value) {
       y_max_ = value;
     }
 
-    void Grace::SetXLimits(const double& x_min, const double& x_max) {
+    void Grace::set_x_limits(const double& x_min, const double& x_max) {
       if (x_min > x_max) {
         throw exception::GraceException("Lower limit cannot be greater than upper limit!");
       }
@@ -347,7 +347,7 @@ namespace dft_core {
       }
     }
 
-    void Grace::SetYLimits(const double& y_min, const double& y_max) {
+    void Grace::set_y_limits(const double& y_min, const double& y_max) {
       if (y_min > y_max) {
         throw exception::GraceException("Lower limit cannot be greater than upper limit!");
       }
@@ -361,23 +361,23 @@ namespace dft_core {
       }
     }
 
-    void Grace::SetLimits(const double& x_min, const double& x_max, const double& y_min, const double& y_max) {
+    void Grace::set_limits(const double& x_min, const double& x_max, const double& y_min, const double& y_max) {
       this->set_x_limits(x_min, x_max);
       this->set_y_limits(y_min, y_max);
     }
 
-    void Grace::SetLimits(const std::vector<double>& x_limits, const std::vector<double>& y_limits) {
+    void Grace::set_limits(const std::vector<double>& x_limits, const std::vector<double>& y_limits) {
       this->set_limits(x_limits.front(), x_limits.back(), y_limits.front(), y_limits.back());
     }
 
-    void Grace::Close() const {
+    void Grace::close() const {
       if (this->show_) {
         GraceClose();
       }
     }
 
-    void Grace::AddPoint(const double& x, const double& y, const int& dataset_id, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::add_point(const double& x, const double& y, const int& dataset_id, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       if (this->show_) {
         send_command(command::add_point_command(x, y, dataset_id, graph_id));
@@ -392,16 +392,16 @@ namespace dft_core {
       this->last_dataset_id_ -= 1;
     }
 
-    int Grace::AddDataset(std::vector<double> const& x, std::vector<double> const& y, const int& graph_id) {
-      CheckEqualLength(x, y);
+    int Grace::add_dataset(std::vector<double> const& x, std::vector<double> const& y, const int& graph_id) {
+      check_equal_length(x, y);
       this->increase_last_dataset_id();
-      AddDatasetToGraceObject(this, x, y, this->last_dataset_id(), graph_id);
+      add_dataset_to_grace_object(this, x, y, this->last_dataset_id(), graph_id);
       return last_dataset_id_;
     }
 
-    void Grace::DeleteDataset(const int& dataset_id, const int& graph_id) {
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::delete_dataset(const int& dataset_id, const int& graph_id) {
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       send_command(command::kill_set_command(dataset_id, graph_id));
       // this->decrease_last_dataset_id();
@@ -409,19 +409,19 @@ namespace dft_core {
       this->set_color(static_cast<Color>((this->last_dataset_id() % 10) + 1), dataset_id, graph_id);
     }
 
-    void Grace::ReplaceDataset(std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id,
-                               const int& graph_id) {
-      CheckEqualLength(x, y);
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::replace_dataset(std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id,
+                                const int& graph_id) {
+      check_equal_length(x, y);
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       this->delete_dataset(dataset_id, graph_id);
-      AddDatasetToGraceObject(this, x, y, dataset_id, graph_id);
+      add_dataset_to_grace_object(this, x, y, dataset_id, graph_id);
     }
 
-    void Grace::Redraw(const bool& auto_scale, const bool& auto_ticks, const int& graph_id) const {
+    void Grace::redraw(const bool& auto_scale, const bool& auto_ticks, const int& graph_id) const {
       if (this->show_) {
-        if (CheckGraphIdInBounds(graph_id, this->number_of_graphs())) {
+        if (check_graph_id_in_bounds(graph_id, this->number_of_graphs())) {
           send_command(command::focus_command(graph_id));
         }
 
@@ -437,32 +437,32 @@ namespace dft_core {
       }
     }
 
-    void Grace::Wait() const {
+    void Grace::wait() const {
       console::wait();
     }
 
-    void Grace::RedrawAndWait(const bool& auto_scale, const bool& auto_ticks, const int& graph_id) const {
+    void Grace::redraw_and_wait(const bool& auto_scale, const bool& auto_ticks, const int& graph_id) const {
       this->redraw(auto_scale, auto_ticks, graph_id);
       this->wait();
     }
 
-    void Grace::SetLegend(const std::string& legend, const int& dataset_id, const int& graph_id) const {
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::set_legend(const std::string& legend, const int& dataset_id, const int& graph_id) const {
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       send_command(command::set_legend_command(legend, dataset_id, graph_id));
     }
 
-    void Grace::SetColor(const Color& color, const int& dataset_id, const int& graph_id) const {
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::set_color(const Color& color, const int& dataset_id, const int& graph_id) const {
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       send_command(command::set_line_color_command(color, dataset_id, graph_id));
       send_command(command::set_symbol_color_command(color, dataset_id, graph_id));
     }
 
-    void Grace::SetLabel(const std::string& label, const Axis& axis, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::set_label(const std::string& label, const Axis& axis, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       if (graph_id > 0) {
         send_command(command::focus_command(graph_id));
@@ -470,16 +470,16 @@ namespace dft_core {
       send_command(command::set_axis_label_command(label, axis));
     }
 
-    void Grace::SetTitle(const std::string& title) const {
+    void Grace::set_title(const std::string& title) const {
       send_command(command::set_title_command(title));
     }
 
-    void Grace::SetSubtitle(const std::string& subtitle) const {
+    void Grace::set_subtitle(const std::string& subtitle) const {
       send_command(command::set_subtitle_command(subtitle));
     }
 
-    void Grace::SetTicks(const double& dx, const double& dy, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
+    void Grace::set_ticks(const double& dx, const double& dy, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
 
       if (dx <= 0 || dy <= 0) {
         std::string msg = "Minimum tick-size is 0: dx = " + std::to_string(dx) + " dy = " + std::to_string(dy);
@@ -491,44 +491,44 @@ namespace dft_core {
       send_command(command::set_ticks_command(dy, Axis::Y));
     }
 
-    void Grace::SetSymbol(const Symbol& symbol, const int& dataset_id, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
+    void Grace::set_symbol(const Symbol& symbol, const int& dataset_id, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
 
       send_command(command::set_symbol_command(symbol, dataset_id, graph_id));
     }
 
-    void Grace::SetSymbolColor(const Color& color, const int& dataset_id, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
+    void Grace::set_symbol_color(const Color& color, const int& dataset_id, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
 
       send_command(command::set_symbol_color_command(color, dataset_id, graph_id));
     }
 
-    void Grace::SetSymbolFill(const Color& color, const int& dataset_id, const int& graph_id,
-                              const int& pattern_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
+    void Grace::set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id,
+                                const int& pattern_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
 
       send_command(command::set_symbol_color_fill_pattern_command(pattern_id, dataset_id, graph_id));
       send_command(command::set_symbol_color_fill_command(color, dataset_id, graph_id));
     }
 
-    void Grace::SetSymbolSize(const double& size, const int& dataset_id, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
+    void Grace::set_symbol_size(const double& size, const int& dataset_id, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
 
       send_command(command::set_symbol_size_command(size, dataset_id, graph_id));
     }
 
-    void Grace::SetLineType(const LineStyle& line_type, const int& dataset_id, const int& graph_id) const {
-      CheckGraphIdInBounds(graph_id, this->number_of_graphs());
-      CheckDatasetInBounds(dataset_id, this->last_dataset_id());
+    void Grace::set_line_type(const LineStyle& line_type, const int& dataset_id, const int& graph_id) const {
+      check_graph_id_in_bounds(graph_id, this->number_of_graphs());
+      check_dataset_in_bounds(dataset_id, this->last_dataset_id());
 
       send_command(command::set_line_style_command(line_type, dataset_id, graph_id));
     }
 
-    void Grace::PrintToFile(const std::string& file_path, const ExportFormat& format) const {
+    void Grace::print_to_file(const std::string& file_path, const ExportFormat& format) const {
       send_command(command::set_format_command(format));
       send_command(command::print_to_file_command(file_path));
       send_command(command::print_command());
