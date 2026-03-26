@@ -5,6 +5,10 @@ source scripts/str_lib.sh
 
 BUILD_DIR="build-coverage"
 COVERAGE_DIR="coverage"
+FAIL_UNDER="${DFT_COV_FAIL_UNDER:-60}"
+
+# lcov 2.x is strict about data consistency; suppress known-harmless warnings
+LCOV_IGNORE="--ignore-errors inconsistent,inconsistent,format,format,corrupt,corrupt,category,category,unsupported,unsupported"
 
 coverage() {
   for tool in cmake lcov genhtml; do
@@ -37,9 +41,6 @@ coverage() {
   ctest --test-dir "$BUILD_DIR" --output-on-failure
   message "success" "Tests completed"
 
-  # lcov 2.x is strict about data consistency; suppress known-harmless warnings
-  LCOV_IGNORE="--ignore-errors inconsistent,inconsistent,format,format,corrupt,corrupt,category,category,unsupported,unsupported"
-
   # Capture coverage
   message "info" "Coverage capture"
   lcov --capture \
@@ -64,11 +65,150 @@ coverage() {
     --quiet \
     $LCOV_IGNORE
 
-  # Summary
-  message "info" "Coverage summary"
-  lcov --summary "$BUILD_DIR/coverage_filtered.info" $LCOV_IGNORE --ignore-errors empty 2>&1 | grep -E "lines|functions|branches"
+  # Per-file term-missing report (like pytest --cov-report=term-missing)
+  message "info" "Coverage report"
+  print_report "$BUILD_DIR/coverage_filtered.info"
 
-  message "success" "Report: $COVERAGE_DIR/index.html"
+  message "info" "HTML report: $COVERAGE_DIR/index.html"
+
+  # Fail under threshold (like pytest --cov-fail-under)
+  check_threshold "$BUILD_DIR/coverage_filtered.info"
+}
+
+# Print per-file coverage with missing lines, mimicking pytest term-missing output
+print_report() {
+  local info_file="$1"
+  local total_hit=0 total_found=0
+
+  local BOLD='\033[1m'
+  local DIM='\033[2m'
+  local NC='\033[0m'
+
+  printf "\n${BOLD}%-62s %7s %7s %7s   %s${NC}\n" "Name" "Stmts" "Miss" "Cover" "Missing"
+  printf "%0.s─" {1..120}; echo
+
+  local current_file="" file_found=0 file_hit=0
+  declare -a missing_lines=()
+
+  while IFS= read -r line; do
+    case "$line" in
+      SF:*)
+        # Flush previous file
+        if [[ -n "$current_file" ]]; then
+          _print_file_row "$current_file" "$file_found" "$file_hit" "${missing_lines[*]}"
+          total_found=$((total_found + file_found))
+          total_hit=$((total_hit + file_hit))
+        fi
+        current_file="${line#SF:}"
+        # Strip to project-relative path
+        current_file="${current_file#*classicalDFT/}"
+        file_found=0; file_hit=0; missing_lines=()
+        ;;
+      DA:*)
+        local fields="${line#DA:}"
+        local lineno="${fields%%,*}"
+        local count="${fields#*,}"
+        count="${count%%,*}"
+        file_found=$((file_found + 1))
+        if [[ "$count" -gt 0 ]]; then
+          file_hit=$((file_hit + 1))
+        else
+          missing_lines+=("$lineno")
+        fi
+        ;;
+      end_of_record)
+        ;;
+    esac
+  done < "$info_file"
+
+  # Flush last file
+  if [[ -n "$current_file" ]]; then
+    _print_file_row "$current_file" "$file_found" "$file_hit" "${missing_lines[*]}"
+    total_found=$((total_found + file_found))
+    total_hit=$((total_hit + file_hit))
+  fi
+
+  printf "%0.s─" {1..120}; echo
+
+  local total_miss=$((total_found - total_hit))
+  local total_pct=0
+  if [[ "$total_found" -gt 0 ]]; then
+    total_pct=$((total_hit * 100 / total_found))
+  fi
+  printf "${BOLD}%-62s %7d %7d %6d%%${NC}\n" "TOTAL" "$total_found" "$total_miss" "$total_pct"
+  echo
+}
+
+# Print a single file row with missing-line ranges
+_print_file_row() {
+  local file="$1" found="$2" hit="$3" missing_str="$4"
+  local miss=$((found - hit))
+  local pct=0
+  [[ "$found" -gt 0 ]] && pct=$((hit * 100 / found))
+
+  local ranges=""
+  ranges=$(_compress_ranges $missing_str)
+
+  local RED='\033[0;31m' GREEN='\033[0;32m' YELLOW='\033[0;33m' NC='\033[0m'
+  local color="$GREEN"
+  [[ "$pct" -lt 80 ]] && color="$YELLOW"
+  [[ "$pct" -lt 50 ]] && color="$RED"
+
+  printf "%-62s %7d %7d ${color}%6d%%${NC}   %s\n" "$file" "$found" "$miss" "$pct" "$ranges"
+}
+
+# Compress line numbers into ranges: 10 11 12 15 -> 10-12, 15
+_compress_ranges() {
+  local nums=($@)
+  [[ ${#nums[@]} -eq 0 ]] && return
+
+  local result="" start="${nums[0]}" prev="${nums[0]}"
+  for ((i=1; i<${#nums[@]}; i++)); do
+    local n="${nums[$i]}"
+    if [[ "$n" -eq $((prev + 1)) ]]; then
+      prev="$n"
+    else
+      if [[ "$start" -eq "$prev" ]]; then
+        result="${result:+$result, }$start"
+      else
+        result="${result:+$result, }$start-$prev"
+      fi
+      start="$n"; prev="$n"
+    fi
+  done
+  if [[ "$start" -eq "$prev" ]]; then
+    result="${result:+$result, }$start"
+  else
+    result="${result:+$result, }$start-$prev"
+  fi
+  echo "$result"
+}
+
+# Enforce minimum coverage threshold
+check_threshold() {
+  local info_file="$1"
+  local total_hit=0 total_found=0
+
+  while IFS= read -r line; do
+    case "$line" in
+      DA:*)
+        local fields="${line#DA:}"
+        local count="${fields#*,}"
+        count="${count%%,*}"
+        total_found=$((total_found + 1))
+        [[ "$count" -gt 0 ]] && total_hit=$((total_hit + 1))
+        ;;
+    esac
+  done < "$info_file"
+
+  local pct=0
+  [[ "$total_found" -gt 0 ]] && pct=$((total_hit * 100 / total_found))
+
+  if [[ "$pct" -lt "$FAIL_UNDER" ]]; then
+    message "error" "Coverage ${pct}% is below the required threshold of ${FAIL_UNDER}%"
+    exit 1
+  fi
+  message "success" "Coverage ${pct}% >= ${FAIL_UNDER}% threshold"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then

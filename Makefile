@@ -28,5 +28,5 @@ format-check: ## Check formatting without modifying files
 lint: ## Lint source code (format check + clang-tidy)
 	@./scripts/lint
 
-coverage: ## Run tests with coverage analysis (lcov + genhtml)
+coverage: ## Run tests with coverage (fail under 60%, override with DFT_COV_FAIL_UNDER)
 	@./scripts/coverage

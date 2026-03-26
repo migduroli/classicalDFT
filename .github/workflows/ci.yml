@@ -63,6 +63,8 @@ jobs:
 
       - name: Run coverage
         run: ./scripts/coverage
+        env:
+          DFT_COV_FAIL_UNDER: "60"
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
