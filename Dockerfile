@@ -6,6 +6,8 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     build-essential \
     cmake \
     g++ \
+    git \
+    ca-certificates \
     libgsl-dev \
     libboost-serialization-dev \
     libboost-dev \
