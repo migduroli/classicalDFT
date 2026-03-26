@@ -12,10 +12,10 @@ int main() {
   auto x = config.tree().get<std::string>("default.StringValue");
   auto y = config.tree().get<double>("default.DoubleValue");
 
-  console::Info("This is x: " + x);
-  console::Info("This is 2*y: " + std::to_string(2*y));
+  console::info("This is x: " + x);
+  console::info("This is 2*y: " + std::to_string(2*y));
 
-  console::Wait();
+  console::wait();
 
   //endregion
 
@@ -46,12 +46,12 @@ int main() {
     auto string_value = c_obj.tree().get<std::string>(section + "StringValue");
     auto double_value = c_obj.tree().get<double>(section + "DoubleValue");
 
-    console::NewLine();
-    console::Info("File name: " + f);
-    console::Info("String value: " + string_value);
-    console::Info("Double value: " + std::to_string(double_value));
+    console::new_line();
+    console::info("File name: " + f);
+    console::info("String value: " + string_value);
+    console::info("Double value: " + std::to_string(double_value));
   }
-  console::Wait();
+  console::wait();
 
   //endregion
 }

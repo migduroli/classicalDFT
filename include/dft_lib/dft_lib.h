@@ -1,41 +1,41 @@
-//region Graphs
+// region Graphs
 #ifdef DFT_HAS_GRACE
 #include "dft_lib/graph/grace.h"
 #endif
-//endregion
+// endregion
 
-//region Exceptions
+// region Exceptions
 #include "dft_lib/exceptions/grace.h"
 #include "dft_lib/exceptions/parameter.h"
-//endregion
+// endregion
 
-//region IO
+// region IO
 #include "dft_lib/io/config.h"
 #include "dft_lib/io/console.h"
-//endregion
+// endregion
 
-//region Numerics
-#include "dft_lib/numerics/integration.h"
+// region Numerics
 #include "dft_lib/numerics/arithmetic.h"
-//endregion
+#include "dft_lib/numerics/integration.h"
+// endregion
 
-//region Physics
+// region Physics
 #include "dft_lib/physics/potentials/intermolecular/potential.h"
-//endregion
+// endregion
 
-//region Geometry
+// region Geometry
 #include "dft_lib/geometry/base/element.h"
 #include "dft_lib/geometry/base/mesh.h"
 #include "dft_lib/geometry/base/vertex.h"
 
-//region 2D
+// region 2D
 #include "dft_lib/geometry/2D/element.h"
 #include "dft_lib/geometry/2D/mesh.h"
-//endregion
+// endregion
 
-//region 3D
+// region 3D
 #include "dft_lib/geometry/3D/element.h"
 #include "dft_lib/geometry/3D/mesh.h"
-//endregion
+// endregion
 
-//endregion
+// endregion

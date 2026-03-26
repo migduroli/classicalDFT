@@ -1,34 +1,25 @@
 #ifndef CLASSICALDFT_GRACE_H
 #define CLASSICALDFT_GRACE_H
 
-#include <unistd.h>
 #include <grace_np.h>
-
 #include <string>
+#include <unistd.h>
 #include <vector>
 
-namespace dft_core
-{
-  namespace grace_plot
-  {
+namespace dft_core {
+  namespace grace_plot {
     /**
      * @brief Supported file formats when saving a graph
      *
      * These values are used in arguments to various functions in this package.
      */
-    enum class ExportFormat {
-      JPG,
-      PNG,
-      EPS1,
-      PS,
-      PDF
-    };
+    enum class ExportFormat { JPG, PNG, EPS1, PS, PDF };
 
     /**
      * @brief Supported shapes for the data points
      */
     enum class Symbol {
-      CIRCLE=1,
+      CIRCLE = 1,
       SQUARE,
       DIAMOND,
       TRIANGLE_UP,
@@ -63,11 +54,11 @@ namespace dft_core
     };
 
     /**
-    * @brief The possible line patterns
-    */
+     * @brief The possible line patterns
+     */
     enum class LineStyle {
-      NO_LINE=0,
-      LINE=1,
+      NO_LINE = 0,
+      LINE = 1,
       DOTTEDLINE,
       DASHEDLINE_EN,
       DASHEDLINE_EM,
@@ -80,30 +71,25 @@ namespace dft_core
     /**
      * @brief The axis X or Y
      */
-    enum class Axis
-    {
-      X,
-      Y
-    };
+    enum class Axis { X, Y };
 
     /**
      * @bried Some fundamental options needed when initialising Grace
      */
-    namespace option
-    {
+    namespace option {
       /// Option to specify free page layout
       const std::string FREE = "-free";
       /// Option to disable safe mode
       const std::string NO_SAFE = "-nosafe";
       /// Option to
       const std::string GEOMETRY = "-geometry";
-    }
+    }  // namespace option
 
     /**
-     * @brief Collection of wrappers for xmgrace commands (see https://plasma-gate.weizmann.ac.il/Grace/doc/UsersGuide.html)
+     * @brief Collection of wrappers for xmgrace commands (see
+     * https://plasma-gate.weizmann.ac.il/Grace/doc/UsersGuide.html)
      */
-    namespace command
-    {
+    namespace command {
       /**
        * @brief Returns the ARRANGE(nrows, ncols, offset, hgap, vgap) command as string
        *
@@ -114,7 +100,8 @@ namespace dft_core
        * @param vertical_gap vertical spacing
        * @return std::string
        */
-      std::string arrange_command(const int& number_of_rows, const int& number_of_columns, const float& offset, const float& horizontal_gap, const float& vertical_gap);
+      std::string arrange_command(const int& number_of_rows, const int& number_of_columns, const float& offset,
+                                  const float& horizontal_gap, const float& vertical_gap);
 
       /**
        * @brief Returns the "WORLD XMIN x_min" command as string
@@ -160,9 +147,9 @@ namespace dft_core
       std::string add_point_command(const double& x, const double& y, const int& dataset_id, const int& graph_id);
 
       /**
-        * @brief Returns the "REDRAW" command as string
-        * @return std::string
-        */
+       * @brief Returns the "REDRAW" command as string
+       * @return std::string
+       */
       std::string redraw_command();
 
       /**
@@ -225,7 +212,8 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string set_symbol_color_fill_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_color_fill_command(const grace_plot::Color& color, const int& dataset_id,
+                                                const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL FILL COLOR {COLOR}" command as string
@@ -234,7 +222,8 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string set_symbol_color_fill_pattern_command(const int& pattern_id, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_color_fill_pattern_command(const int& pattern_id, const int& dataset_id,
+                                                        const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL SIZE {X}" command as string
@@ -274,7 +263,6 @@ namespace dft_core
        */
       std::string set_ticks_command(const double& tick_sep, const Axis& axis);
 
-
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL {SYMBOL}" command as string
        * @param symbol one of the possible symbol values
@@ -312,7 +300,7 @@ namespace dft_core
        * @return std::string
        */
       std::string print_command();
-    }
+    }  // namespace command
 
     /// The default X-size of the grace canvas
     const int default_x_size = 800;
@@ -342,7 +330,7 @@ namespace dft_core
      * @throw GraceNotOpenedException when the subprocess `xmgrace` is not running, i.e. Grace is not "opened".
      * @throw GraceCommunicationFailedException when the subprocess `xmgrace` is running but something happened inside
      */
-    void send_command(const std::string &cmd);
+    void send_command(const std::string& cmd);
 
     /**
      * @brief Parse and prints an error message from xmgrace.
@@ -351,7 +339,7 @@ namespace dft_core
      * @param[in] msg the message (char*) received from `xmgrace` which will be printed out.
      * @remark Unfortunately, due to legacy reasons, such a function must deal with char* instead of modern strings.
      */
-    void error_parsing_function(const char *msg);
+    void error_parsing_function(const char* msg);
 
     /**
      * @brief Set up of the personalised error parsing function `error_parsing_function`
@@ -399,12 +387,12 @@ namespace dft_core
      * @brief  Utility: Wrapper for xmgrace graphics program.
      * @detailed This class provides an interface for the xmgrace graphics program which can be called programmatically
      * to provide a cheap solution  for displaying dynamically updated line graphs etc.
-    */
-    class Grace
-    {
-    public:
+     */
+    class Grace {
+     public:
       /// Explicit constructor, which avoids implicit conversions
-      explicit Grace(int x_size = default_x_size, int y_size = default_y_size, int n_graph = default_number_of_graphs, bool show = true);
+      explicit Grace(int x_size = default_x_size, int y_size = default_y_size, int n_graph = default_number_of_graphs,
+                     bool show = true);
       /// Default destructor
       ~Grace() { this->close(); };
 
@@ -430,26 +418,25 @@ namespace dft_core
       /// The vspace to be used when setting up the graphs
       const float& vertical_space() const { return vertical_space_; }
 
-      //region Setters
+      // region Setters
 
       void set_x_min(const double& value);
       void set_x_max(const double& value);
       void set_y_min(const double& value);
       void set_y_max(const double& value);
 
-      //region SetLimits
+      // region SetLimits
 
       void set_x_limits(const double& x_min, const double& x_max);
       void set_y_limits(const double& y_min, const double& y_max);
       void set_limits(const double& x_min, const double& x_max, const double& y_min, const double& y_max);
       void set_limits(const std::vector<double>& x_limits, const std::vector<double>& y_limits);
 
-      //endregion
+      // endregion
 
-      //endregion
+      // endregion
 
-
-      //region Methods
+      // region Methods
 
       /**
        * @brief Adds a point to a certain dataset (`dataset_id`) for given graph (`graph_id`)
@@ -460,7 +447,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on (default=0)
        * @throw GraceException when the graph_id given is out of bounds
        */
-      void add_point(const double& x, const double& y, const int& dataset_id=0, const int& graph_id=0) const;
+      void add_point(const double& x, const double& y, const int& dataset_id = 0, const int& graph_id = 0) const;
 
       /**
        * @brief Adds a tuple (X, Y) of `std::vector` objects which represent a dataset
@@ -472,7 +459,7 @@ namespace dft_core
        * @throw GraceException when the dataset size is not well-balanced, i.e. x.size() != y.size()
        * @throw GraceException when the graph_id given is out of bounds
        */
-      int add_dataset(std::vector<double> const &x, std::vector<double> const &y, const int& graph_id = 0);
+      int add_dataset(std::vector<double> const& x, std::vector<double> const& y, const int& graph_id = 0);
 
       /**
        * @brief Replace an existing dataset with a tuple (X, Y) of `std::vector` objects which represent a new dataset
@@ -485,7 +472,8 @@ namespace dft_core
        * @throw GraceException when the dataset size is not well-balanced, i.e. x.size() != y.size()
        * @throw GraceException when the graph_id given is out of bounds
        */
-      void replace_dataset(std::vector<double> const &x, std::vector<double> const &y, const int& dataset_id, const int& graph_id = 0);
+      void replace_dataset(std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id,
+                           const int& graph_id = 0);
 
       /**
        * @brief Deletes a dataset identified by `dataset_id` on the graph identified by `graph_id`
@@ -525,7 +513,8 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on (default=0)
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void redraw_and_wait(const bool& auto_scale = false, const bool& auto_ticks = true, const int& graph_id = 0) const;
+      void redraw_and_wait(const bool& auto_scale = false, const bool& auto_ticks = true,
+                           const int& graph_id = 0) const;
 
       /**
        * @brief Sets the legend of the graph
@@ -603,7 +592,6 @@ namespace dft_core
        */
       void set_symbol_color(const Color& color, const int& dataset_id, const int& graph_id = 0) const;
 
-
       /**
        * @brief Sets the symbol fill in a given `dataset_id` of a given `graph_id`
        *
@@ -614,7 +602,8 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id = 0, const int& pattern_id = 1) const;
+      void set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id = 0,
+                           const int& pattern_id = 1) const;
 
       /**
        * @brief Sets the symbol fill in a given `dataset_id` of a given `graph_id`
@@ -645,9 +634,9 @@ namespace dft_core
        * @param format one of the possible ExportFormat values (default=ExportFormat::PDF)
        */
       void print_to_file(const std::string& file_path, const ExportFormat& format = ExportFormat::PNG) const;
-      //endregion
+      // endregion
 
-    private:
+     private:
       double x_min_ = default_min_axis_value;
       double x_max_ = default_max_axis_value;
       double y_min_ = default_min_axis_value;
@@ -670,7 +659,7 @@ namespace dft_core
        */
       void decrease_last_dataset_id();
     };
-  }
-}
+  }  // namespace grace_plot
+}  // namespace dft_core
 
 #endif

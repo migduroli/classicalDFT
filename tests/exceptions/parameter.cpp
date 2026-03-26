@@ -1,17 +1,15 @@
-#include <gtest/gtest.h>
-
 #include "dft_lib/exceptions/parameter.h"
 
-TEST(general_exceptions, wrong_parameter_exception_cttor_test)
-{
+#include <gtest/gtest.h>
+
+TEST(general_exceptions, wrong_parameter_exception_cttor_test) {
   std::string msg = "new exception";
   auto exception = dft_core::exception::WrongParameterException(msg);
   EXPECT_THROW(throw exception, dft_core::exception::WrongParameterException);
   ASSERT_STREQ(exception.error_message().c_str(), msg.c_str());
 }
 
-TEST(general_exceptions, negative_parameter_exception_cttor_test)
-{
+TEST(general_exceptions, negative_parameter_exception_cttor_test) {
   std::string msg = "new exception";
   auto exception = dft_core::exception::NegativeParameterException(msg);
   EXPECT_THROW(throw exception, dft_core::exception::NegativeParameterException);

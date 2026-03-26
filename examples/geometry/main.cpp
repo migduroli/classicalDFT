@@ -7,7 +7,7 @@ int main(int argc, char **argv)
   using namespace dft_core::geometry;
 
   // region Vertex: Initializer cttor
-  console::Info("Vertex | Constructor");
+  console::info("Vertex | Constructor");
   auto v1 = Vertex({0, 1, 2, 3});
   auto v2 = Vertex({3, 4, 5, 6});
 
@@ -18,7 +18,7 @@ int main(int argc, char **argv)
   // region Element: Cttor with pass-by-ref std::vector<Vertex> (copy)
   auto v_list = std::vector<Vertex>{ v1, v2 };
 
-  console::Info("Element | Copy constructor");
+  console::info("Element | Copy constructor");
   auto e1 = Element(v_list);
 
   std::cout << "v_list[0]: " << v_list[0] << std::endl
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
   // endregion
 
   // region Element: Cttor with std::move of std::vector<Vertex> (move)
-  console::Info("Element | Move semantics");
+  console::info("Element | Move semantics");
 
   std::cout << "v_list[0]: " << v_list[0] << std::endl
             << "v_list[1]: " << v_list[1] << std::endl << std::endl;
@@ -50,12 +50,12 @@ int main(int argc, char **argv)
   // endregion
 
   // region 2D: SquareBox
-  console::Info("Square boxes 2D: default");
+  console::info("Square boxes 2D: default");
   auto default_box_2D = two_dimensional::SquareBox();
   std::cout << "Default square-box:" << std::endl
             << default_box_2D << std::endl;
 
-  console::Info("Square boxes 2D: customized");
+  console::info("Square boxes 2D: customized");
   auto custom_box_2D = two_dimensional::SquareBox(0.25, {0,0});
   std::cout << "Customised square-box:" << std::endl
             << custom_box_2D << std::endl;
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
   // endregion
 
   // region 2D::SUQMesh
-  console::Info("Mesh 2D: lattice");
+  console::info("Mesh 2D: lattice");
 
   auto origin_2D = std::vector<double>{0,0};
   auto lengths_2D = std::vector<double>{1.0,1.0};
@@ -89,18 +89,18 @@ int main(int argc, char **argv)
   std::cout << "Element volume: " << std::endl
             << lattice_2D.element_volume() << std::endl;
 
-  console::Info("Mesh 2D: lattice plot");
+  console::info("Mesh 2D: lattice plot");
   lattice_2D.plot();
 
   // endregion
 
   // region 3D::SquareBox
-  console::Info("Square boxes 3D: default");
+  console::info("Square boxes 3D: default");
   auto default_box_3D = three_dimensional::SquareBox();
   std::cout << "Default square-box (3D):" << std::endl
             << default_box_3D << std::endl;
 
-  console::Info("Mesh 3D: lattice");
+  console::info("Mesh 3D: lattice");
   auto origin_3D = std::vector<double>{0,0,0};
   auto lengths_3D = std::vector<double>{1.0,1.0,1.0};
   auto lattice_3D = three_dimensional::Lattice(0.25, lengths_3D, origin_3D);

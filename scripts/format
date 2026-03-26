@@ -4,15 +4,32 @@ set -e
 source scripts/str_lib.sh
 
 format() {
-  message "info" "Format"
-
   if ! (command -v clang-format &>/dev/null); then
     message "error" "clang-format is not available"
     exit 1
   fi
 
-  find include src tests -name "*.h" -o -name "*.cpp" | xargs clang-format -i
-  message "success" "Format completed"
+  local files
+  files=$(find include src tests -name "*.h" -o -name "*.cpp")
+
+  if [[ "$1" == "--check" ]]; then
+    message "info" "Format check"
+    local bad=0
+    for f in $files; do
+      if ! clang-format --dry-run --Werror "$f" 2>/dev/null; then
+        bad=1
+      fi
+    done
+    if [[ "$bad" -eq 1 ]]; then
+      message "error" "Formatting issues found. Run 'make format' to fix."
+      exit 1
+    fi
+    message "success" "Format check passed"
+  else
+    message "info" "Format"
+    echo "$files" | xargs clang-format -i
+    message "success" "Format completed"
+  fi
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then

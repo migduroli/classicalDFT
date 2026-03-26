@@ -6,8 +6,7 @@ using namespace dft_core::geometry;
 
 // region Cttors:
 
-TEST(geometry_2d_suqmesh, two_dim_suqmesh_default_cttor_test)
-{
+TEST(geometry_2d_suqmesh, two_dim_suqmesh_default_cttor_test) {
   auto origin = std::vector<double>{0, 0};
   auto dimensions = std::vector<double>{1, 1};
   auto m = two_dimensional::Lattice(0.5, dimensions, origin);

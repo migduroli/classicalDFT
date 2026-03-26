@@ -22,5 +22,8 @@ test-local: ## Run tests locally (requires prior build)
 format: ## Format source code with clang-format
 	@./scripts/format
 
-lint: ## Lint source code with clang-tidy
+format-check: ## Check formatting without modifying files
+	@./scripts/format --check
+
+lint: ## Lint source code (format check + clang-tidy)
 	@./scripts/lint

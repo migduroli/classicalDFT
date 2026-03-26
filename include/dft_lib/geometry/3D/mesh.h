@@ -1,56 +1,56 @@
 #ifndef CLASSICALDFT_3D_MESH_H
 #define CLASSICALDFT_3D_MESH_H
 
-#include "dft_lib/geometry/base/mesh.h"
 #include "dft_lib/geometry/3D/element.h"
+#include "dft_lib/geometry/base/mesh.h"
 
 namespace dft_core {
-namespace geometry {
-namespace three_dimensional {
+  namespace geometry {
+    namespace three_dimensional {
 
-typedef std::reference_wrapper<SquareBox> sqbox_refwrap;
-typedef std::vector<SquareBox> sqbox_vec;
-typedef std::unordered_map<int, sqbox_refwrap> sqbox_map;
+      typedef std::reference_wrapper<SquareBox> sqbox_refwrap;
+      typedef std::vector<SquareBox> sqbox_vec;
+      typedef std::unordered_map<int, sqbox_refwrap> sqbox_map;
 
-class SUQMesh : public dft_core::geometry::SUQMesh
-{
- private:
-  // region Attributes
+      class SUQMesh : public dft_core::geometry::SUQMesh {
+       private:
+        // region Attributes
 
-  /**
-   * Vector of elements which constitutes the mesh
-   */
-  sqbox_vec elements_raw_ = {};
+        /**
+         * Vector of elements which constitutes the mesh
+         */
+        sqbox_vec elements_raw_ = {};
 
-  /**
-   * Dictionary which maps a global index with every mesh element
-   */
-  sqbox_map elements_ = {};
+        /**
+         * Dictionary which maps a global index with every mesh element
+         */
+        sqbox_map elements_ = {};
 
-  // endregion
+        // endregion
 
-  void initialise(double dx);
+        void initialise(double dx);
 
- public:
-  // region Cttors:
+       public:
+        // region Cttors:
 
-  explicit SUQMesh(double dx, std::vector<double>& dimensions, std::vector<double>& origin);
+        explicit SUQMesh(double dx, std::vector<double>& dimensions, std::vector<double>& origin);
 
-  // endregion
+        // endregion
 
-  // region Methods:
+        // region Methods:
 
-  void plot() const override;
+        void plot() const override;
 
-  const std::vector<SquareBox>& elements() const;
+        const std::vector<SquareBox>& elements() const;
 
-  double element_volume() const final;
+        double element_volume() const final;
 
-  // endregion
-};
+        // endregion
+      };
 
-typedef SUQMesh Lattice;
+      typedef SUQMesh Lattice;
 
-
-}}}
+    }  // namespace three_dimensional
+  }  // namespace geometry
+}  // namespace dft_core
 #endif
