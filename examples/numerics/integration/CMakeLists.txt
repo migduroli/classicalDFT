@@ -1,0 +1,2 @@
+add_executable(example_integration main.cpp)
+target_link_libraries(example_integration PRIVATE dft_lib)

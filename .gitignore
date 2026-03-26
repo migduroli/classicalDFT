@@ -1,9 +1,24 @@
 *~
 log.*
+
+# Build directories
 **/build
 **/debug
 **/cmake-build*
 **/dummy
 **/*.o
 **/*.d
+
+# IDE
 .idea/**
+.vscode/
+*.swp
+*.swo
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# macOS
+.DS_Store

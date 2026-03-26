@@ -1,74 +1,62 @@
-[![Unit tests](https://github.com/jimlutsko/classicalDFT/workflows/Unit%20tests/badge.svg)](https://github.com/jimlutsko/classicalDFT/actions?query=workflow%3A%22Unit%20tests%22)
-
 # classicalDFT
 
-## Welcome to classicalDFT
+A modern C++20 library for classical density functional theory (DFT) calculations.
 
-*classicalDFT* aims at making possible to do [classical density functional theory](https://en.wikipedia.org/wiki/Density_functional_theory#Classical_Density_Functional_Theory) (DFT) calculations in a smooth manner.
+## Build
 
-**classicalDFT** is a repository which started as a suite of code for doing advanced calculations in various research projects on the broad field of statistical physics. This suite of code has matured over the years and it successfully served its purpose. The evolution of this repository into a standard library (*classicalDFT*) was motivated by the apparent lack of a standard open-source repository for classical DFT calculations in a compiled and robust language, as is the case of `C++`.
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build -V
+```
 
-In the future, a mailing list will be advertised here for questions, discussions, and other topics which might be worth channeling in a unified way.
+### Requirements
 
-### Getting started
+- C++20 compiler (GCC 12+, Clang 15+, AppleClang 15+)
+- CMake 3.20+
+- [GSL](https://www.gnu.org/software/gsl/) (GNU Scientific Library)
+- [Boost](https://www.boost.org/) (serialization, property_tree)
+- [Armadillo](http://arma.sourceforge.net/) (linear algebra)
+- [Grace](http://plasma-gate.weizmann.ac.il/Grace/) (optional, for plotting)
+- Google Test is fetched automatically via CMake FetchContent
 
-The standard rules for installing a `C++` library from an external repository apply in this case too. However, such standard steps which might be obvious for experienced developers could become overwhelming for developers or researchers who just have some basic understanding of software development with `CMake` and `C++`. Considering the broad audience this project might be subject to, we recommend the following documentation links for the different users:
+### CMake options
 
-* Beginners: [classicalDFT Primer](documentation/installation/beginners/README.md)
-* Experienced programmers: [How to install classicalDFT](documentation/installation/experienced/README.md)
+| Option | Default | Description |
+|---|---|---|
+| `DFT_BUILD_TESTS` | `ON` | Build unit tests |
+| `DFT_BUILD_EXAMPLES` | `ON` | Build example programs |
+| `DFT_USE_GRACE` | `ON` | Enable xmgrace plotting |
 
-## Requirements
+## Structure
 
-**classicalDFT** is thought to keep requirements for building at minimum. However, there are some requirements which 
-need to be satisfied for the correct funcitoning of the library. Such dependencies are:
+```
+include/dft_lib/       Headers (public API)
+src/                   Implementation files
+tests/                 Google Test unit tests
+examples/              Example programs
+cmake/                 CMake modules
+legacy_lib/            Legacy reference code
+documentation/         Installation guides, LaTeX notes
+```
 
-* C++14-standard-compliant compiler, we recommend to check [GNU Compiler Collection](https://gcc.gnu.org/) 
-* [CMake](https://cmake.org/download/) (version >= 3.8)
-* [Boost](https://www.boost.org/) provides free peer-reviewed portable C++ source libraries
-* [GNU Scientific Library](https://www.gnu.org/software/gsl/)
-* [FFTW3](http://www.fftw.org/) a library designed to compute discrete Fourier transforms
-* [Grace](http://plasma-gate.weizmann.ac.il/Grace/) plotting tool for the X Window System
-* [Google Test](https://github.com/google/googletest) a testing framework developed by Google's Testing Technology team
+## Modules
 
-If you notice any problems on your platform, please notify [classicaldft@classicaldftgroup.com](). Patches for fixing them are more than welcome!
+| Module | Namespace | Description |
+|---|---|---|
+| `utils/console` | `console` | Terminal I/O with colour support |
+| `utils/config_parser` | `dft_core::config_parser` | INI/JSON/XML/INFO config file reader |
+| `utils/functions` | `dft_core::utils::functions` | Vectorised function application |
+| `exceptions` | `dft_core::exception` | Grace and parameter exceptions |
+| `graph/grace` | `dft_core::grace_plot` | xmgrace plotting wrapper |
+| `numerics/arithmetic` | `dft_core::numerics::arithmetic` | Compensated summation (Kahan-Babuska) |
+| `numerics/integration` | `dft_core::numerics::integration` | GSL numerical integration |
+| `physics/potentials` | `dft_core::physics::potentials` | Intermolecular potentials (LJ, tWF, WRDF) |
+| `geometry` | `dft_core::geometry` | Vertex, Element, Mesh (2D/3D) |
 
-## Features
+## License
 
-In this section we will list the main features implemented in **classicalDFT**, e.g. the different DFT energy models, differentiation methods, etc. The library is currently being refactored with the aim of achieving a better harmonisation between the different modules implemented. For this reason, we'll be listing here only the modules which are ready in the new refactored version (though you can always check the original version in [here](legacy_lib/)):
-
-* [Utils](dft_lib/core/dft_lib/utils):  
-
-    - [Console](dft_lib/examples/console/README.md): A namespace with some convenient functionality when interacting with the console/terminal output
-    - [ConfigParser](dft_lib/examples/config_parser/README.md): A wrapper class of the `boost::property_tree::ptree` class which allows for parsing configuration files in the following formats: `INI`, `JSON`, `XML` and `INFO`
-      
-* [Graph](dft_lib/core/dft_lib/graph):
-
-    - [Grace](dft_lib/examples/graphs/README.md): A wrapper class which allows us to produce live graphs by interacting with xmgrace
-
-* [Numerics](dft_lib/core/dft_lib/graph):
-
-    - [Integrator](dft_lib/examples/numerics/integration/README.md): A wrapper class of some integration methods of the `GSL` libraries
-    - [CompensatedSum](dft_lib/examples/numerics/arithmetic/README.md): A set of free functions and a wrapper class to carry out compensated summations
-    
-* [Physics](dft_lib/core/dft_lib/physics):
-    
-    - [Potential](dft_lib/examples/physics/potentials/intermolecular/README.md): This module/class contains the fundamental ingredients to model an inter-particle potential. Besides, it offers three different models, namely: Lennard-Jones, ten Wolde-Frenkel and Wang-Ramirez-Dobnikar-Frenkel potentials
-    
-## Platforms
-
-**classicalDFT** has been [used](documentation/setup/README.md) on a variety of platforms:
-
-- Linux
-- Mac OSX
-- Windows (by using [WSL](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux))
-
-## Authors
-
-* **James F. Lutsko** - *Initial work* - [lutsko.com](http://lutsko.com)
-
-## Contributing
-
-If you feel like contributing to this project, please read the [CONTRIBUTING.md](CONTRIBUTING.md) where you will find the basic details on how to contribute to **classicalDFT**.
+See [LICENSE](LICENSE).
 
 ## License
 
