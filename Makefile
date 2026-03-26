@@ -1,4 +1,4 @@
-.PHONY: help check clean build test test-local format lint
+.PHONY: help check clean build test test-local format format-check lint coverage
 .DEFAULT_GOAL := help
 
 help: ## Show this help
@@ -27,3 +27,6 @@ format-check: ## Check formatting without modifying files
 
 lint: ## Lint source code (format check + clang-tidy)
 	@./scripts/lint
+
+coverage: ## Run tests with coverage analysis (lcov + genhtml)
+	@./scripts/coverage

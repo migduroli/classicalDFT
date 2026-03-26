@@ -3,11 +3,15 @@ log.*
 
 # Build directories
 **/build
+**/build-coverage
 **/debug
 **/cmake-build*
 **/dummy
 **/*.o
 **/*.d
+
+# Coverage
+coverage/
 
 # IDE
 .idea/**

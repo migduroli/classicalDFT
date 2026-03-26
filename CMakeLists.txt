@@ -19,6 +19,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(DFT_BUILD_TESTS    "Build unit tests"       ON)
 option(DFT_BUILD_EXAMPLES "Build example programs"  ON)
 option(DFT_USE_GRACE      "Enable xmgrace plotting" ON)
+option(DFT_CODE_COVERAGE  "Enable code coverage (gcov)" OFF)
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
 
@@ -115,6 +116,12 @@ target_compile_options(dft_lib
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>
 )
+
+# ── Coverage ─────────────────────────────────────────────────────────────────
+if(DFT_CODE_COVERAGE)
+    target_compile_options(dft_lib PUBLIC --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(dft_lib PUBLIC --coverage)
+endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 if(DFT_BUILD_TESTS)
