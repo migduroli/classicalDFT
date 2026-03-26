@@ -4,21 +4,21 @@
 
 ### What happened
 
-Your last merged PR was **#30** (`9747248`, 25 April 2021), which completed the refactoring of `Lattice.h` into `geometry/mesh` with proper 2D/3D abstractions, full test coverage, and examples. At that point, the repository had a clean separation:
+My last merged PR was **#30** (`9747248`, 25 April 2021), which completed the refactoring of `Lattice.h` into `geometry/mesh` with proper 2D/3D abstractions, full test coverage, and examples. At that point, the repository had a clean separation:
 
-- `dft_lib/` — your modern C++14 library (`dft_core` namespace, GTest coverage, examples, Doxygen-ready doc-strings)
+- `dft_lib/` — my modern C++14 library (`dft_core` namespace, GTest coverage, examples, Doxygen-ready doc-strings)
 - `legacy_lib/` — Jim's original code, untouched, serving as reference for future migration
 
-After your departure, Jim:
+After my departure, Jim:
 
 1. **Deleted `legacy_lib/` entirely** and moved its contents to the root (`include/`, `src/`)
-2. **Moved your `dft_lib/` to `mduran/dft_lib_refact/`** (a personal subfolder, effectively sidelining it)
-3. **Moved your `Dockerfile` and `buildlib.sh` to `mduran/`** as well
+2. **Moved my `dft_lib/` to `mduran/dft_lib_refact/`** (a personal subfolder, effectively sidelining it)
+3. **Moved my `Dockerfile` and `buildlib.sh` to `mduran/`** as well
 4. **Continued developing** the legacy code in-place, adding ~466 commits (mostly "synch") with significant new physics
 
-The repository now has a flat legacy structure at root level, with your clean modular code buried in `mduran/dft_lib_refact/`.
+The repository now has a flat legacy structure at root level, with my clean modular code buried in `mduran/dft_lib_refact/`.
 
-### Your completed work (as of April 2021)
+### My completed work (as of April 2021)
 
 | Module | Headers | Source | Tests | Examples | Status |
 |---|---|---|---|---|---|
@@ -233,13 +233,13 @@ classicalDFT/
 
 ### Phase 0: Repository setup (fork and scaffold)
 
-**Goal:** Fork the repository under your account, restore your code as the canonical structure, set up CI.
+**Goal:** Fork the repository under my account, restore my code as the canonical structure, set up CI.
 
 | Step | Task | Details |
 |---|---|---|
-| 0.1 | Fork `jimlutsko/classicalDFT` to your GitHub account | `gh repo fork jimlutsko/classicalDFT --clone=false` |
-| 0.2 | Clone your fork locally | Fresh working copy |
-| 0.3 | Create `main` branch from your last clean commit (`9747248`) | `git checkout -b main 9747248` — this becomes the starting point |
+| 0.1 | Fork `jimlutsko/classicalDFT` to my GitHub account | `gh repo fork jimlutsko/classicalDFT --clone=false` |
+| 0.2 | Clone my fork locally | Fresh working copy |
+| 0.3 | Create `main` branch from my last clean commit (`9747248`) | `git checkout -b main 9747248` — this becomes the starting point |
 | 0.4 | Restructure: move `dft_lib/` contents to root-level `include/dft_lib/`, `src/`, `tests/`, `examples/` | Follow the target directory structure above |
 | 0.5 | Modernise CMakeLists.txt | C++20, `FetchContent` for GTest, target-based deps, install targets |
 | 0.6 | Add `.github/workflows/ci.yml` | Build + test on Ubuntu, macOS; GCC 12+, Clang 15+ |
@@ -253,7 +253,7 @@ classicalDFT/
 
 ### Phase 1: Modernise existing modules to C++20
 
-**Goal:** Upgrade your already-complete code from C++14 to C++20, remove Boost dependencies where possible, tighten the API.
+**Goal:** Upgrade my already-complete code from C++14 to C++20, remove Boost dependencies where possible, tighten the API.
 
 | Step | Task | Details |
 |---|---|---|
@@ -500,17 +500,17 @@ Phase 10: polish, docs, benchmarks
 
 ## Files to recover from git history
 
-Your code exists intact at commit `9747248`. Key recovery commands:
+My code exists intact at commit `9747248`. Key recovery commands:
 
 ```bash
-# Recover your complete dft_lib/
+# Recover my complete dft_lib/
 git show 9747248:dft_lib/core/classical_dft > ...
 
 # Or bulk checkout
 git checkout 9747248 -- dft_lib/
 ```
 
-Jim's legacy code at the point of your last commit can be recovered from:
+Jim's legacy code at the point of my last commit can be recovered from:
 
 ```bash
 # Recover legacy_lib/ as it was when you left
