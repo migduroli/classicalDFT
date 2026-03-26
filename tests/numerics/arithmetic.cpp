@@ -1,4 +1,4 @@
-#include "dft_lib/numerics/arithmetic.h"
+#include "classicaldft_bits/numerics/arithmetic.h"
 
 #include <cmath>  // std::abs
 #include <gtest/gtest.h>

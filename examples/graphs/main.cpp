@@ -1,6 +1,6 @@
 #include <cmath>
 #include <armadillo>
-#include "dft_lib/dft_lib.h"
+#include <classicaldft>
 
 int main(int argc, char **argv)
 {

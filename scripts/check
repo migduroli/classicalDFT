@@ -3,25 +3,28 @@ set -e
 
 source scripts/str_lib.sh
 
-BUILD_DIR="${BUILD_DIR:-build}"
-
 check() {
   message "info" "Check dependencies"
 
-  if ! (command -v cmake &>/dev/null); then
-    message "error" "cmake is not available"
-    message "warning" "Install cmake: brew install cmake (macOS) / apt install cmake (Linux)"
-    exit 1
-  else
-    message "success" "cmake is available ($(cmake --version | head -1))"
-  fi
-
   if ! (command -v docker &>/dev/null); then
-    message "warning" "docker is not available (needed for 'make test')"
+    message "error" "docker is not available"
+    message "warning" "Install Docker: https://docs.docker.com/get-docker/"
+    exit 1
   else
     message "success" "docker is available ($(docker --version))"
   fi
+
+  if ! (command -v docker compose version &>/dev/null); then
+    message "error" "docker compose is not available"
+    exit 1
+  else
+    message "success" "docker compose is available ($(docker compose version))"
+  fi
 }
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  check "$@"
+fi
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
   check "$@"

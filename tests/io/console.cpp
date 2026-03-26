@@ -1,4 +1,4 @@
-#include "dft_lib/io/console.h"
+#include "classicaldft_bits/io/console.h"
 
 #include <gtest/gtest.h>
 

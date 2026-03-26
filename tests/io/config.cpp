@@ -1,6 +1,6 @@
-#include "dft_lib/io/config.h"
+#include "classicaldft_bits/io/config.h"
 
-#include "dft_lib/io/console.h"
+#include "classicaldft_bits/io/console.h"
 
 #include <boost/property_tree/detail/info_parser_error.hpp>
 #include <boost/property_tree/detail/xml_parser_error.hpp>

@@ -1,4 +1,4 @@
-#include "dft_lib/numerics/functions.h"
+#include "classicaldft_bits/numerics/functions.h"
 
 #include <boost/range/combine.hpp>
 #include <gtest/gtest.h>

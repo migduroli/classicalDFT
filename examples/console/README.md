@@ -1,46 +1,36 @@
-# Console namespace
+# Console utilities
 
-### Introduction
+## Overview
 
-The idea of the  `console` namespace is to gather some useful functionality when dealing with the standard input/output library from the standard template library (STL). The `console` namespace does not intend to be a substitute or a complete wrapper of `iostream` library. Indeed, it just contains some useful functionality which makes us easier to interact with the terminal when it comes to writing for debugging purposes. This functionality can be categorised by the underlying purpose:
+The `console` namespace provides lightweight helpers for terminal I/O:
+logging at four severity levels (info, warning, error, debug), text formatting
+(bold, blink), and basic flow control (`wait`, `pause`).
 
-* **Console writing/reading**: Here we find the methods `console::WriteLine`, `console::Write` and `console::ReadLine`, which are inspired by the counterparts in `Java` and `C#`.
+Each log message is timestamped and colour-coded (green for info, yellow for
+warning, red for error, cyan for debug).
 
-* **Application logging**: The currently available logging levels are:
+## Usage
 
-  * Information [green]: `console::Info(message)`
-  * Warning [yellow]: `console::Warning(message)`
-  * Error [red]: `console::Error(message)`
-  * Debug [cyan]: `console::Debug(message)`
-  * Blink [yellow background]: `console::Blink(message)`
+```cpp
+#include <classicaldft>
 
-  The purpose of the colouring is to try and make it easier for the developer to identify quickly a message depending on its category.  With the debugging purpose in mind, whenever we use  one of the previous methods, the output will be accompanied by a time stamp identifying the exact moment when the message is recorded.
-
-* **Application flow control**: There are a couple of methods which allow for pausing the App with or without a personalised message, `console::Pause()` or `console::Wait()`
-
-### Example
-
-The best way to show the convenience offered by `console` is by example. The following simple piece of code shows some of the functionality mentioned above:
-
-```c++
-#include "classical_dft"
-
-int main(int argc, char **argv)
-{
-  console::Info("Hello world");
-  console::Warning("This is a Warning");
-  console::Error("This is an Error!!");
-  console::Debug("This is a debugging message");
-  console::WriteLine(console::format::Bold("Bold text"));
-  console::WriteLine(console::format::Blink("Blinking"));
-  console::Wait();
+int main() {
+  console::info("Hello world");
+  console::warning("This is a warning");
+  console::error("This is an error!!");
+  console::debug("This is a debugging message");
+  console::write_line(console::format::bold("Bold text"));
+  console::write_line(console::format::blink("Blinking"));
+  console::wait();
 }
 ```
 
-After compilation and running, it will produce the following output:
+## Expected output
 
 ![console-output](figures/console-output.png)
 
-### Issues
+## Running
 
-Should you find any issue with the currently implemented methods or should you have any suggestions for new functionality to be implemented, please do let us know by utilising the standard ways of communication in [GitHub](https://guides.github.com/features/issues/).
+```bash
+make run   # builds and runs inside Docker
+```

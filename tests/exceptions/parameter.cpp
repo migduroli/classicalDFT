@@ -1,4 +1,4 @@
-#include "dft_lib/exceptions/parameter.h"
+#include "classicaldft_bits/exceptions/parameter.h"
 
 #include <gtest/gtest.h>
 

@@ -1,4 +1,4 @@
-#include "dft_lib/physics/potentials/intermolecular/potential.h"
+#include "classicaldft_bits/physics/potentials/intermolecular/potential.h"
 
 #include <boost/range/combine.hpp>
 #include <cmath>

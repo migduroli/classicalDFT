@@ -1,4 +1,4 @@
-#include "dft_lib/dft_lib.h"
+#include <classicaldft>
 
 int main()
 {

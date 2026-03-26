@@ -1,8 +1,8 @@
 #ifdef DFT_HAS_GRACE
 
-#include "dft_lib/graph/grace.h"
+#include "classicaldft_bits/graph/grace.h"
 
-#include "dft_lib/exceptions/grace.h"
+#include "classicaldft_bits/exceptions/grace.h"
 
 #include <gtest/gtest.h>
 

@@ -12,7 +12,7 @@ SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
 IncludeCategories:
   # 1. Related header (e.g. foo.cpp includes foo.h)
-  - Regex: '^"dft_lib/'
+  - Regex: '^"classicaldft_bits/'
     Priority: 2
   # 2. System/library headers
   - Regex: '^<'

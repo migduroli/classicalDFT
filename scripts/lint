@@ -4,28 +4,48 @@ set -e
 source scripts/str_lib.sh
 source scripts/format
 
+BUILD_DIR="${BUILD_DIR:-build}"
+
 lint() {
-  # Format check first
-  format --check
+  local fix=false
+  if [[ "$1" == "--fix" ]]; then
+    fix=true
+    shift
+  fi
+
+  # Format: check or fix
+  if [[ "$fix" == true ]]; then
+    format
+  else
+    format --check
+  fi
 
   message "info" "Lint"
 
-  if ! (command -v clang-tidy &>/dev/null); then
-    message "warning" "clang-tidy is not available, skipping static analysis"
-    return 0
-  fi
-
-  BUILD_DIR="${BUILD_DIR:-build}"
-
   if [[ ! -f "$BUILD_DIR/compile_commands.json" ]]; then
-    message "error" "compile_commands.json not found. Run 'make build' first."
-    exit 1
+    message "info" "Building first (compile_commands.json not found)"
+    cmake -B "$BUILD_DIR" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+      -DDFT_BUILD_TESTS=ON \
+      -DDFT_BUILD_EXAMPLES=OFF \
+      -DDFT_USE_GRACE=OFF
+    cmake --build "$BUILD_DIR" --parallel
   fi
 
-  find src -name "*.cpp" | xargs clang-tidy -p "$BUILD_DIR"
+  local tidy_args=(-p "$BUILD_DIR" --quiet)
+  if [[ "$fix" == true ]]; then
+    tidy_args+=(--fix)
+  fi
+
+  find src -name "*.cpp" | xargs -P"$(nproc)" -n1 clang-tidy "${tidy_args[@]}" 2>&1 | grep -v "warnings generated" || true
   message "success" "Lint completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  lint "$@"
+  if [[ -f /.dockerenv ]]; then
+    lint "$@"
+  else
+    docker compose run --rm -T app scripts/lint "$@"
+  fi
 fi

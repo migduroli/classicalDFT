@@ -3,12 +3,10 @@ set -e
 
 source scripts/str_lib.sh
 
-BUILD_DIR="${BUILD_DIR:-build}"
-
 clean() {
   message "info" "Clean project"
 
-  for folder in "$BUILD_DIR" cmake-build-debug cmake-build-release; do
+  for folder in build build-coverage coverage cmake-build-debug cmake-build-release; do
     if [[ -d "$folder" ]]; then
       rm -rf "$folder"
       message "success" "Deleted: $folder"

@@ -1,6 +1,16 @@
-FROM ubuntu:24.04 AS builder
+FROM debian:bookworm-slim AS grace-donor
+RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends grace \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /grace-out/lib \
+    && cp /usr/include/grace_np.h /grace-out/ \
+    && cp "$(find /usr/lib -name libgrace_np.a -print -quit)" /grace-out/lib/
+
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+COPY --from=grace-donor /grace-out/grace_np.h /usr/include/grace_np.h
+COPY --from=grace-donor /grace-out/lib/libgrace_np.a /usr/lib/libgrace_np.a
 
 RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     build-essential \
@@ -12,21 +22,9 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     libboost-serialization-dev \
     libboost-dev \
     libarmadillo-dev \
+    lcov \
+    clang-format \
+    clang-tidy \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-COPY CMakeLists.txt ./
-COPY cmake/ cmake/
-COPY include/ include/
-COPY src/ src/
-COPY tests/ tests/
-
-RUN cmake -B build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DDFT_BUILD_TESTS=ON \
-      -DDFT_BUILD_EXAMPLES=OFF \
-      -DDFT_USE_GRACE=OFF \
-    && cmake --build build --parallel "$(nproc)"
-
-ENTRYPOINT ["ctest", "--test-dir", "build", "--output-on-failure"]

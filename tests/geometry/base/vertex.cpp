@@ -1,4 +1,4 @@
-#include "dft_lib/geometry/base/vertex.h"
+#include "classicaldft_bits/geometry/base/vertex.h"
 
 #include <boost/range/combine.hpp>
 #include <gtest/gtest.h>

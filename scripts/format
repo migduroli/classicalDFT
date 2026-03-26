@@ -3,12 +3,9 @@ set -e
 
 source scripts/str_lib.sh
 
-format() {
-  if ! (command -v clang-format &>/dev/null); then
-    message "error" "clang-format is not available"
-    exit 1
-  fi
+DOCKER_IMAGE="${DOCKER_IMAGE:-classicaldft:local}"
 
+format() {
   local files
   files=$(find include src tests -name "*.h" -o -name "*.cpp")
 
@@ -33,5 +30,9 @@ format() {
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  format "$@"
+  if [[ -f /.dockerenv ]]; then
+    format "$@"
+  else
+    docker compose run --rm -T app scripts/format "$@"
+  fi
 fi

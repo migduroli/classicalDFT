@@ -1,14 +1,14 @@
 file(GLOB_RECURSE TEST_SOURCES LIST_DIRECTORIES false *.cpp)
 
-add_executable(dft_lib_tests ${TEST_SOURCES})
+add_executable(classicaldft_tests ${TEST_SOURCES})
 
-target_link_libraries(dft_lib_tests
+target_link_libraries(classicaldft_tests
     PRIVATE
-        dft_lib
+        classicaldft
         GTest::gtest
 )
 
-add_test(NAME dft_lib_tests COMMAND dft_lib_tests)
+add_test(NAME classicaldft_tests COMMAND classicaldft_tests)
 
 # Copy config files needed by config_parser tests
 configure_file(io/config_files/config.ini  ${CMAKE_CURRENT_BINARY_DIR}/config.ini  COPYONLY)

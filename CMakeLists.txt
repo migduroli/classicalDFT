@@ -12,9 +12,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ── CMake module path ────────────────────────────────────────────────────────
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
 # ── Options ──────────────────────────────────────────────────────────────────
 option(DFT_BUILD_TESTS    "Build unit tests"       ON)
 option(DFT_BUILD_EXAMPLES "Build example programs"  ON)
@@ -81,19 +78,19 @@ set(DFT_LIB_SOURCES
     src/geometry/3D/mesh.cpp
 )
 
-add_library(dft_lib STATIC ${DFT_LIB_SOURCES})
+add_library(classicaldft STATIC ${DFT_LIB_SOURCES})
 
 if(DFT_USE_GRACE)
-    target_sources(dft_lib PRIVATE src/graph/grace.cpp)
+    target_sources(classicaldft PRIVATE src/graph/grace.cpp)
 endif()
 
-target_include_directories(dft_lib
+target_include_directories(classicaldft
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(dft_lib
+target_link_libraries(classicaldft
     PUBLIC
         GSL::gsl
         GSL::gslcblas
@@ -101,26 +98,26 @@ target_link_libraries(dft_lib
         ${ARMADILLO_LIBRARIES}
 )
 
-target_include_directories(dft_lib
+target_include_directories(classicaldft
     PUBLIC
         ${ARMADILLO_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS}
 )
 
 if(DFT_USE_GRACE)
-    target_link_libraries(dft_lib PUBLIC ${GRACE_NP_LIB})
-    target_compile_definitions(dft_lib PUBLIC DFT_HAS_GRACE)
+    target_link_libraries(classicaldft PUBLIC ${GRACE_NP_LIB})
+    target_compile_definitions(classicaldft PUBLIC DFT_HAS_GRACE)
 endif()
 
-target_compile_options(dft_lib
+target_compile_options(classicaldft
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>
 )
 
 # ── Coverage ─────────────────────────────────────────────────────────────────
 if(DFT_CODE_COVERAGE)
-    target_compile_options(dft_lib PUBLIC --coverage -fprofile-arcs -ftest-coverage)
-    target_link_options(dft_lib PUBLIC --coverage)
+    target_compile_options(classicaldft PUBLIC --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(classicaldft PUBLIC --coverage)
 endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────

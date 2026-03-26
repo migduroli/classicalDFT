@@ -1,0 +1,46 @@
+#ifndef CLASSICALDFT_H
+#define CLASSICALDFT_H
+
+// region Graphs
+#ifdef DFT_HAS_GRACE
+#include "classicaldft_bits/graph/grace.h"
+#endif
+// endregion
+
+// region Exceptions
+#include "classicaldft_bits/exceptions/grace.h"
+#include "classicaldft_bits/exceptions/parameter.h"
+// endregion
+
+// region IO
+#include "classicaldft_bits/io/config.h"
+#include "classicaldft_bits/io/console.h"
+// endregion
+
+// region Numerics
+#include "classicaldft_bits/numerics/arithmetic.h"
+#include "classicaldft_bits/numerics/integration.h"
+// endregion
+
+// region Physics
+#include "classicaldft_bits/physics/potentials/intermolecular/potential.h"
+// endregion
+
+// region Geometry
+#include "classicaldft_bits/geometry/base/element.h"
+#include "classicaldft_bits/geometry/base/mesh.h"
+#include "classicaldft_bits/geometry/base/vertex.h"
+
+// region 2D
+#include "classicaldft_bits/geometry/2D/element.h"
+#include "classicaldft_bits/geometry/2D/mesh.h"
+// endregion
+
+// region 3D
+#include "classicaldft_bits/geometry/3D/element.h"
+#include "classicaldft_bits/geometry/3D/mesh.h"
+// endregion
+
+// endregion
+
+#endif  // CLASSICALDFT_H

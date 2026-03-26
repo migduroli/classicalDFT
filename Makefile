@@ -1,4 +1,4 @@
-.PHONY: help check clean build test test-local format format-check lint coverage
+.PHONY: help check clean build test format format-check lint lint-fix
 .DEFAULT_GOAL := help
 
 help: ## Show this help
@@ -10,14 +10,11 @@ check: ## Check project dependencies
 clean: ## Remove build artifacts
 	@./scripts/clean
 
-build: ## Build the library and tests
+build: ## Build the Docker image
 	@./scripts/build
 
-test: ## Run tests in Docker
+test: ## Run tests with coverage (fail under 60%, override with DFT_COV_FAIL_UNDER)
 	@./scripts/test
-
-test-local: ## Run tests locally (requires prior build)
-	@./scripts/test_local
 
 format: ## Format source code with clang-format
 	@./scripts/format
@@ -28,5 +25,5 @@ format-check: ## Check formatting without modifying files
 lint: ## Lint source code (format check + clang-tidy)
 	@./scripts/lint
 
-coverage: ## Run tests with coverage (fail under 60%, override with DFT_COV_FAIL_UNDER)
-	@./scripts/coverage
+lint-fix: ## Auto-fix lint issues (format + clang-tidy --fix)
+	@./scripts/lint --fix

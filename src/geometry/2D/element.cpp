@@ -1,51 +1,47 @@
-#include "dft_lib/geometry/2D/element.h"
+#include "classicaldft_bits/geometry/2D/element.h"
 
-#include <dft_lib/geometry/base/mesh.h>
+#include <classicaldft_bits/geometry/base/mesh.h>
 
-namespace dft_core {
-  namespace geometry {
-    namespace two_dimensional {
+namespace dft_core::geometry::two_dimensional {
 
-      vertex_vec SquareBox::generate_vertices(double dx, const std::vector<double>& x0) {
-        // bottom-up anti-clock-wise:
-        // [3] - - - - [2]
-        //  |           |
-        //  |           |
-        //  |           |
-        // [0] - - - - [1]
+  vertex_vec SquareBox::generate_vertices(double dx, const std::vector<double>& x0) {
+    // bottom-up anti-clock-wise:
+    // [3] - - - - [2]
+    //  |           |
+    //  |           |
+    //  |           |
+    // [0] - - - - [1]
 
-        auto X = static_cast<unsigned long>(Direction::X);
-        auto Y = static_cast<unsigned long>(Direction::Y);
+    auto x_idx = static_cast<unsigned long>(Direction::X);
+    auto y_idx = static_cast<unsigned long>(Direction::Y);
 
-        return vertex_vec{
-            Vertex(x0),
-            Vertex({x0.at(X) + dx, x0.at(Y)}),
-            Vertex({x0.at(X) + dx, x0.at(Y) + dx}),
-            Vertex({x0.at(X), x0.at(Y) + dx}),
-        };
-      }
+    return vertex_vec{
+        Vertex(x0),
+        Vertex({x0.at(x_idx) + dx, x0.at(y_idx)}),
+        Vertex({x0.at(x_idx) + dx, x0.at(y_idx) + dx}),
+        Vertex({x0.at(x_idx), x0.at(y_idx) + dx}),
+    };
+  }
 
-      SquareBox::SquareBox() {
-        origin_ = std::vector<double>{0, 0};
-        length_ = DEFAULT_SQUAREBOX_LENGTH;
-        vertices_raw_ = generate_vertices(length_, origin_);
-        initialise(length_, origin_);
-      }
+  SquareBox::SquareBox() {
+    origin_ = std::vector<double>{0, 0};
+    length_ = DEFAULT_SQUAREBOX_LENGTH;
+    vertices_raw_ = generate_vertices(length_, origin_);
+    initialise(length_, origin_);
+  }
 
-      SquareBox::SquareBox(double length, const std::vector<double>& origin) {
-        vertices_raw_ = generate_vertices(length, origin);
-        initialise(length, origin);
-      }
+  SquareBox::SquareBox(double length, const std::vector<double>& origin) {
+    vertices_raw_ = generate_vertices(length, origin);
+    initialise(length, origin);
+  }
 
-      SquareBox::SquareBox(vertex_vec&& vertices) {
-        if (vertices.size() == 4) {
-          vertices_raw_ = std::move(vertices);
-          initialise_element();
-        } else {
-          throw std::runtime_error("2D square-box needs 4 vertices to be initialised");
-        }
-      }
+  SquareBox::SquareBox(vertex_vec&& vertices) {
+    if (vertices.size() == 4) {
+      vertices_raw_ = std::move(vertices);
+      initialise_element();
+    } else {
+      throw std::runtime_error("2D square-box needs 4 vertices to be initialised");
+    }
+  }
 
-    }  // namespace two_dimensional
-  }  // namespace geometry
-}  // namespace dft_core
+}  // namespace dft_core::geometry::two_dimensional
