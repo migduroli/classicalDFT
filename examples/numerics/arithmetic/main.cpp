@@ -3,6 +3,7 @@
 int main()
 {
   using namespace dft_core::numerics::arithmetic;
+  using namespace dft_core::io;
 
   // region set-up:
   auto x_input_1 = std::vector<double>{1.0 + 1E-14, 2.5 + 1E-14, 3.0 + 1E-14, 4.0 + 1E-14};

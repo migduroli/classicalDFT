@@ -1,6 +1,5 @@
 #include "classicaldft_bits/geometry/base/vertex.h"
 
-#include <boost/range/combine.hpp>
 #include <gtest/gtest.h>
 
 // region Cttors:
@@ -29,10 +28,8 @@ TEST(geometry_vertex, point_const_vec_cttor_test) {
   std::cout << expected_dim << std::endl;
   ASSERT_EQ(expected_dim, actual_dim);
 
-  for (auto tup : boost::combine(x, p.coordinates())) {
-    double z, y;
-    boost::tie(z, y) = tup;
-    EXPECT_DOUBLE_EQ(z, y);
+  for (size_t i = 0; i < x.size(); ++i) {
+    EXPECT_DOUBLE_EQ(x[i], p.coordinates()[i]);
   }
 }
 
@@ -47,10 +44,8 @@ TEST(geometry_vertex, point_move_vec_cttor_test) {
   ASSERT_EQ(0, x.size());
 
   auto expected = std::vector<double>{0, 1, 2};
-  for (auto tup : boost::combine(expected, p.coordinates())) {
-    double y, z;
-    boost::tie(y, z) = tup;
-    EXPECT_NEAR(z, y, 1E-10);
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_NEAR(p.coordinates()[i], expected[i], 1E-10);
   }
 }
 
@@ -66,10 +61,8 @@ TEST(geometry_vertex, point_initializer_list_cttor_test) {
   ASSERT_EQ(expected_dim, actual_dim);
 
   auto expected = std::vector<double>{0, 1, 2};
-  for (auto tup : boost::combine(expected, p.coordinates())) {
-    double y, z;
-    boost::tie(y, z) = tup;
-    EXPECT_NEAR(z, y, 1E-10);
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_NEAR(p.coordinates()[i], expected[i], 1E-10);
   }
 }
 

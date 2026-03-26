@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <iostream>
 
-namespace console {
+namespace dft_core::io::console {
   /**
    * @brief Colors to be used when writing in the terminal
    */
@@ -98,7 +98,7 @@ namespace console {
    * @brief Pauses the terminal until any character is introduced
    */
   inline void wait() {
-    console::write_line("Press enter to continue...");
+    write_line("Press enter to continue...");
     std::cin.ignore();
   }
 
@@ -119,7 +119,7 @@ namespace console {
    */
   inline void info(const std::string& msg) {
     std::string message = color::GREEN + now_str() + " | " + "[i] Info: " + msg + color::RESET;
-    console::write_line(message);
+    write_line(message);
   }
 
   /**
@@ -129,7 +129,7 @@ namespace console {
    */
   inline void warning(const std::string& msg) {
     std::string message = color::YELLOW + now_str() + " | " + "[?] Warning: " + msg + color::RESET;
-    console::write_line(message);
+    write_line(message);
   }
 
   /**
@@ -139,7 +139,7 @@ namespace console {
    */
   inline void error(const std::string& msg) {
     std::string message = color::RED + now_str() + " | " + "[!] Error: " + msg + color::RESET;
-    console::write_line(message);
+    write_line(message);
   }
 
   /**
@@ -149,8 +149,8 @@ namespace console {
    */
   inline void debug(const std::string& msg) {
     std::string message = color::CYAN + now_str() + " | " + "[+] Debug: " + msg + color::RESET;
-    console::write_line(message);
+    write_line(message);
   }
-}  // namespace console
+}  // namespace dft_core::io::console
 
 #endif  // CLASSICALDFT_CONSOLE_H

@@ -6,6 +6,7 @@ Checks: >
   clang-analyzer-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-init-variables,
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-pro-bounds-constant-array-index,

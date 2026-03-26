@@ -3,6 +3,7 @@
 
 #include "classicaldft_bits/io/console.h"
 
+#include <concepts>
 #include <functional>
 #include <numeric>
 #include <tuple>
@@ -42,9 +43,7 @@ namespace dft_core::numerics::arithmetic::summation {
    * @return the standard sum of the components carried out via the std::accumulate algorithm,
    *  which uses the natural `+` operator.
    */
-  template <typename x_type = double,
-            // This meta-function makes this function only available for numerical types
-            typename = typename std::enable_if<std::is_arithmetic<x_type>::value, x_type>::type>
+  template <std::floating_point x_type>
   x_type standard_vector_sum(const std::vector<x_type>& x_input) {
     x_type result = std::accumulate(x_input.begin(), x_input.end(), static_cast<x_type>(0.0));
     return result;

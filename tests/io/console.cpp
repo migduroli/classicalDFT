@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+using namespace dft_core::io;
+
 // region Methods
 TEST(console, write_works_ok) {
   testing::internal::CaptureStdout();

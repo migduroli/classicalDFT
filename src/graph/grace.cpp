@@ -138,7 +138,7 @@ namespace dft_core::grace_plot::command {
     } else if (ExportFormat::EPS1 == format) {
       format_s = "EPS1";
     } else {
-      console::warning("The format specified is not yet implemented. Exporting as PNG...");
+      dft_core::io::console::warning("The format specified is not yet implemented. Exporting as PNG...");
       format_s = "PNG";
     }
 
@@ -228,7 +228,7 @@ namespace dft_core::grace_plot {
       throw dft_core::exception::GraceException("The communication buffer size cannot be negative!");
     }
 
-    char grace_name[] = "xmgrace";  // NOLINT(modernize-avoid-c-arrays)
+    char grace_name[] = "xmgrace";  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 
     // Start Grace with a buffer size and open the pipe
     std::string geometry_spec = std::to_string(x_size) + "x" + std::to_string(y_size);
@@ -431,7 +431,7 @@ namespace dft_core::grace_plot {
   }
 
   void Grace::wait() const {
-    console::wait();
+    dft_core::io::console::wait();
   }
 
   void Grace::redraw_and_wait(const bool& auto_scale, const bool& auto_ticks, const int& graph_id) const {

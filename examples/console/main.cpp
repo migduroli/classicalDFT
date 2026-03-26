@@ -2,6 +2,7 @@
 
 int main(int argc, char **argv)
 {
+  using namespace dft_core::io;
   console::info("Hello world");
   console::warning("This is a warning");
   console::error("This is an error!!");

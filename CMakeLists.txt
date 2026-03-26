@@ -23,11 +23,14 @@ option(DFT_CODE_COVERAGE  "Enable code coverage (gcov)" OFF)
 # GSL
 find_package(GSL REQUIRED)
 
-# Boost (property_tree for config_parser, serialization for potentials)
-find_package(Boost REQUIRED COMPONENTS serialization)
-
 # Armadillo (used in potentials)
 find_package(Armadillo REQUIRED)
+
+# nlohmann/json (config parser)
+find_package(nlohmann_json 3.11 REQUIRED)
+
+# FetchContent (for GoogleTest)
+include(FetchContent)
 
 # Grace (optional)
 if(DFT_USE_GRACE)
@@ -42,7 +45,6 @@ endif()
 
 # Google Test (fetched automatically)
 if(DFT_BUILD_TESTS)
-    include(FetchContent)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -94,14 +96,13 @@ target_link_libraries(classicaldft
     PUBLIC
         GSL::gsl
         GSL::gslcblas
-        Boost::serialization
         ${ARMADILLO_LIBRARIES}
+        nlohmann_json::nlohmann_json
 )
 
 target_include_directories(classicaldft
     PUBLIC
         ${ARMADILLO_INCLUDE_DIRS}
-        ${Boost_INCLUDE_DIRS}
 )
 
 if(DFT_USE_GRACE)

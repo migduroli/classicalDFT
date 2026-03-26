@@ -1,6 +1,5 @@
 #include "classicaldft_bits/physics/potentials/intermolecular/potential.h"
 
-#include <boost/range/combine.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
 
@@ -73,20 +72,16 @@ TEST(intermolecular_potential, potential_brackets_works) {
   auto vec_expected = lj.v_potential(x);
   auto vec_actual = lj(x);
 
-  for (auto tup : boost::combine(vec_expected, vec_actual)) {
-    double x, y;
-    boost::tie(x, y) = tup;
-    EXPECT_DOUBLE_EQ(x, y);
+  for (size_t i = 0; i < vec_expected.size(); ++i) {
+    EXPECT_DOUBLE_EQ(vec_expected[i], vec_actual[i]);
   }
 
   auto r = arma::linspace(1, 5, 10);
   auto arma_expected = lj.v_potential(r);
   auto arma_actual = lj(r);
 
-  for (auto tup : boost::combine(arma_expected, arma_actual)) {
-    double x, y;
-    boost::tie(x, y) = tup;
-    EXPECT_DOUBLE_EQ(x, y);
+  for (size_t i = 0; i < arma_expected.size(); ++i) {
+    EXPECT_DOUBLE_EQ(arma_expected(i), arma_actual(i));
   }
 }
 
@@ -154,10 +149,8 @@ TEST(intermolecular_potential, WCA_split_works_ok) {
   auto expected = lj(x);
   arma::vec actual = lj.w_attractive(x) + lj.w_repulsive(x);
 
-  for (auto tup : boost::combine(expected, actual)) {
-    double x, y;
-    boost::tie(x, y) = tup;
-    EXPECT_NEAR(x, y, 1e-6);
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_NEAR(expected(i), actual(i), 1e-6);
   }
 }
 
@@ -169,10 +162,8 @@ TEST(intermolecular_potential, WCA_split_works_with_BH_ok) {
   auto expected = lj(x);
   arma::vec actual = lj.w_attractive(x) + lj.w_repulsive(x);
 
-  for (auto tup : boost::combine(expected, actual)) {
-    double x, y;
-    boost::tie(x, y) = tup;
-    EXPECT_NEAR(x, y, 1e-6);
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_NEAR(expected(i), actual(i), 1e-6);
   }
 }
 // endregion

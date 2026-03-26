@@ -1,6 +1,5 @@
 #include "classicaldft_bits/numerics/functions.h"
 
-#include <boost/range/combine.hpp>
 #include <gtest/gtest.h>
 
 namespace example {
@@ -22,22 +21,19 @@ TEST(functions, apply_vector_wise_fn_works_ok) {
   auto x_vec = std::vector<double>{1.0, 2.0, 3.0, 1.765};
   auto actual = apply_vector_wise<double>(&example::fn_sqr, x_vec);
   auto expected = std::vector<double>{1.0, 4.0, 9.0, 3.115225};
-  for (auto tup : boost::combine(expected, actual)) {
-    double x, y;
-    boost::tie(x, y) = tup;
-    EXPECT_DOUBLE_EQ(x, y);
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_DOUBLE_EQ(expected[i], actual[i]);
   }
 }
 
 TEST(functions, apply_vector_wise_method_works_ok) {
   auto x_vec = std::vector<double>{1.0, 2.0, 3.0, 1.765};
   auto obj = example::TestClass();
-  auto actual = apply_vector_wise<example::TestClass, double>(obj, &example::TestClass::fn_cubic, x_vec);
+  auto method = [](const example::TestClass& o, double x) { return o.fn_cubic(x); };
+  auto actual = apply_vector_wise<example::TestClass, double>(obj, method, x_vec);
   auto expected = std::vector<double>{1.0, 8.0, 27.0, 5.498372125};
-  for (auto tup : boost::combine(expected, actual)) {
-    double x, y;
-    boost::tie(x, y) = tup;
-    EXPECT_DOUBLE_EQ(x, y);
+  for (size_t i = 0; i < expected.size(); ++i) {
+    EXPECT_DOUBLE_EQ(expected[i], actual[i]);
   }
 }
 // endregion

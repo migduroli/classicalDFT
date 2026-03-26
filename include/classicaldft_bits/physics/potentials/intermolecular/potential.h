@@ -2,8 +2,6 @@
 #define CLASSICALDFT_POTENTIAL_H
 
 #include <armadillo>
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/serialization.hpp>
 #include <iostream>
 #include <vector>
 
@@ -88,37 +86,6 @@ namespace dft_core::physics::potentials {
       [[nodiscard]] double _w_attractive(double r) const;
       /// The private version of w_repulsive to allow for vectorization overloads without issues
       [[nodiscard]] double _w_repulsive(double r) const;
-
-      friend class boost::serialization::access;
-      /**
-       * @brief Allows the serialization of an object for saving it
-       * @details For the saving of an object we need a serialization method which tells the program
-       *    how (and what) to save from the object at hand. This is precisely what we obtain with
-       *    the boost::serialization library. When the class `Archive` corresponds to an output archive,
-       *    the `&` operator is defined similar the iostream's operator `<<`.  Likewise, when the class
-       *    `Archive` is a type of input archive the `&` operator is defined similar to the
-       *    counterpart `>>`.
-       *
-       * @tparam Archive The input/output archive object class
-       * @param archive The archive-object reference
-       * @param version The serialization library stores a version number in the archive for each class
-       *    serialized. By default this version number is 0. When the archive is loaded, the version number
-       *    under which it was saved is read.
-       *    More info: https://www.boost.org/doc/libs/1_56_0/libs/serialization/doc/tutorial.html
-       */
-      template <class Archive>
-      void serialize(Archive& archive, [[maybe_unused]] const unsigned int version) {
-        archive& sigma_;
-        archive& epsilon_;
-        archive& epsilon_shift_;
-        archive& r_cutoff_;
-        archive& r_min_;
-        archive& v_min_;
-        archive& r_attractive_min_;
-        archive& r_zero_;
-        archive& bh_perturbation_;
-        archive& kT_;
-      }
 
       // endregion
 
@@ -238,14 +205,6 @@ namespace dft_core::physics::potentials {
       /// The underlying potential evaluated at r, computed from r^2
       [[nodiscard]] double vr2_(double r2) const override;
 
-      friend class boost::serialization::access;
-      template <class Archive>
-      void serialize(Archive& archive, [[maybe_unused]] const unsigned int version) {
-        archive& boost::serialization::base_object<Potential>(*this);
-        boost::serialization::void_cast_register<LennardJones, Potential>(static_cast<LennardJones*>(nullptr),
-                                                                          static_cast<Potential*>(nullptr));
-      }
-
       // endregion
 
      public:
@@ -300,15 +259,6 @@ namespace dft_core::physics::potentials {
       [[nodiscard]] double vr_(double r) const override;
       /// The underlying potential evaluated at r, computed from r^2
       [[nodiscard]] double vr2_(double r2) const override;
-
-      friend class boost::serialization::access;
-      template <class Archive>
-      void serialize(Archive& archive, [[maybe_unused]] const unsigned int version) {
-        archive& boost::serialization::base_object<Potential>(*this);
-        archive& alpha_;
-        boost::serialization::void_cast_register<tenWoldeFrenkel, Potential>(static_cast<tenWoldeFrenkel*>(nullptr),
-                                                                             static_cast<Potential*>(nullptr));
-      }
 
       // endregion
 
@@ -366,14 +316,6 @@ namespace dft_core::physics::potentials {
       [[nodiscard]] double vr_(double r) const override;
       /// The underlying potential evaluated at r, computed from r^2
       [[nodiscard]] double vr2_(double r2) const override;
-
-      friend class boost::serialization::access;
-      template <class Archive>
-      void serialize(Archive& archive, [[maybe_unused]] const unsigned int version) {
-        archive& boost::serialization::base_object<Potential>(*this);
-        boost::serialization::void_cast_register<WangRamirezDobnikarFrenkel, Potential>(
-            static_cast<WangRamirezDobnikarFrenkel*>(nullptr), static_cast<Potential*>(nullptr));
-      }
 
       // endregion
 

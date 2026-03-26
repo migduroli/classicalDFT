@@ -1,35 +1,29 @@
 #ifndef CLASSICALDFT_VECTORIZE_H
 #define CLASSICALDFT_VECTORIZE_H
 
+#include <concepts>
 #include <functional>
-#include <iostream>
-#include <memory>
+#include <vector>
 
 namespace dft_core::utils::functions {
 
-  template <class T, typename return_type, typename input_type = return_type>
-  using class_method = std::function<return_type(const T&, input_type)>;
-
-  template <typename return_type, typename input_type = return_type>
-  using general_method = std::function<return_type(input_type)>;
-
-  template <typename x_type = double,
-            typename = typename std::enable_if<std::is_arithmetic<x_type>::value, x_type>::type>
-  std::vector<x_type> apply_vector_wise(general_method<x_type, x_type> func, const std::vector<x_type>& x) {
-    auto y = std::vector<x_type>();
+  template <std::floating_point T, typename F>
+  requires std::invocable<F, T> std::vector<T> apply_vector_wise(F func, const std::vector<T>& x) {
+    std::vector<T> y;
+    y.reserve(x.size());
     for (const auto& k : x) {
-      y.push_back(func(k));
+      y.push_back(std::invoke(func, k));
     }
     return y;
   }
 
-  template <class T, typename x_type = double,
-            typename = typename std::enable_if<std::is_arithmetic<x_type>::value, x_type>::type>
-  std::vector<x_type> apply_vector_wise(const T& obj, class_method<T, x_type, x_type> method,
-                                        const std::vector<x_type>& x) {
-    auto y = std::vector<x_type>();
+  template <typename Obj, std::floating_point T, typename F>
+  requires std::invocable<F, const Obj&, T> std::vector<T> apply_vector_wise(const Obj& obj, F method,
+                                                                             const std::vector<T>& x) {
+    std::vector<T> y;
+    y.reserve(x.size());
     for (const auto& k : x) {
-      y.push_back(method(obj, k));
+      y.push_back(std::invoke(method, obj, k));
     }
     return y;
   }

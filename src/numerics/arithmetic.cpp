@@ -122,7 +122,7 @@ namespace dft_core::numerics::arithmetic::summation {
       error_ = std::vector<double>{0.0};
       method_ = &kahan_babuska_neumaier_add;
     } else {
-      console::warning("Method not implemented yer, defaulting to Kahan-Babuska-Neumaier");
+      dft_core::io::console::warning("Method not implemented yer, defaulting to Kahan-Babuska-Neumaier");
       error_ = std::vector<double>{0.0};
       method_ = &kahan_babuska_neumaier_add;
     }

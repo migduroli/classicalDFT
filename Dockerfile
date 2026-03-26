@@ -19,9 +19,8 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     git \
     ca-certificates \
     libgsl-dev \
-    libboost-serialization-dev \
-    libboost-dev \
     libarmadillo-dev \
+    nlohmann-json3-dev \
     lcov \
     clang-format \
     clang-tidy \

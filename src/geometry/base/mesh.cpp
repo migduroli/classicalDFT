@@ -1,4 +1,3 @@
-#include <boost/range/combine.hpp>
 #include <classicaldft_bits/geometry/base/mesh.h>
 #include <cmath>  // std::abs
 #include <numeric>
@@ -49,20 +48,10 @@ namespace dft_core::geometry {
   // region Indexing functionality:
 
   void Mesh::check_index_in_bounds(const std::vector<long>& idxs, const std::vector<long>& maxs) {
-    auto zip_list = boost::combine(idxs, maxs);
-    auto test = false;
-    for (const auto& tup : zip_list) {
-      double k = 0;
-      double k_max = 0;
-      boost::tie(k, k_max) = tup;
-      if (std::abs(k) > k_max + 1) {
-        test = true;
-        break;
+    for (size_t i = 0; i < idxs.size(); ++i) {
+      if (std::abs(idxs[i]) > maxs[i] + 1) {
+        throw std::runtime_error("[!] Indexes are out of bound in mesh-indexer");
       }
-    }
-
-    if (test) {
-      throw std::runtime_error("[!] Indexes are out of bound in mesh-indexer");
     }
   }
 
@@ -73,13 +62,9 @@ namespace dft_core::geometry {
   }
 
   void Mesh::correct_negative_indexes(std::vector<long>& idxs, std::vector<long> maxs) {
-    auto zip_list = boost::combine(idxs, maxs);
-    for (auto tup : zip_list) {
-      double k = 0;
-      double k_max = 0;
-      boost::tie(k, k_max) = tup;
-      if ((k < 0) && (std::abs(k) <= k_max + 1)) {
-        tup.get<0>() += tup.get<1>() + 1;
+    for (size_t i = 0; i < idxs.size(); ++i) {
+      if ((idxs[i] < 0) && (std::abs(idxs[i]) <= maxs[i] + 1)) {
+        idxs[i] += maxs[i] + 1;
       }
     }
   }

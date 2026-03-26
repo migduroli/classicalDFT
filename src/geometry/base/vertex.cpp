@@ -1,7 +1,5 @@
 #include "classicaldft_bits/geometry/base/vertex.h"
 
-#include <boost/range/combine.hpp>
-
 namespace dft_core::geometry {
 
   // region Cttors:
@@ -44,12 +42,10 @@ namespace dft_core::geometry {
       throw std::runtime_error("The vertices you're trying to add don't have the same dimension");
     }
 
-    vec_type x = vec_type();
-    for (const auto& tup : boost::combine(a.coordinates(), b.coordinates())) {
-      double y = 0;
-      double z = 0;
-      boost::tie(y, z) = tup;
-      x.push_back(y + z);
+    vec_type x;
+    x.reserve(a.coordinates().size());
+    for (size_t i = 0; i < a.coordinates().size(); ++i) {
+      x.push_back(a.coordinates()[i] + b.coordinates()[i]);
     }
 
     return Vertex(std::move(x));
@@ -60,12 +56,10 @@ namespace dft_core::geometry {
       throw std::runtime_error("The vertices you're trying to add don't have the same dimension");
     }
 
-    vec_type x = vec_type();
-    for (const auto& tup : boost::combine(a.coordinates(), b.coordinates())) {
-      double y = 0;
-      double z = 0;
-      boost::tie(y, z) = tup;
-      x.push_back(y - z);
+    vec_type x;
+    x.reserve(a.coordinates().size());
+    for (size_t i = 0; i < a.coordinates().size(); ++i) {
+      x.push_back(a.coordinates()[i] - b.coordinates()[i]);
     }
 
     return Vertex(std::move(x));
