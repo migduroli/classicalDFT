@@ -8,7 +8,7 @@
 #include <string>
 
 #include "dft_lib/exceptions/grace_exception.h"
-#include "dft_lib/utils/console.h"
+#include "dft_lib/io/console.h"
 
 namespace dft_core
 {
@@ -16,7 +16,7 @@ namespace dft_core
   {
     namespace command
     {
-      std::string ArrangeCommand(const int& number_of_rows, const int& number_of_columns, const float& offset, const float& horizontal_gap, const float& vertical_gap)
+      std::string arrange_command(const int& number_of_rows, const int& number_of_columns, const float& offset, const float& horizontal_gap, const float& vertical_gap)
       {
         std::string cmd = "ARRANGE(" + std::to_string(number_of_rows) + ", "
                           + std::to_string(number_of_columns) + ", "
@@ -25,138 +25,138 @@ namespace dft_core
                           + std::to_string(vertical_gap) + ")";
         return cmd;
       }
-      std::string SetXMinCommand(const double& x_min)
+      std::string set_x_min_command(const double& x_min)
       {
         auto x_rounded = static_cast<float>(x_min);
         std::string cmd = "WORLD XMIN " + std::to_string(x_rounded);
         return cmd;
       }
-      std::string SetXMaxCommand(const double& x_max)
+      std::string set_x_max_command(const double& x_max)
       {
         auto x_rounded = static_cast<float>(x_max);
         std::string cmd = "WORLD XMAX " + std::to_string(x_rounded);
         return cmd;
       }
-      std::string SetYMinCommand(const double& y_min)
+      std::string set_y_min_command(const double& y_min)
       {
         auto y_rounded = static_cast<float>(y_min);
         std::string cmd = "WORLD YMIN " + std::to_string(y_rounded);
         return cmd;
       }
-      std::string SetYMaxCommand(const double& y_max)
+      std::string set_y_max_command(const double& y_max)
       {
         auto y_rounded = static_cast<float>(y_max);
         std::string cmd = "WORLD YMAX " + std::to_string(y_rounded);
         return cmd;
       }
-      std::string AddPointCommand(const double& x, const double& y, const int& dataset_id, const int& graph_id)
+      std::string add_point_command(const double& x, const double& y, const int& dataset_id, const int& graph_id)
       {
         std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id)
                           + " POINT " + std::to_string(x) + "," + std::to_string(y);
         return cmd;
       }
-      std::string RedrawCommand()
+      std::string redraw_command()
       {
         std::string cmd = "REDRAW";
         return cmd;
       }
-      std::string AutoScaleCommand()
+      std::string auto_scale_command()
       {
         std::string cmd = "AUTOSCALE";
         return cmd;
       }
-      std::string AutoTicksCommand()
+      std::string auto_ticks_command()
       {
         std::string cmd = "AUTOTICKS";
         return cmd;
       }
-      std::string FocusCommand(const int& graph_id)
+      std::string focus_command(const int& graph_id)
       {
         std::string cmd = "FOCUS G" + std::to_string(graph_id);
         return cmd;
       }
-      std::string KillSetCommand(const int& dataset_id, const int& graph_id)
+      std::string kill_set_command(const int& dataset_id, const int& graph_id)
       {
         std::string cmd = "KILL G" + std::to_string(graph_id) + "." + "S" + std::to_string(dataset_id);
         return cmd;
       }
-      std::string SetLegendCommand(const std::string& legend, const int& dataset_id, const int& graph_id)
+      std::string set_legend_command(const std::string& legend, const int& dataset_id, const int& graph_id)
       {
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " LEGEND \"" + legend + "\"";
         return cmd;
       }
-      std::string SetLineColorCommand(const grace_plot::Color& color, const int& dataset_id, const int& graph_id)
+      std::string set_line_color_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id)
       {
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " LINE COLOR " + std::to_string(static_cast<int>(color));
         return cmd;
       }
-      std::string SetSymbolColorCommand(const grace_plot::Color& color, const int& dataset_id, const int& graph_id) {
+      std::string set_symbol_color_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id) {
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " SYMBOL COLOR " + std::to_string(static_cast<int>(color));
         return cmd;
       }
-      std::string SetSymbolColorFillCommand(const grace_plot::Color& color, const int& dataset_id, const int& graph_id) {
+      std::string set_symbol_color_fill_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id) {
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " SYMBOL FILL COLOR " + std::to_string(static_cast<int>(color));
         return cmd;
       }
-      std::string SetSymbolColorFillPatternCommand(const int& pattern_id, const int& dataset_id, const int& graph_id) {
+      std::string set_symbol_color_fill_pattern_command(const int& pattern_id, const int& dataset_id, const int& graph_id) {
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " SYMBOL FILL PATTERN " + std::to_string(pattern_id);
         return cmd;
       }
-      std::string SetSymbolSizeCommand(const double& size, const int& dataset_id, const int& graph_id) {
+      std::string set_symbol_size_command(const double& size, const int& dataset_id, const int& graph_id) {
         auto size_f = static_cast<float>(size);
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " SYMBOL SIZE " + std::to_string(size_f);
         return cmd;
       }
-      std::string SetAxisLabelCommand(const std::string& label, const grace_plot::Axis& axis)
+      std::string set_axis_label_command(const std::string& label, const grace_plot::Axis& axis)
       {
         std::string axis_string = (axis == Axis::X ? "X" : "Y");
         std::string cmd = axis_string + "AXIS LABEL \"" + label + "\"";
         return cmd;
       }
-      std::string SetTitleCommand(const std::string& title)
+      std::string set_title_command(const std::string& title)
       {
         std::string cmd = "TITLE \"" + title + "\"";
         return cmd;
       }
-      std::string SetSubtitleCommand(const std::string& subtitle)
+      std::string set_subtitle_command(const std::string& subtitle)
       {
         std::string cmd = "SUBTITLE \"" + subtitle + "\"";
         return cmd;
       }
-      std::string SetTicksCommand(const double& tick_sep, const Axis& axis)
+      std::string set_ticks_command(const double& tick_sep, const Axis& axis)
       {
         std::string axis_string = (axis == Axis::X ? "X" : "Y");
         auto tick_sep_f = static_cast<float>(tick_sep);
         std::string cmd = axis_string + "AXIS TICK MAJOR " + std::to_string(tick_sep_f);
         return cmd;
       }
-      std::string SetSymbolCommand(const Symbol& symbol_id, const int& dataset_id, const int& graph_id)
+      std::string set_symbol_command(const Symbol& symbol_id, const int& dataset_id, const int& graph_id)
       {
         std::string cmd = "G" + std::to_string(graph_id)
             + ".S" + std::to_string(dataset_id)
             + " SYMBOL " + std::to_string(static_cast<int>(symbol_id));
         return cmd;
       }
-      std::string SetLineStyleCommand(const LineStyle& line_type, const int& dataset_id, const int& graph_id)
+      std::string set_line_style_command(const LineStyle& line_type, const int& dataset_id, const int& graph_id)
       {
         std::string cmd = "G" + std::to_string(graph_id)
                           + ".S" + std::to_string(dataset_id)
                           + " LINE LINESTYLE " + std::to_string(static_cast<int>(line_type));
         return cmd;
       }
-      std::string SetFormatCommand(const ExportFormat& format)
+      std::string set_format_command(const ExportFormat& format)
       {
         std::string cmd = "HARDCOPY DEVICE ";
         std::string format_s;
@@ -172,19 +172,19 @@ namespace dft_core
         } else if (ExportFormat::EPS1 == format) {
           format_s = "EPS1";
         } else {
-          console::Warning("The format specified is not yet implemented. Exporting as PNG...");
+          console::warning("The format specified is not yet implemented. Exporting as PNG...");
           format_s = "PNG";
         }
 
         cmd += "\"" + format_s + "\"";
         return cmd;
       }
-      std::string PrintToFileCommand(const std::string& file_path)
+      std::string print_to_file_command(const std::string& file_path)
       {
         std::string cmd = "PRINT TO \"" + file_path + "\"";
         return cmd;
       }
-      std::string PrintCommand()
+      std::string print_command()
       {
         std::string cmd = "PRINT";
         return cmd;
@@ -242,7 +242,7 @@ namespace dft_core
 
     //region General methods
 
-    void SendCommand(const std::string& cmd)
+    void send_command(const std::string& cmd)
     {
       if (GraceIsOpen())
       {
@@ -252,24 +252,24 @@ namespace dft_core
       else { throw dft_core::exception::GraceNotOpenedException(); }
     }
 
-    void ErrorParsingFunction(const char* msg)
+    void error_parsing_function(const char* msg)
     {
       std::cout << "Grace library message: \"" << msg << "\"" << std::endl;
     }
 
-    void RegisterGraceErrorFunction()
+    void register_grace_error_function()
     {
       try
       {
-        GraceRegisterErrorFunction(ErrorParsingFunction);
+        GraceRegisterErrorFunction(error_parsing_function);
       }
       catch (const std::exception& e)
       {
-        throw dft_core::exception::GraceException("ErrorParsingFunction could not be registered by xmgrace");
+        throw dft_core::exception::GraceException("error_parsing_function could not be registered by xmgrace");
       }
     }
 
-    void StartGraceCommunication(const int& x_size, const int& y_size, int buffer_size)
+    void start_grace_communication(const int& x_size, const int& y_size, int buffer_size)
     {
       if ((x_size <= 0) || (y_size <= 0))
       {
@@ -291,14 +291,14 @@ namespace dft_core
       if (-1 == response) { throw dft_core::exception::GraceCommunicationFailedException(); }
     }
 
-    int GetNumberOfRows(const int& number_of_graphs)
+    int get_number_of_rows(const int& number_of_graphs)
     {
       if (number_of_graphs < 1) { throw dft_core::exception::GraceException("Number of graphs cannot be lesser than one"); }
       int n_rows = (number_of_graphs <= 2 ? 1 : 2);
       return n_rows;
     }
 
-    int GetNumberOfColumns(const int& number_of_graphs, const int& number_of_rows)
+    int get_number_of_columns(const int& number_of_graphs, const int& number_of_rows)
     {
       if (number_of_graphs < 1) { throw dft_core::exception::GraceException("Number of graphs cannot be lesser than one"); }
       else if (number_of_rows < 1) { throw dft_core::exception::GraceException("Number of rows cannot be lesser than one"); }
@@ -321,26 +321,26 @@ namespace dft_core
     {
       if(number_of_graphs > 1)
       {
-        int number_of_rows = GetNumberOfRows(number_of_graphs);
-        int number_of_columns = GetNumberOfColumns(number_of_graphs, number_of_rows);
-        SendCommand(command::ArrangeCommand(number_of_rows, number_of_columns, offset, hspace, vspace));
+        int number_of_rows = get_number_of_rows(number_of_graphs);
+        int number_of_columns = get_number_of_columns(number_of_graphs, number_of_rows);
+        send_command(command::arrange_command(number_of_rows, number_of_columns, offset, hspace, vspace));
       }
 
-      SendCommand(command::SetXMinCommand(x_min));
-      SendCommand(command::SetXMaxCommand(x_max));
+      send_command(command::set_x_min_command(x_min));
+      send_command(command::set_x_max_command(x_max));
 
       // tick major must be set up befor minor to avoid glitch
-      SendCommand( "XAXIS TICK MAJOR 5");
-      SendCommand( "XAXIS TICK MINOR 1");
+      send_command( "XAXIS TICK MAJOR 5");
+      send_command( "XAXIS TICK MINOR 1");
 
-      SendCommand("WORLD YMIN " + std::to_string(y_min));
-      SendCommand("WORLD YMAX " + std::to_string(y_max));
+      send_command("WORLD YMIN " + std::to_string(y_min));
+      send_command("WORLD YMAX " + std::to_string(y_max));
 
       // tick major must be set up befor minor to avoid glitch
-      SendCommand( "YAXIS TICK MAJOR " + std::to_string(static_cast<int>(y_max)));
-      SendCommand( "YAXIS TICK MINOR " + std::to_string(static_cast<int>(y_max/2)));
+      send_command( "YAXIS TICK MAJOR " + std::to_string(static_cast<int>(y_max)));
+      send_command( "YAXIS TICK MINOR " + std::to_string(static_cast<int>(y_max/2)));
 
-      SendCommand( "AUTOSCALE ONREAD XYAXES");
+      send_command( "AUTOSCALE ONREAD XYAXES");
     }
 
     Grace::Grace(int x_size, int y_size, int n_graph, bool show) :
@@ -353,8 +353,8 @@ namespace dft_core
         show_(show)
     {
       if (show_) {
-        RegisterGraceErrorFunction();
-        StartGraceCommunication(x_size, y_size);
+        register_grace_error_function();
+        start_grace_communication(x_size, y_size);
         SetupGrace(x_min_, x_max_, y_min_, y_max_, number_of_graphs_, offset_, horizontal_space_, vertical_space_);
       }
     }
@@ -383,12 +383,12 @@ namespace dft_core
     {
       if (x_min > x_max) { throw exception::GraceException("Lower limit cannot be greater than upper limit!"); }
 
-      this->SetXMin(x_min);
-      this->SetXMax(x_max);
+      this->set_x_min(x_min);
+      this->set_x_max(x_max);
 
       if (this->show_) {
-        SendCommand(command::SetXMinCommand(this->x_min()));
-        SendCommand(command::SetXMaxCommand(this->x_max()));
+        send_command(command::set_x_min_command(this->x_min()));
+        send_command(command::set_x_max_command(this->x_max()));
       }
     }
 
@@ -396,25 +396,25 @@ namespace dft_core
     {
       if (y_min > y_max) { throw exception::GraceException("Lower limit cannot be greater than upper limit!"); }
 
-      this->SetYMin(y_min);
-      this->SetYMax(y_max);
+      this->set_y_min(y_min);
+      this->set_y_max(y_max);
 
       if (this->show_)
       {
-        SendCommand(command::SetYMinCommand(this->y_min()));
-        SendCommand(command::SetYMaxCommand(this->y_max()));
+        send_command(command::set_y_min_command(this->y_min()));
+        send_command(command::set_y_max_command(this->y_max()));
       }
     }
 
     void Grace::SetLimits(const double &x_min, const double &x_max, const double &y_min, const double &y_max)
     {
-      this->SetXLimits(x_min, x_max);
-      this->SetYLimits(y_min, y_max);
+      this->set_x_limits(x_min, x_max);
+      this->set_y_limits(y_min, y_max);
     }
 
     void Grace::SetLimits(const std::vector<double>& x_limits, const std::vector<double>& y_limits)
     {
-      this->SetLimits(x_limits.front(), x_limits.back(), y_limits.front(), y_limits.back());
+      this->set_limits(x_limits.front(), x_limits.back(), y_limits.front(), y_limits.back());
     }
 
     void Grace::Close() const
@@ -431,16 +431,16 @@ namespace dft_core
 
       if (this->show_)
       {
-        SendCommand(command::AddPointCommand(x, y, dataset_id, graph_id));
+        send_command(command::add_point_command(x, y, dataset_id, graph_id));
       }
     }
 
-    void Grace::IncreaseLastDatasetId()
+    void Grace::increase_last_dataset_id()
     {
       this->last_dataset_id_ += 1;
     }
 
-    void Grace::DecreaseLastDatasetId()
+    void Grace::decrease_last_dataset_id()
     {
       this->last_dataset_id_ -= 1;
     }
@@ -448,7 +448,7 @@ namespace dft_core
     int Grace::AddDataset(std::vector<double> const& x, std::vector<double> const& y, const int& graph_id)
     {
       CheckEqualLength(x, y);
-      this->IncreaseLastDatasetId();
+      this->increase_last_dataset_id();
       AddDatasetToGraceObject(this, x, y, this->last_dataset_id(), graph_id);
       return last_dataset_id_;
     }
@@ -458,10 +458,10 @@ namespace dft_core
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
 
-      SendCommand(command::KillSetCommand(dataset_id, graph_id));
-      //this->DecreaseLastDatasetId();
+      send_command(command::kill_set_command(dataset_id, graph_id));
+      //this->decrease_last_dataset_id();
 
-      this->SetColor(static_cast<Color>((this->last_dataset_id() % 10) + 1), dataset_id, graph_id);
+      this->set_color(static_cast<Color>((this->last_dataset_id() % 10) + 1), dataset_id, graph_id);
     }
 
     void Grace::ReplaceDataset(std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id, const int& graph_id)
@@ -470,7 +470,7 @@ namespace dft_core
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
 
-      this->DeleteDataset(dataset_id, graph_id);
+      this->delete_dataset(dataset_id, graph_id);
       AddDatasetToGraceObject(this, x, y, dataset_id, graph_id);
     }
 
@@ -480,30 +480,30 @@ namespace dft_core
       {
         if (CheckGraphIdInBounds(graph_id, this->number_of_graphs()))
         {
-          SendCommand(command::FocusCommand(graph_id));
+          send_command(command::focus_command(graph_id));
         }
 
         if (auto_scale) {
-          SendCommand(command::AutoScaleCommand());
+          send_command(command::auto_scale_command());
         }
 
         if (auto_ticks) {
-          SendCommand(command::AutoTicksCommand());
+          send_command(command::auto_ticks_command());
         }
 
-        SendCommand(command::RedrawCommand());
+        send_command(command::redraw_command());
       }
     }
 
     void Grace::Wait() const
     {
-      console::Wait();
+      console::wait();
     }
 
     void Grace::RedrawAndWait(const bool& auto_scale, const bool& auto_ticks, const int& graph_id) const
     {
-      this->Redraw(auto_scale, auto_ticks, graph_id);
-      this->Wait();
+      this->redraw(auto_scale, auto_ticks, graph_id);
+      this->wait();
     }
 
     void Grace::SetLegend(const std::string& legend, const int& dataset_id, const int& graph_id) const
@@ -511,7 +511,7 @@ namespace dft_core
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
 
-      SendCommand(command::SetLegendCommand(legend, dataset_id, graph_id));
+      send_command(command::set_legend_command(legend, dataset_id, graph_id));
     }
 
     void Grace::SetColor(const Color& color, const int& dataset_id, const int& graph_id) const
@@ -519,26 +519,26 @@ namespace dft_core
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
 
-      SendCommand(command::SetLineColorCommand(color, dataset_id, graph_id));
-      SendCommand(command::SetSymbolColorCommand(color, dataset_id, graph_id));
+      send_command(command::set_line_color_command(color, dataset_id, graph_id));
+      send_command(command::set_symbol_color_command(color, dataset_id, graph_id));
     }
 
     void Grace::SetLabel(const std::string &label, const Axis &axis, const int& graph_id) const
     {
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
 
-      if (graph_id > 0) { SendCommand(command::FocusCommand(graph_id)); }
-      SendCommand(command::SetAxisLabelCommand(label, axis));
+      if (graph_id > 0) { send_command(command::focus_command(graph_id)); }
+      send_command(command::set_axis_label_command(label, axis));
     }
 
     void Grace::SetTitle(const std::string &title) const
     {
-      SendCommand(command::SetTitleCommand(title));
+      send_command(command::set_title_command(title));
     }
 
     void Grace::SetSubtitle(const std::string &subtitle) const
     {
-      SendCommand(command::SetSubtitleCommand(subtitle));
+      send_command(command::set_subtitle_command(subtitle));
     }
 
     void Grace::SetTicks(const double &dx, const double &dy, const int &graph_id) const
@@ -550,9 +550,9 @@ namespace dft_core
         throw exception::GraceException(msg);
       }
 
-      SendCommand(command::FocusCommand(graph_id));
-      SendCommand(command::SetTicksCommand(dx, Axis::X));
-      SendCommand(command::SetTicksCommand(dy, Axis::Y));
+      send_command(command::focus_command(graph_id));
+      send_command(command::set_ticks_command(dx, Axis::X));
+      send_command(command::set_ticks_command(dy, Axis::Y));
     }
 
     void Grace::SetSymbol(const Symbol &symbol, const int &dataset_id, const int &graph_id) const
@@ -560,7 +560,7 @@ namespace dft_core
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
 
-      SendCommand(command::SetSymbolCommand(symbol, dataset_id, graph_id));
+      send_command(command::set_symbol_command(symbol, dataset_id, graph_id));
     }
 
     void Grace::SetSymbolColor(const Color &color, const int &dataset_id, const int &graph_id) const
@@ -568,7 +568,7 @@ namespace dft_core
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
 
-      SendCommand(command::SetSymbolColorCommand(color, dataset_id, graph_id));
+      send_command(command::set_symbol_color_command(color, dataset_id, graph_id));
     }
 
     void Grace::SetSymbolFill(const Color &color, const int &dataset_id, const int &graph_id, const int &pattern_id) const
@@ -576,8 +576,8 @@ namespace dft_core
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
 
-      SendCommand(command::SetSymbolColorFillPatternCommand(pattern_id, dataset_id, graph_id));
-      SendCommand(command::SetSymbolColorFillCommand(color, dataset_id, graph_id));
+      send_command(command::set_symbol_color_fill_pattern_command(pattern_id, dataset_id, graph_id));
+      send_command(command::set_symbol_color_fill_command(color, dataset_id, graph_id));
     }
 
     void Grace::SetSymbolSize(const double &size, const int &dataset_id, const int &graph_id) const
@@ -585,7 +585,7 @@ namespace dft_core
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
 
-      SendCommand(command::SetSymbolSizeCommand(size, dataset_id, graph_id));
+      send_command(command::set_symbol_size_command(size, dataset_id, graph_id));
     }
 
     void Grace::SetLineType(const LineStyle&line_type, const int &dataset_id, const int &graph_id) const
@@ -593,14 +593,14 @@ namespace dft_core
       CheckGraphIdInBounds(graph_id, this->number_of_graphs());
       CheckDatasetInBounds(dataset_id, this->last_dataset_id());
 
-      SendCommand(command::SetLineStyleCommand(line_type, dataset_id, graph_id));
+      send_command(command::set_line_style_command(line_type, dataset_id, graph_id));
     }
 
     void Grace::PrintToFile(const std::string &file_path, const ExportFormat &format) const
     {
-      SendCommand(command::SetFormatCommand(format));
-      SendCommand(command::PrintToFileCommand(file_path));
-      SendCommand(command::PrintCommand());
+      send_command(command::set_format_command(format));
+      send_command(command::print_to_file_command(file_path));
+      send_command(command::print_command());
     }
     //endregion
   }

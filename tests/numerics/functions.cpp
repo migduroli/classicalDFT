@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "dft_lib/utils/functions.h"
+#include "dft_lib/numerics/functions.h"
 
 #include <boost/range/combine.hpp>
 

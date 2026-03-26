@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+lint() {
+  message "info" "Lint"
+
+  if ! (command -v clang-tidy &>/dev/null); then
+    message "error" "clang-tidy is not available"
+    exit 1
+  fi
+
+  BUILD_DIR="${BUILD_DIR:-build}"
+
+  if [[ ! -f "$BUILD_DIR/compile_commands.json" ]]; then
+    message "error" "compile_commands.json not found. Run 'make build' first."
+    exit 1
+  fi
+
+  find src -name "*.cpp" | xargs clang-tidy -p "$BUILD_DIR"
+  message "success" "Lint completed"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  lint "$@"
+fi

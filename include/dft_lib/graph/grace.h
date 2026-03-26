@@ -114,7 +114,7 @@ namespace dft_core
        * @param vertical_gap vertical spacing
        * @return std::string
        */
-      std::string ArrangeCommand(const int& number_of_rows, const int& number_of_columns, const float& offset, const float& horizontal_gap, const float& vertical_gap);
+      std::string arrange_command(const int& number_of_rows, const int& number_of_columns, const float& offset, const float& horizontal_gap, const float& vertical_gap);
 
       /**
        * @brief Returns the "WORLD XMIN x_min" command as string
@@ -122,7 +122,7 @@ namespace dft_core
        * @param x_min the minimum value the X-axis will show
        * @return std::string
        */
-      std::string SetXMinCommand(const double& x_min);
+      std::string set_x_min_command(const double& x_min);
 
       /**
        * @brief Returns the "WORLD XMAX x_min" command as string
@@ -130,7 +130,7 @@ namespace dft_core
        * @param x_max the max value the X-axis will show
        * @return std::string
        */
-      std::string SetXMaxCommand(const double& x_max);
+      std::string set_x_max_command(const double& x_max);
 
       /**
        * @brief Returns the "WORLD YMIN y_min" command as string
@@ -138,7 +138,7 @@ namespace dft_core
        * @param x_min the minimum value the Y-axis will show
        * @return std::string
        */
-      std::string SetYMinCommand(const double& y_min);
+      std::string set_y_min_command(const double& y_min);
 
       /**
        * @brief Returns the "WORLD YMAX y_min" command as string
@@ -146,7 +146,7 @@ namespace dft_core
        * @param x_max the max value the Y-axis will show
        * @return std::string
        */
-      std::string SetYMaxCommand(const double& y_max);
+      std::string set_y_max_command(const double& y_max);
 
       /**
        * @brief Returns the "G{N}.S{M} point {X},{Y} command as string
@@ -157,32 +157,32 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string AddPointCommand(const double& x, const double& y, const int& dataset_id, const int& graph_id);
+      std::string add_point_command(const double& x, const double& y, const int& dataset_id, const int& graph_id);
 
       /**
         * @brief Returns the "REDRAW" command as string
         * @return std::string
         */
-      std::string RedrawCommand();
+      std::string redraw_command();
 
       /**
        * @brief Returns the "AUTOSCALE" command as string
        * @return std::string
        */
-      std::string AutoScaleCommand();
+      std::string auto_scale_command();
 
       /**
        * @brief Returns the "AUTOTICKS" command as string
        * @return std::string
        */
-      std::string AutoTicksCommand();
+      std::string auto_ticks_command();
 
       /**
        * @brief Returns the "FOCUS G{N}" command as string
        * @param graph_id the graph int identifier to focus
        * @return std::string
        */
-      std::string FocusCommand(const int& graph_id);
+      std::string focus_command(const int& graph_id);
 
       /**
        * @brief Returns the "KILL G{N}.S{M}" command as string
@@ -191,14 +191,14 @@ namespace dft_core
        * @param graph_id the graph int identifier where the dataset lives in
        * @return std::string
        */
-      std::string KillSetCommand(const int& dataset_id, const int& graph_id);
+      std::string kill_set_command(const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "S LEGEND `legend`" command as string
        * @param legend the legend to be set
        * @return std::string
        */
-      std::string SetLegendCommand(const std::string& legend, const int& dataset_id, const int& graph_id);
+      std::string set_legend_command(const std::string& legend, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} LINE COLOR {ID}" command as string
@@ -207,7 +207,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetLineColorCommand(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
+      std::string set_line_color_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL COLOR {COLOR}" command as string
@@ -216,7 +216,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetSymbolColorCommand(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_color_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL FILL COLOR {COLOR}" command as string
@@ -225,7 +225,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetSymbolColorFillCommand(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_color_fill_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL FILL COLOR {COLOR}" command as string
@@ -234,7 +234,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetSymbolColorFillPatternCommand(const int& pattern_id, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_color_fill_pattern_command(const int& pattern_id, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} SYMBOL SIZE {X}" command as string
@@ -243,7 +243,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetSymbolSizeCommand(const double& size, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_size_command(const double& size, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "{XY}AXIS LABEL {TEXT}" command as string
@@ -251,28 +251,28 @@ namespace dft_core
        * @param axis the `grace_plot::Axis` where the text will serve as label, either X or Y
        * @return std::string
        */
-      std::string SetAxisLabelCommand(const std::string& label, const grace_plot::Axis& axis);
+      std::string set_axis_label_command(const std::string& label, const grace_plot::Axis& axis);
 
       /**
        * @brief Returns the "TITLE '{TEXT}'" command as string
        * @param title the text to be set as the title of the graph
        * @return std::string
        */
-      std::string SetTitleCommand(const std::string& title);
+      std::string set_title_command(const std::string& title);
 
       /**
        * @brief Returns the "SUBTITLE '{TEXT}'" command as string
        * @param title the text to be set as the subtitle of the graph
        * @return std::string
        */
-      std::string SetSubtitleCommand(const std::string& subtitle);
+      std::string set_subtitle_command(const std::string& subtitle);
 
       /**
        * @brief Returns the "{XY}AXIS TICK MAJOR {TICK_SIZE}" command as string
        * @param tick_sep the space separation between the different ticks
        * @return std::string
        */
-      std::string SetTicksCommand(const double& tick_sep, const Axis& axis);
+      std::string set_ticks_command(const double& tick_sep, const Axis& axis);
 
 
       /**
@@ -282,7 +282,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetSymbolCommand(const Symbol& symbol, const int& dataset_id, const int& graph_id);
+      std::string set_symbol_command(const Symbol& symbol, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "G{N}.S{M} LINE TYPE {LINE_TYPE}" command as string
@@ -291,27 +291,27 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on
        * @return std::string
        */
-      std::string SetLineStyleCommand(const LineStyle& line_type, const int& dataset_id, const int& graph_id);
+      std::string set_line_style_command(const LineStyle& line_type, const int& dataset_id, const int& graph_id);
 
       /**
        * @brief Returns the "HARDCOPY DEVICE {FORMAT}" command as string
        * @param format one of the possible export format values
        * @return std::string
        */
-      std::string SetFormatCommand(const ExportFormat& format);
+      std::string set_format_command(const ExportFormat& format);
 
       /**
        * @brief Returns the "PRINT TO {FILE_PATH}" command as string
        * @param file_path the file path where the graph will be saved to
        * @return std::string
        */
-      std::string PrintToFileCommand(const std::string& file_path);
+      std::string print_to_file_command(const std::string& file_path);
 
       /**
        * @brief Returns the "PRINT" command as string
        * @return std::string
        */
-      std::string PrintCommand();
+      std::string print_command();
     }
 
     /// The default X-size of the grace canvas
@@ -342,7 +342,7 @@ namespace dft_core
      * @throw GraceNotOpenedException when the subprocess `xmgrace` is not running, i.e. Grace is not "opened".
      * @throw GraceCommunicationFailedException when the subprocess `xmgrace` is running but something happened inside
      */
-    void SendCommand(const std::string &cmd);
+    void send_command(const std::string &cmd);
 
     /**
      * @brief Parse and prints an error message from xmgrace.
@@ -351,16 +351,16 @@ namespace dft_core
      * @param[in] msg the message (char*) received from `xmgrace` which will be printed out.
      * @remark Unfortunately, due to legacy reasons, such a function must deal with char* instead of modern strings.
      */
-    void ErrorParsingFunction(const char *msg);
+    void error_parsing_function(const char *msg);
 
     /**
-     * @brief Set up of the personalised error parsing function `ErrorParsingFunction`
+     * @brief Set up of the personalised error parsing function `error_parsing_function`
      *
-     * It uses `GraceRegisterErrorFunction` from `gnuplot_np.h` to register our personalised `ErrorParsingFunction`
+     * It uses `GraceRegisterErrorFunction` from `gnuplot_np.h` to register our personalised `error_parsing_function`
      * as the error function `xmgrace` will communicate to when an error occurs.
      * @throw GraceException when there is an error registering the error function.
      */
-    void RegisterGraceErrorFunction();
+    void register_grace_error_function();
 
     /**
      * @brief Initialisation of the communication pipe with `xmgrace`
@@ -375,7 +375,7 @@ namespace dft_core
      * @throw GraceException when any of the parameters are not strictly positive
      * @throw GraceCommunicationFailedException  when something goes wrong in the communication with the communication
      */
-    void StartGraceCommunication(const int& x_size, const int& y_size, int buffer_size = 2048);
+    void start_grace_communication(const int& x_size, const int& y_size, int buffer_size = 2048);
 
     /**
      * @brief Returns the number of rows in which the graphs will be placed
@@ -384,7 +384,7 @@ namespace dft_core
      * @param number_of_graphs the number of graphs to be shown
      * @throw GraceException when any of the parameters are not strictly positive
      */
-    int GetNumberOfRows(const int& number_of_graphs);
+    int get_number_of_rows(const int& number_of_graphs);
 
     /**
      * @brief Returns the number of columns in which the graphs will be placed
@@ -393,7 +393,7 @@ namespace dft_core
      * @param number_of_rows the number of rows to use
      * @throw GraceException when any of the parameters are not strictly positive
      */
-    int GetNumberOfColumns(const int& number_of_graphs, const int& number_of_rows);
+    int get_number_of_columns(const int& number_of_graphs, const int& number_of_rows);
 
     /**
      * @brief  Utility: Wrapper for xmgrace graphics program.
@@ -406,7 +406,7 @@ namespace dft_core
       /// Explicit constructor, which avoids implicit conversions
       explicit Grace(int x_size = default_x_size, int y_size = default_y_size, int n_graph = default_number_of_graphs, bool show = true);
       /// Default destructor
-      ~Grace() { this->Close(); };
+      ~Grace() { this->close(); };
 
       /// Inspector of the property `show_` which governs the construction of a Grace object in case of being `false`
       const bool& is_initialised() const { return show_; }
@@ -432,17 +432,17 @@ namespace dft_core
 
       //region Setters
 
-      void SetXMin(const double& value);
-      void SetXMax(const double& value);
-      void SetYMin(const double& value);
-      void SetYMax(const double& value);
+      void set_x_min(const double& value);
+      void set_x_max(const double& value);
+      void set_y_min(const double& value);
+      void set_y_max(const double& value);
 
       //region SetLimits
 
-      void SetXLimits(const double& x_min, const double& x_max);
-      void SetYLimits(const double& y_min, const double& y_max);
-      void SetLimits(const double& x_min, const double& x_max, const double& y_min, const double& y_max);
-      void SetLimits(const std::vector<double>& x_limits, const std::vector<double>& y_limits);
+      void set_x_limits(const double& x_min, const double& x_max);
+      void set_y_limits(const double& y_min, const double& y_max);
+      void set_limits(const double& x_min, const double& x_max, const double& y_min, const double& y_max);
+      void set_limits(const std::vector<double>& x_limits, const std::vector<double>& y_limits);
 
       //endregion
 
@@ -460,7 +460,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on (default=0)
        * @throw GraceException when the graph_id given is out of bounds
        */
-      void AddPoint(const double& x, const double& y, const int& dataset_id=0, const int& graph_id=0) const;
+      void add_point(const double& x, const double& y, const int& dataset_id=0, const int& graph_id=0) const;
 
       /**
        * @brief Adds a tuple (X, Y) of `std::vector` objects which represent a dataset
@@ -472,7 +472,7 @@ namespace dft_core
        * @throw GraceException when the dataset size is not well-balanced, i.e. x.size() != y.size()
        * @throw GraceException when the graph_id given is out of bounds
        */
-      int AddDataset(std::vector<double> const &x, std::vector<double> const &y, const int& graph_id = 0);
+      int add_dataset(std::vector<double> const &x, std::vector<double> const &y, const int& graph_id = 0);
 
       /**
        * @brief Replace an existing dataset with a tuple (X, Y) of `std::vector` objects which represent a new dataset
@@ -485,7 +485,7 @@ namespace dft_core
        * @throw GraceException when the dataset size is not well-balanced, i.e. x.size() != y.size()
        * @throw GraceException when the graph_id given is out of bounds
        */
-      void ReplaceDataset(std::vector<double> const &x, std::vector<double> const &y, const int& dataset_id, const int& graph_id = 0);
+      void replace_dataset(std::vector<double> const &x, std::vector<double> const &y, const int& dataset_id, const int& graph_id = 0);
 
       /**
        * @brief Deletes a dataset identified by `dataset_id` on the graph identified by `graph_id`
@@ -495,17 +495,17 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void DeleteDataset(const int& dataset_id, const int& graph_id = 0);
+      void delete_dataset(const int& dataset_id, const int& graph_id = 0);
 
       /**
        * @brief Closes the opened session (if it was opened with the constructor, via `show=true`
        */
-      void Close() const;
+      void close() const;
 
       /**
        * @brief Pauses the terminal awaiting for the user interaction
        */
-      void Wait() const;
+      void wait() const;
 
       /**
        * @brief Updates the graph by using the `redraw` command
@@ -515,7 +515,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on (default=0)
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void Redraw(const bool& auto_scale = false, const bool& auto_ticks = true, const int& graph_id = 0) const;
+      void redraw(const bool& auto_scale = false, const bool& auto_ticks = true, const int& graph_id = 0) const;
 
       /**
        * @brief Wrapper of Redraw and Wait functionality to play together for convenience
@@ -525,7 +525,7 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph the point will be represented on (default=0)
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void RedrawAndWait(const bool& auto_scale = false, const bool& auto_ticks = true, const int& graph_id = 0) const;
+      void redraw_and_wait(const bool& auto_scale = false, const bool& auto_ticks = true, const int& graph_id = 0) const;
 
       /**
        * @brief Sets the legend of the graph
@@ -536,7 +536,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetLegend(const std::string& legend, const int& dataset_id, const int& graph_id = 0) const;
+      void set_legend(const std::string& legend, const int& dataset_id, const int& graph_id = 0) const;
 
       /**
        * @brief Sets a given `dataset_id` of a given `graph_id` with the specified `color_id`
@@ -547,7 +547,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetColor(const Color& color, const int& dataset_id, const int& graph_id = 0) const;
+      void set_color(const Color& color, const int& dataset_id, const int& graph_id = 0) const;
 
       /**
        * @brief Sets the Axis label of a given `graph_id`
@@ -557,21 +557,21 @@ namespace dft_core
        * @param graph_id the integer number identifying the graph where the dataset lives (default=0)
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetLabel(const std::string& label, const Axis& axis, const int& graph_id = 0) const;
+      void set_label(const std::string& label, const Axis& axis, const int& graph_id = 0) const;
 
       /**
        * @brief Sets the graph's Title
        *
        * @param title the text which will be set as the title of the graph
        */
-      void SetTitle(const std::string& title) const;
+      void set_title(const std::string& title) const;
 
       /**
        * @brief Sets the graph's Subitle
        *
        * @param title the text which will be set as the subtitle of the graph
        */
-      void SetSubtitle(const std::string& subtitle) const;
+      void set_subtitle(const std::string& subtitle) const;
 
       /**
        * @brief Sets the tick distancing on the X and Y axis
@@ -579,7 +579,7 @@ namespace dft_core
        * @param dy the spacing between Y-axis ticks
        * @param graph_id
        */
-      void SetTicks(const double& dx, const double& dy, const int& graph_id = 0) const;
+      void set_ticks(const double& dx, const double& dy, const int& graph_id = 0) const;
 
       /**
        * @brief Sets the symbol shape of given `dataset_id` of a given `graph_id`
@@ -590,7 +590,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetSymbol(const Symbol& symbol, const int& dataset_id, const int& graph_id = 0) const;
+      void set_symbol(const Symbol& symbol, const int& dataset_id, const int& graph_id = 0) const;
 
       /**
        * @brief Sets the symbol color in a given `dataset_id` of a given `graph_id`
@@ -601,7 +601,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetSymbolColor(const Color& color, const int& dataset_id, const int& graph_id = 0) const;
+      void set_symbol_color(const Color& color, const int& dataset_id, const int& graph_id = 0) const;
 
 
       /**
@@ -614,7 +614,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetSymbolFill(const Color& color, const int& dataset_id, const int& graph_id = 0, const int& pattern_id = 1) const;
+      void set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id = 0, const int& pattern_id = 1) const;
 
       /**
        * @brief Sets the symbol fill in a given `dataset_id` of a given `graph_id`
@@ -625,7 +625,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetSymbolSize(const double& size, const int& dataset_id, const int& graph_id = 0) const;
+      void set_symbol_size(const double& size, const int& dataset_id, const int& graph_id = 0) const;
 
       /**
        * @brief Sets the symbol fill in a given `dataset_id` of a given `graph_id`
@@ -636,7 +636,7 @@ namespace dft_core
        * @throws GraceException in case the dataset_id given is out of bounds
        * @throws GraceException in case the graph_id given is out of bounds
        */
-      void SetLineType(const LineStyle& line_type, const int& dataset_id, const int& graph_id = 0) const;
+      void set_line_type(const LineStyle& line_type, const int& dataset_id, const int& graph_id = 0) const;
 
       /**
        * @brief Saves the graph with the `format` specified at the given `file_path`
@@ -644,7 +644,7 @@ namespace dft_core
        * @param file_path the full path of the file where the graph will be saved
        * @param format one of the possible ExportFormat values (default=ExportFormat::PDF)
        */
-      void PrintToFile(const std::string& file_path, const ExportFormat& format = ExportFormat::PNG) const;
+      void print_to_file(const std::string& file_path, const ExportFormat& format = ExportFormat::PNG) const;
       //endregion
 
     private:
@@ -664,11 +664,11 @@ namespace dft_core
       /**
        * @brief Adds the unit to the last dataset id registered to keep track of how many are active
        */
-      void IncreaseLastDatasetId();
+      void increase_last_dataset_id();
       /**
        * @brief Removes the unit to the last dataset id registered to keep track of how many are active
        */
-      void DecreaseLastDatasetId();
+      void decrease_last_dataset_id();
     };
   }
 }

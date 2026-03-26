@@ -1,4 +1,4 @@
-#include "dft_lib/utils/config_parser.h"
+#include "dft_lib/io/config_parser.h"
 
 #include <gtest/gtest.h>
 
@@ -6,7 +6,7 @@
 #include <boost/property_tree/detail/xml_parser_error.hpp>
 #include <boost/range/combine.hpp>
 
-#include "dft_lib/utils/console.h"
+#include "dft_lib/io/console.h"
 
 using namespace dft_core;
 

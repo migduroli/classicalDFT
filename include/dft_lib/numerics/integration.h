@@ -4,7 +4,7 @@
 #include <gsl/gsl_integration.h>
 #include <functional>
 #include <memory>
-#include "dft_lib/utils/console.h"
+#include "dft_lib/io/console.h"
 
 namespace dft_core
 {
@@ -121,7 +121,7 @@ class Integrator
    *    - function -> integrand_function
    *    - params -> this
    */
-  void InitialiseGslFunction()
+  void initialise_gsl_function()
   {
     gsl_function_.function = &this->integrand_function;
     gsl_function_.params = this;
@@ -131,7 +131,7 @@ class Integrator
    * @brief Initialises the `private: working_space_` pointer by calling `gsl_integration_workspace_alloc`
    * (https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_workspace_alloc#c.gsl_integration_workspace_alloc)
    */
-  void InitialiseGslWorkSpace()
+  void initialise_gsl_work_space()
   {
     this->working_space_.reset(gsl_integration_workspace_alloc(working_space_size_));
   }
@@ -159,8 +159,8 @@ class Integrator
       int work_space_size = DEFAULT_GSL_WORKING_SPACE_SIZE
   ): problem_(problem), method_(method), working_space_size_(work_space_size)
   {
-    this->InitialiseGslWorkSpace();
-    this->InitialiseGslFunction();
+    this->initialise_gsl_work_space();
+    this->initialise_gsl_function();
   }
 
   //endregion
@@ -182,9 +182,9 @@ class Integrator
 
   //region Mutators:
 
-  void SetAbsoluteError(double absolute_error) { absolute_error_ = absolute_error; }
-  void SetRelativeError(double relative_error) { relative_error_ = relative_error; }
-  void SetWorkingSpaceSize(int work_space_size) { working_space_size_ = work_space_size; }
+  void set_absolute_error(double absolute_error) { absolute_error_ = absolute_error; }
+  void set_relative_error(double relative_error) { relative_error_ = relative_error; }
+  void set_working_space_size(int work_space_size) { working_space_size_ = work_space_size; }
 
   //endregion
 
@@ -223,7 +223,7 @@ class Integrator
    * @param limit_superior The upper limit of the integral
    * @return The numerical approximation of the integral
    */
-  double DefiniteIntegral(x_type limit_inferior, x_type limit_superior) const
+  double definite_integral(x_type limit_inferior, x_type limit_superior) const
   {
     // Quadrature Adaptive General-integrand with Singularities (QAGS):
     // For mor information: https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qags#c.gsl_integration_qags
@@ -250,7 +250,7 @@ class Integrator
    * @param limit_superior The upper limit of the integral
    * @return The numerical approximation of the integral
    */
-  double DefiniteIntegralFast(x_type limit_inferior, x_type limit_superior) const
+  double definite_integral_fast(x_type limit_inferior, x_type limit_superior) const
   {
     size_t number_of_evaluations = 0;
     // Quadrature Non-adaptive General-integrand (QNG):
@@ -276,7 +276,7 @@ class Integrator
    * @param limit_inferior The lower limit of the integral
    * @return The numerical approximation of the integral
    */
-  double UpperSemiInfiniteIntegral(x_type limit_inferior)
+  double upper_semi_infinite_integral(x_type limit_inferior)
   {
     // Quadrature Adaptive General-integration on Infinite Upper interval (QAGIU):
     // For more information: https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qagiu#c.gsl_integration_qagiu
@@ -301,7 +301,7 @@ class Integrator
    * @param limit_superior The upper limit of the integral
    * @return The numerical approximation of the integral
    */
-  double LowerSemiInfiniteIntegral(x_type limit_superior)
+  double lower_semi_infinite_integral(x_type limit_superior)
   {
     // Quadrature Adaptive General-integration on Infinite Lower interval (QAGIL):
     // For more information: https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qagiu#c.gsl_integration_qagil
@@ -324,7 +324,7 @@ class Integrator
    *
    * @return The numerical approximation of the integral
    */
-  double FullInfiniteIntegral()
+  double full_infinite_integral()
   {
     // Quadrature Adaptive General-integration on Infinite Lower interval (QAGI):
     // For more information: https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qagiu#c.gsl_integration_qagi

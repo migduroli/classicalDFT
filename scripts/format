@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+format() {
+  message "info" "Format"
+
+  if ! (command -v clang-format &>/dev/null); then
+    message "error" "clang-format is not available"
+    exit 1
+  fi
+
+  find include src tests -name "*.h" -o -name "*.cpp" | xargs clang-format -i
+  message "success" "Format completed"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  format "$@"
+fi

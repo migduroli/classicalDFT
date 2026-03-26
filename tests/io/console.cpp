@@ -1,13 +1,13 @@
 #include <gtest/gtest.h>
 
-#include "dft_lib/utils/console.h"
+#include "dft_lib/io/console.h"
 
 //region Methods
 TEST(console, write_works_ok)
 {
   testing::internal::CaptureStdout();
 
-  console::Write("test");
+  console::write("test");
   std::string output = testing::internal::GetCapturedStdout();
 
   auto expected_str = std::string("test");
@@ -18,7 +18,7 @@ TEST(console, write_line_works_ok)
 {
   testing::internal::CaptureStdout();
 
-  console::WriteLine("test");
+  console::write_line("test");
   std::string output = testing::internal::GetCapturedStdout();
 
   auto expected_str = std::string("test\n");
@@ -29,7 +29,7 @@ TEST(console, write_line_intializer_list_works_ok)
 {
   testing::internal::CaptureStdout();
 
-  console::WriteLine({"test", "one", "two"});
+  console::write_line({"test", "one", "two"});
   std::string output = testing::internal::GetCapturedStdout();
 
   auto expected_str = std::string("test\none\ntwo\n");
@@ -40,7 +40,7 @@ TEST(console, new_line_works_ok)
 {
   testing::internal::CaptureStdout();
 
-  console::NewLine();
+  console::new_line();
   std::string output = testing::internal::GetCapturedStdout();
 
   auto expected_str = std::string("\n");

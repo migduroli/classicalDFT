@@ -24,8 +24,8 @@ class FakePotential : public intermolecular::Potential
  public:
   FakePotential(): intermolecular::Potential() {}
   FakePotential(double sigma, double epsilon, double r_cutoff): Potential(sigma, epsilon, r_cutoff) {}
-  double FindHardCoreDiameter() const override { return 0; }
-  double FindRMin() const override { return 0; }
+  double find_hard_core_diameter() const override { return 0; }
+  double find_r_min() const override { return 0; }
 };
 
 TEST(intermolecular_potential, potential_cttor_works_ok)
@@ -49,20 +49,20 @@ TEST(intermolecular_potential, potential_cttor_works_ok)
 
   EXPECT_DOUBLE_EQ(v_test.v_potential(0.5), 0.25);
 
-  v_test.SetBHPerturbation();
+  v_test.set_bh_perturbation();
   EXPECT_DOUBLE_EQ(v_test.r_attractive_min(), DEFAULT_LENGTH_SCALE);
   EXPECT_DOUBLE_EQ(v_test.w_repulsive(0), DEFAULT_ZERO);
   EXPECT_DOUBLE_EQ(v_test.w_repulsive(0.5), 0.25);
 
-  v_test.SetWCALimit(0.5);
+  v_test.set_wca_limit(0.5);
   EXPECT_DOUBLE_EQ(v_test.r_attractive_min(), 0.5);
 
-  auto d_hs = v_test.FindHardSphereDiameter(0);
+  auto d_hs = v_test.find_hard_sphere_diameter(0);
   EXPECT_DOUBLE_EQ(d_hs, DEFAULT_LENGTH_SCALE);
-  d_hs = v_test.FindHardSphereDiameter(0.1);
+  d_hs = v_test.find_hard_sphere_diameter(0.1);
   EXPECT_DOUBLE_EQ(d_hs, 0.719752609493357);
 
-  auto vdw = v_test.ComputeVanDerWaalsIntegral(0.5);
+  auto vdw = v_test.compute_van_der_waals_integral(0.5);
   EXPECT_DOUBLE_EQ(vdw, 0);
 }
 
@@ -110,7 +110,7 @@ TEST(intermolecular_potential, potential_attractive_part_ok)
 TEST(intermolecular_potential, potential_attractive_part_bh_ok)
 {
   auto twf = tenWoldeFrenkel();
-  twf.SetBHPerturbation();
+  twf.set_bh_perturbation();
 
   auto v_actual = twf.w_attractive(0.0);
   EXPECT_DOUBLE_EQ(0.0, v_actual);
@@ -142,7 +142,7 @@ TEST(intermolecular_potential, potential_repulsive_part_ok)
   expected = 0.0;
   EXPECT_DOUBLE_EQ(expected, actual);
 
-  lj.SetBHPerturbation();
+  lj.set_bh_perturbation();
 
   r = 0.999 * lj.r_zero();
   actual = lj.w_repulsive(r);
@@ -172,7 +172,7 @@ TEST(intermolecular_potential, WCA_split_works_ok)
 TEST(intermolecular_potential, WCA_split_works_with_BH_ok)
 {
   auto lj = LennardJones();
-  lj.SetBHPerturbation();
+  lj.set_bh_perturbation();
 
   auto x = arma::linspace(0.5, 5, 100);
   auto expected = lj(x);

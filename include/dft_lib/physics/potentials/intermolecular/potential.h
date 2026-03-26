@@ -202,22 +202,22 @@ class Potential
   std::string identifier() const;
 
   /// Distance from origin that attractive continuate extends
-  void SetWCALimit(double r);
+  void set_wca_limit(double r);
 
   /// Use the Barker-Henderson split of the potential
-  void SetBHPerturbation();
+  void set_bh_perturbation();
 
   /// Computes the hard-core diameter of the potential (e.g., zero for LJ). The hard-core diameter
   /// determines the integration lower limit when computing the hard-sphere diameter.
-  virtual double FindHardCoreDiameter() const = 0;
+  virtual double find_hard_core_diameter() const = 0;
   /// Computes the position where the potential reaches its minimum
-  virtual double FindRMin() const = 0;
+  virtual double find_r_min() const = 0;
 
   /// Computes the hard-sphere diameter by numerical integration
-  double FindHardSphereDiameter(double kT);
+  double find_hard_sphere_diameter(double kT);
 
   /// Compute the van der Waals pair-correlation-integral contribution to the free energy
-  double ComputeVanDerWaalsIntegral(double kT);
+  double compute_van_der_waals_integral(double kT);
   //endregion
 
   //region Overloads:
@@ -285,8 +285,8 @@ class LennardJones final: public Potential
 
   //region Methods:
 
-  double FindHardCoreDiameter() const override;
-  double FindRMin() const override;
+  double find_hard_core_diameter() const override;
+  double find_r_min() const override;
 
   //endregion
 };
@@ -358,8 +358,8 @@ class tenWoldeFrenkel final: public Potential
 
   //region Methods:
 
-  double FindHardCoreDiameter() const override;
-  double FindRMin() const override;
+  double find_hard_core_diameter() const override;
+  double find_r_min() const override;
 
   //endregion
 };
@@ -418,8 +418,8 @@ class WangRamirezDobnikarFrenkel final: public Potential
 
   //region Methods:
 
-  double FindHardCoreDiameter() const override;
-  double FindRMin() const override;
+  double find_hard_core_diameter() const override;
+  double find_r_min() const override;
 
   //endregion
 };

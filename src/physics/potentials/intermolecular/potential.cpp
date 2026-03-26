@@ -1,5 +1,5 @@
 #include "dft_lib/physics/potentials/intermolecular/potential.h"
-#include "dft_lib/utils/functions.h"
+#include "dft_lib/numerics/functions.h"
 
 #include <cmath>
 
@@ -111,9 +111,9 @@ arma::vec Potential::w_repulsive(const arma::vec& r) const
   return arma::vec(this->w_repulsive(arma::conv_to<std::vector<double>>::from(r)));
 }
 
-void Potential::SetWCALimit(double r) { r_attractive_min_ = r; }
+void Potential::set_wca_limit(double r) { r_attractive_min_ = r; }
 
-void Potential::SetBHPerturbation()
+void Potential::set_bh_perturbation()
 {
   bh_perturbation_ = true;
   r_attractive_min_ = r_zero();
@@ -162,17 +162,17 @@ double Potential::w_attractive_r2(double r_squared) const
 
 double Potential::vdw_kernel(double r) const { return r*r*w_attractive(r); }
 
-double Potential::FindHardSphereDiameter(double kT)
+double Potential::find_hard_sphere_diameter(double kT)
 {
   kT_ = kT;
-  auto dHardCore = FindHardCoreDiameter();
+  auto dHardCore = find_hard_core_diameter();
   auto rLimit = bh_perturbation_ ? r_zero() : r_min();
   auto integrator = Integrator<Potential>(*this, &Potential::bh_diameter_kernel, 1e-4, 1e-6);
-  auto dHardSphere = dHardCore + integrator.DefiniteIntegral(dHardCore, rLimit);
+  auto dHardSphere = dHardCore + integrator.definite_integral(dHardCore, rLimit);
   return dHardSphere;
 }
 
-double Potential::ComputeVanDerWaalsIntegral(double kT)
+double Potential::compute_van_der_waals_integral(double kT)
 {
   kT_ = kT;
   auto prefactor = (2*M_PI/kT);
@@ -180,9 +180,9 @@ double Potential::ComputeVanDerWaalsIntegral(double kT)
 
   auto limit_superior = std::max(r_cutoff(), 0.0);
   auto integral = bh_perturbation() ?
-                  integrator.DefiniteIntegral(r_zero(), limit_superior)
-                                    : (integrator.DefiniteIntegral(r_attractive_min(), limit_superior)
-                                       + integrator.DefiniteIntegral(r_min(), limit_superior));
+                  integrator.definite_integral(r_zero(), limit_superior)
+                                    : (integrator.definite_integral(r_attractive_min(), limit_superior)
+                                       + integrator.definite_integral(r_min(), limit_superior));
 
   return prefactor * integral;
 }
@@ -201,7 +201,7 @@ LennardJones::LennardJones(): Potential()
 {
   potential_id_ = PotentialName::LennardJones;
   epsilon_shift_ = (r_cutoff_ < 0 ? 0.0 : this->vr_(r_cutoff_));
-  r_min_ = this->FindRMin();
+  r_min_ = this->find_r_min();
   v_min_ = this->v_potential(r_min_);
   r_zero_ = std::pow(0.5 * std::sqrt(1 + epsilon_shift_) + 0.5, -1.0/6.0);
 }
@@ -211,7 +211,7 @@ LennardJones::LennardJones(double sigma, double epsilon, double r_cutoff)
 {
   potential_id_ = PotentialName::LennardJones;
   epsilon_shift_ = (r_cutoff_ < 0 ? 0.0 : this->vr_(r_cutoff_));
-  r_min_ = this->FindRMin();
+  r_min_ = this->find_r_min();
   v_min_ = this->v_potential(r_min_);
   r_zero_ = std::pow(0.5 * std::sqrt(1 + epsilon_shift_) + 0.5, -1.0/6.0);
 }
@@ -230,9 +230,9 @@ double LennardJones::vr2_(double r2) const
   return 4 * epsilon_ * (y6 * y6 - y6);
 }
 
-double LennardJones::FindRMin() const { return std::pow(2.0, 1.0/6.0) * sigma_; }
+double LennardJones::find_r_min() const { return std::pow(2.0, 1.0/6.0) * sigma_; }
 
-double LennardJones::FindHardCoreDiameter() const { return 0; }
+double LennardJones::find_hard_core_diameter() const { return 0; }
 
 //endregion
 
@@ -242,7 +242,7 @@ tenWoldeFrenkel::tenWoldeFrenkel(): Potential()
 {
   potential_id_ = PotentialName::tenWoldeFrenkel;
   alpha_ = DEFAULT_ALPHA_PARAMETER;
-  r_min_ = this->FindRMin();
+  r_min_ = this->find_r_min();
   v_min_  = this->v_potential(r_min_);
   r_zero_ = std::sqrt(1 + std::pow(25 * sqrt(1+epsilon_shift_) + 25, -1.0/3.0));
   epsilon_shift_ = (r_cutoff_ <= 0.0 ? 0.0 : this->vr_(r_cutoff_));
@@ -253,7 +253,7 @@ tenWoldeFrenkel::tenWoldeFrenkel(double sigma, double epsilon, double r_cutoff, 
 {
   potential_id_ = PotentialName::tenWoldeFrenkel;
   epsilon_shift_ = (r_cutoff_ <= 0.0 ? 0.0 : this->vr_(r_cutoff_));
-  r_min_ = this->FindRMin();
+  r_min_ = this->find_r_min();
   v_min_  = this->v_potential(r_min_);
   r_zero_ = std::sqrt(1 + std::pow(25 * sqrt(1+epsilon_shift_) + 25, -1.0/3.0));
 }
@@ -281,9 +281,9 @@ double tenWoldeFrenkel::vr2_(double r2) const
   return (4 * epsilon_ / (alpha_ * alpha_)) * (y3 * y3 - alpha_ * y3);
 }
 
-double tenWoldeFrenkel::FindHardCoreDiameter() const { return sigma_; }
+double tenWoldeFrenkel::find_hard_core_diameter() const { return sigma_; }
 
-double tenWoldeFrenkel::FindRMin() const
+double tenWoldeFrenkel::find_r_min() const
 {
   return sigma_ * std::sqrt(1 + std::pow(2.0 /alpha_, 1.0/3.0));
 }
@@ -315,7 +315,7 @@ WangRamirezDobnikarFrenkel::WangRamirezDobnikarFrenkel(): Potential()
               * std::pow(2 * ((r_cutoff_ / sigma_) * (r_cutoff_ / sigma_)-1)/3.0, -3.0);
   epsilon_shift_ = 0.0;
 
-  r_min_ = this->FindRMin();
+  r_min_ = this->find_r_min();
   v_min_ = this->v_potential(r_min_);
   r_zero_ = 1.0;
 }
@@ -330,14 +330,14 @@ WangRamirezDobnikarFrenkel::WangRamirezDobnikarFrenkel(double sigma, double epsi
                 * std::pow(2 * ((r_cutoff / sigma) * (r_cutoff / sigma)-1)/3.0, -3.0);
   epsilon_shift_ = 0.0;
 
-  r_min_  = this->FindRMin();
+  r_min_  = this->find_r_min();
   v_min_ = this->v_potential(r_min_);
   r_zero_ = 1.0;
 }
 
-double WangRamirezDobnikarFrenkel::FindHardCoreDiameter() const { return 0; }
+double WangRamirezDobnikarFrenkel::find_hard_core_diameter() const { return 0; }
 
-double WangRamirezDobnikarFrenkel::FindRMin() const
+double WangRamirezDobnikarFrenkel::find_r_min() const
 {
   return r_cutoff_ * std::pow((1.0 + 2.0*(r_cutoff_/sigma_) * (r_cutoff_/sigma_))/3.0, -0.5);
 }

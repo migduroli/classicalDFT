@@ -100,20 +100,20 @@ TEST(integrator, setters_works_ok_test) {
   auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
 
   auto expected_val = 1e-7;
-  integrator.SetAbsoluteError(expected_val);
+  integrator.set_absolute_error(expected_val);
   EXPECT_DOUBLE_EQ(
       integrator.absolute_error_tolerance(),
       expected_val
   );
 
-  integrator.SetRelativeError(expected_val);
+  integrator.set_relative_error(expected_val);
   EXPECT_DOUBLE_EQ(
       integrator.relative_error_tolerance(),
       expected_val
   );
 
   auto expected_size = 15000;
-  integrator.SetWorkingSpaceSize(expected_size);
+  integrator.set_working_space_size(expected_size);
   EXPECT_EQ(
       integrator.gsl_working_space_size(),
       expected_size
@@ -126,7 +126,7 @@ TEST(integrator, definite_integral_works_ok_test)
   auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
 
   auto expected_result = 0.5;
-  auto actual_result = integrator.DefiniteIntegral(0, -log(0.5));
+  auto actual_result = integrator.definite_integral(0, -log(0.5));
 
   EXPECT_DOUBLE_EQ(
       expected_result,
@@ -148,7 +148,7 @@ TEST(integrator, definite_integral_fast_works_ok_test)
   auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
 
   auto expected_result = 0.5;
-  auto actual_result = integrator.DefiniteIntegralFast(0, -log(0.5));
+  auto actual_result = integrator.definite_integral_fast(0, -log(0.5));
 
   EXPECT_DOUBLE_EQ(
       expected_result,
@@ -170,7 +170,7 @@ TEST(integrator, upper_semi_infinite_integral_works_ok_test)
   auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
 
   double expected_result = 1.0;
-  auto actual_result = integrator.UpperSemiInfiniteIntegral(0);
+  auto actual_result = integrator.upper_semi_infinite_integral(0);
 
   EXPECT_NEAR(
       expected_result,
@@ -194,7 +194,7 @@ TEST(integrator, lower_semi_infinite_integral_works_ok_test)
   auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::PositiveExp);
 
   double expected_result = 1.0;
-  auto actual_result = integrator.LowerSemiInfiniteIntegral(0);
+  auto actual_result = integrator.lower_semi_infinite_integral(0);
 
   EXPECT_NEAR(
       expected_result,
@@ -218,7 +218,7 @@ TEST(integrator, infinite_integral_works_ok_test)
   auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NormalDist);
 
   double expected_result = 1.0;
-  auto actual_result = integrator.FullInfiniteIntegral();
+  auto actual_result = integrator.full_infinite_integral();
 
   EXPECT_NEAR(
       expected_result,

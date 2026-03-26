@@ -9,9 +9,9 @@
 #include "dft_lib/exceptions/parameter_exceptions.h"
 //endregion
 
-//region Utils
-#include "dft_lib/utils/config_parser.h"
-#include "dft_lib/utils/console.h"
+//region IO
+#include "dft_lib/io/config_parser.h"
+#include "dft_lib/io/console.h"
 //endregion
 
 //region Numerics

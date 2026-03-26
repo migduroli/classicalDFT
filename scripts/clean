@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+BUILD_DIR="${BUILD_DIR:-build}"
+
+clean() {
+  message "info" "Clean project"
+
+  for folder in "$BUILD_DIR" cmake-build-debug cmake-build-release; do
+    if [[ -d "$folder" ]]; then
+      rm -rf "$folder"
+      message "success" "Deleted: $folder"
+    fi
+  done
+
+  find . -name "*.o" -o -name "*.a" -o -name "*.so" -o -name "*.dylib" | \
+    grep -v ".git" | xargs rm -f 2>/dev/null || true
+
+  message "success" "Clean completed"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  clean "$@"
+fi

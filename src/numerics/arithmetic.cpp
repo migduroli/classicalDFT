@@ -13,7 +13,7 @@ namespace arithmetic
 {
 namespace summation {
 
-return_type KahanBabuskaAdd(x_type x, x_type sum, error_type error)
+return_type kahan_babuska_add(x_type x, x_type sum, error_type error)
 {
   auto c_error = error.front();
   auto x_corrected = x - c_error;
@@ -23,7 +23,7 @@ return_type KahanBabuskaAdd(x_type x, x_type sum, error_type error)
   return return_type{ sum, error_type{c_error} };
 }
 
-return_type KahanBabuskaSum(const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type & error_ini)
+return_type kahan_babuska_sum(const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type & error_ini)
 {
   // The method is given in here:
   // wikipedia: https://en.wikipedia.org/wiki/Kahan_summation_algorithm#The_algorithm
@@ -33,14 +33,14 @@ return_type KahanBabuskaSum(const std::vector<x_type>& x_series, const x_type& s
 
   for (const auto& x : x_series)
   {
-    std::tie(sum, error) = KahanBabuskaAdd(x, sum, error);
+    std::tie(sum, error) = kahan_babuska_add(x, sum, error);
   }
 
   // When catching the result we need to use std::tie(x, y) [https://en.cppreference.com/w/cpp/utility/tuple]
   return return_type{ sum, error };
 }
 
-return_type KahanBabuskaNeumaierAdd(x_type x, x_type sum, error_type error)
+return_type kahan_babuska_neumaier_add(x_type x, x_type sum, error_type error)
 {
   auto t = sum + x;
   auto c_error = error.front();
@@ -56,7 +56,7 @@ return_type KahanBabuskaNeumaierAdd(x_type x, x_type sum, error_type error)
   return return_type{ sum, error_type{c_error} };
 }
 
-return_type KahanBabuskaNeumaierSum(const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type & error_ini)
+return_type kahan_babuska_neumaier_sum(const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type & error_ini)
 {
   // The method is given in here:
   // wikipedia: https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
@@ -66,14 +66,14 @@ return_type KahanBabuskaNeumaierSum(const std::vector<x_type>& x_series, const x
 
   for (const auto& x : x_series)
   {
-    std::tie(sum, error) = KahanBabuskaNeumaierAdd(x, sum, error);
+    std::tie(sum, error) = kahan_babuska_neumaier_add(x, sum, error);
   }
 
   sum += std::accumulate(error.begin(), error.end(), 0.0);
   return return_type{ sum, error };
 }
 
-return_type KahanBabuskaKleinAdd(x_type x, x_type sum, error_type error)
+return_type kahan_babuska_klein_add(x_type x, x_type sum, error_type error)
 {
   auto t = sum + x;
   auto err = error;
@@ -106,7 +106,7 @@ return_type KahanBabuskaKleinAdd(x_type x, x_type sum, error_type error)
   return return_type{sum, err};
 }
 
-return_type KahanBabuskaKleinSum(const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type & error_ini)
+return_type kahan_babuska_klein_sum(const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type & error_ini)
 {
   // The method is given in here:
   // wikipedia: https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
@@ -116,7 +116,7 @@ return_type KahanBabuskaKleinSum(const std::vector<x_type>& x_series, const x_ty
 
   for (const auto& x : x_series)
   {
-    std::tie(sum, error) = KahanBabuskaKleinAdd(x, sum, error);
+    std::tie(sum, error) = kahan_babuska_klein_add(x, sum, error);
   }
 
   sum += std::accumulate(error.begin(), error.end(), 0.0);
@@ -132,20 +132,20 @@ CompensatedSum::CompensatedSum(summation::Type type)
 {
   if (type == summation::Type::KahanBabuskaKlein) {
     error_ = std::vector<double>{0.0, 0.0};
-    method_ = &KahanBabuskaKleinAdd;
+    method_ = &kahan_babuska_klein_add;
   }
   else if (type == summation::Type::KahanBabuska){
     error_ = std::vector<double>{0.0};
-    method_ = &KahanBabuskaAdd;
+    method_ = &kahan_babuska_add;
   }
   else if (type == summation::Type::KahanBabuskaNeumaier){
     error_ = std::vector<double>{0.0};
-    method_ = &KahanBabuskaNeumaierAdd;
+    method_ = &kahan_babuska_neumaier_add;
   }
   else {
-    console::Warning("Method not implemented yer, defaulting to Kahan-Babuska-Neumaier");
+    console::warning("Method not implemented yer, defaulting to Kahan-Babuska-Neumaier");
     error_ = std::vector<double>{0.0};
-    method_ = &KahanBabuskaNeumaierAdd;
+    method_ = &kahan_babuska_neumaier_add;
   }
 }
 
@@ -154,7 +154,7 @@ void CompensatedSum::add(x_type value)
   std::tie(sum_, error_) = this->method_(value, sum_, error_);
 }
 
-x_type CompensatedSum::Sum() const
+x_type CompensatedSum::sum() const
 {
   if (this->type_ == summation::Type::KahanBabuska) { return this->sum_; }
   return sum_ + std::accumulate(error_.begin(),error_.end(), 0.0);
@@ -162,7 +162,7 @@ x_type CompensatedSum::Sum() const
 
 CompensatedSum::operator double() const
 {
-  return this->Sum();
+  return this->sum();
 }
 
 CompensatedSum& CompensatedSum::operator+=(const x_type x)
@@ -256,7 +256,7 @@ CompensatedSum& CompensatedSum::operator=(x_type x)
 
 std::ostream& operator<<(std::ostream& output, const CompensatedSum& obj)
 {
-  output << obj.Sum();
+  output << obj.sum();
   return output;
 }
 

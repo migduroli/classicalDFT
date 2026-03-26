@@ -30,7 +30,7 @@ namespace console
      * @param[in] msg the message string to be formatted
      * @return std::string
      */
-    static std::string Bold(const std::string& msg)
+    static std::string bold(const std::string& msg)
     {
       return "\x1b[1m" + msg + "\x1b[0m";
     }
@@ -40,7 +40,7 @@ namespace console
      * @param[in] msg the message string to be formatted
      * @return std::string
      */
-    static std::string Blink(const std::string& msg)
+    static std::string blink(const std::string& msg)
     {
       return "\033[33;5;7m" + msg + "\033[0m";
     }
@@ -51,7 +51,7 @@ namespace console
    * @param[in] string message to write in the terminal
    */
   template <class T>
-  static void Write(const T& msg)
+  static void write(const T& msg)
   {
     std::cout << msg;
   }
@@ -61,7 +61,7 @@ namespace console
    * @param[in] string message to write in the terminal
    */
   template <class T>
-  static void WriteLine(const T& msg)
+  static void write_line(const T& msg)
   {
     std::cout << msg << std::endl;
   }
@@ -71,7 +71,7 @@ namespace console
   * @param[in] A initializer list of messages to write in the terminal
   */
   template <class T>
-  static void WriteLine(const std::initializer_list<T>& msg)
+  static void write_line(const std::initializer_list<T>& msg)
   {
     for (const auto& m : msg) {
       std::cout << m << std::endl;
@@ -81,7 +81,7 @@ namespace console
   /**
    * @brief Wrapper of std::endl
    */
-  static void NewLine()
+  static void new_line()
   {
     std::cout << std::endl;
   }
@@ -89,7 +89,7 @@ namespace console
   /**
    * @brief Pauses the terminal until any character is introduced
    */
-  static void Pause()
+  static void pause()
   {
     std::cin.ignore();
   }
@@ -98,7 +98,7 @@ namespace console
    * @brief Wrapper of the std::in method which returns whatever written in terminal as a std::string
    * @returns std::string the written characters in terminal
    */
-  static std::string ReadLine()
+  static std::string read_line()
   {
     std::string out;
     std::cin >> out;
@@ -108,9 +108,9 @@ namespace console
   /**
    * @brief Pauses the terminal until any character is introduced
    */
-  static void Wait()
+  static void wait()
   {
-    console::WriteLine("Press enter to continue...");
+    console::write_line("Press enter to continue...");
     std::cin.ignore();
   }
 
@@ -130,10 +130,10 @@ namespace console
    * a decorator text "[i] Info" in front of the message
    * @param[in] msg the message to write as "information" message
    */
-  static void Info(const std::string& msg)
+  static void info(const std::string& msg)
   {
     std::string message = color::GREEN + _now_str() + " | " + "[i] Info: " + msg + color::RESET;
-    console::WriteLine(message);
+    console::write_line(message);
   }
 
   /**
@@ -141,10 +141,10 @@ namespace console
    * a decorator text "[?] Warning" in front of the message
    * @param[in] msg the message to write as "warning" message
    */
-  static void Warning(const std::string& msg)
+  static void warning(const std::string& msg)
   {
     std::string message = color::YELLOW + _now_str() + " | " + "[?] Warning: " + msg + color::RESET;
-    console::WriteLine(message);
+    console::write_line(message);
   }
 
   /**
@@ -152,10 +152,10 @@ namespace console
    * a decorator text "[!] Error" in front of the message
    * @param[in] msg the message to write as "error" message
    */
-  static void Error(const std::string& msg)
+  static void error(const std::string& msg)
   {
     std::string message = color::RED + _now_str() + " | " + "[!] Error: " + msg + color::RESET;
-    console::WriteLine(message);
+    console::write_line(message);
   }
 
   /**
@@ -163,10 +163,10 @@ namespace console
    * a decorator text "[+] Debug" in front of the message
    * @param[in] msg the message to write as "warning" message
    */
-  static void Debug(const std::string& msg)
+  static void debug(const std::string& msg)
   {
     std::string message = color::CYAN + _now_str() + " | " + "[+] Debug: " + msg + color::RESET;
-    console::WriteLine(message);
+    console::write_line(message);
   }
 }
 

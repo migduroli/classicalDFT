@@ -55,23 +55,23 @@ void SUQMesh::plot() const
 #ifdef DFT_HAS_GRACE
   auto g = dft_core::grace_plot::Grace();
   for (const auto& v : vertices_raw_)
-  { g.AddPoint(v.coordinates()[0], v.coordinates()[1]); }
+  { g.add_point(v.coordinates()[0], v.coordinates()[1]); }
 
   auto dx = std::vector<double>{
     0.1 * dimensions_[0], 0.1 * dimensions_[1]
   };
 
-  g.SetLimits(
+  g.set_limits(
       {origin_[0]-dx[0], (dimensions_[0]+origin_[0]) + dx[0]},
       {origin_[1]-dx[1], (dimensions_[1]+origin_[1]) + dx[1]}
       );
 
-  g.SetLineType(dft_core::grace_plot::LineStyle::NO_LINE, 0);
-  g.SetSymbol(dft_core::grace_plot::Symbol::SQUARE, 0);
-  g.SetSymbolColor(dft_core::grace_plot::Color::BLUE, 0);
-  g.SetSymbolFill(dft_core::grace_plot::Color::DARKGREEN, 0);
+  g.set_line_type(dft_core::grace_plot::LineStyle::NO_LINE, 0);
+  g.set_symbol(dft_core::grace_plot::Symbol::SQUARE, 0);
+  g.set_symbol_color(dft_core::grace_plot::Color::BLUE, 0);
+  g.set_symbol_fill(dft_core::grace_plot::Color::DARKGREEN, 0);
 
-  g.RedrawAndWait();
+  g.redraw_and_wait();
 #else
   throw std::runtime_error("Grace not available: build with -DDFT_USE_GRACE=ON");
 #endif

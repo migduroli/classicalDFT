@@ -61,8 +61,8 @@ set(DFT_LIB_SOURCES
     # Exceptions
     src/exceptions/grace_exceptions.cpp
     src/exceptions/parameter_exceptions.cpp
-    # Utils
-    src/utils/config_parser.cpp
+    # IO
+    src/io/config_parser.cpp
     # Numerics
     src/numerics/arithmetic.cpp
     src/numerics/integration.cpp

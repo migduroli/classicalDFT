@@ -77,14 +77,14 @@ class ConfigParser
    *
    * @param[in] config_file std::string with the full path to find the configuration file
    */
-  void SetConfigFilePath(const std::string& config_file);
+  void set_config_file_path(const std::string& config_file);
 
   /**
    * #brief Setter of the  `config_file_type_` private attribute
    *
    * @param[in] file_type is one of the possible `config_parser::FileType` values
    */
-  void SetConfigFileType(const FileType& file_type);
+  void set_config_file_type(const FileType& file_type);
 
   /**
    * @brief Wrapper which decides the correct parser to use from `boost::property_tree` based
@@ -97,7 +97,7 @@ class ConfigParser
    * @throw boost::property_tree::xml_parser_error In case of error deserialising the property tree (if FileType::XML)
    * @throw boost::property_tree::info_parser_error In case of error deserialising the property tree (if FileType::INFO)
    */
-  void ReadConfigFile(const std::string& config_file, const FileType& file_type);
+  void read_config_file(const std::string& config_file, const FileType& file_type);
 
   //endregion
 

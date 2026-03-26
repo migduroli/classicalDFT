@@ -6,7 +6,7 @@
 #include <tuple>
 #include <functional>
 
-#include "dft_lib/utils/console.h"
+#include "dft_lib/io/console.h"
 
 namespace dft_core
 {
@@ -53,7 +53,7 @@ template <
     // This meta-function makes this function only available for numerical types
     typename = typename std::enable_if<std::is_arithmetic<x_type>::value, x_type>::type
 >
-x_type StandardVectorSum(const std::vector<x_type>& x_input)
+x_type standard_vector_sum(const std::vector<x_type>& x_input)
 {
   x_type result = std::accumulate(x_input.begin(), x_input.end(), static_cast<x_type>(0.0));
   return result;
@@ -79,8 +79,8 @@ x_type StandardVectorSum(const std::vector<x_type>& x_input)
  *  1) the sum value, and
  *  2) the status of the compensation in case we need to continue the sum later
  */
-return_type KahanBabuskaSum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type & error_ini = {0.0});
-return_type KahanBabuskaAdd(x_type x, x_type sum, error_type error);
+return_type kahan_babuska_sum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type & error_ini = {0.0});
+return_type kahan_babuska_add(x_type x, x_type sum, error_type error);
 
 
 /**
@@ -103,8 +103,8 @@ return_type KahanBabuskaAdd(x_type x, x_type sum, error_type error);
  *  1) the sum value, and
  *  2) the status of the compensation in case we need to continue the sum later
  */
-return_type KahanBabuskaNeumaierSum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type & error_ini = {0.0});
-return_type KahanBabuskaNeumaierAdd(x_type x, x_type sum, error_type error);
+return_type kahan_babuska_neumaier_sum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type & error_ini = {0.0});
+return_type kahan_babuska_neumaier_add(x_type x, x_type sum, error_type error);
 
 /**
  * @brief Standard implementation of the Kahan-Babuška-Klein summation algorithm (https://link.springer.com/article/10.1007/s00607-005-0139-x)
@@ -126,8 +126,8 @@ return_type KahanBabuskaNeumaierAdd(x_type x, x_type sum, error_type error);
  *  1) the sum value, and
  *  2) the status of the compensation in case we need to continue the sum later
  */
-return_type KahanBabuskaKleinSum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type & error_ini = {0.0, 0.0});
-return_type KahanBabuskaKleinAdd(x_type x, x_type sum, error_type error);
+return_type kahan_babuska_klein_sum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type & error_ini = {0.0, 0.0});
+return_type kahan_babuska_klein_add(x_type x, x_type sum, error_type error);
 
 // endregion
 
@@ -185,7 +185,7 @@ class CompensatedSum {
 
   // region Methods:
   /// Gets the value of the sum given the current error-vector state
-  x_type Sum() const;
+  x_type sum() const;
   // endregion
 
   // region Overloads:
