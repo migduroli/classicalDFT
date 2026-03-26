@@ -132,7 +132,7 @@ endif()
 # ── Examples ─────────────────────────────────────────────────────────────────
 if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/console)
-    add_subdirectory(examples/config_parser)
+    add_subdirectory(examples/config)
     add_subdirectory(examples/numerics/integration)
     add_subdirectory(examples/numerics/arithmetic)
     add_subdirectory(examples/geometry)
