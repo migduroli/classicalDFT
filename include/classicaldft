@@ -29,6 +29,8 @@
 #include "classicaldft_bits/physics/thermodynamics/enskog.h"
 #include "classicaldft_bits/physics/thermodynamics/eos.h"
 #include "classicaldft_bits/physics/crystal/lattice.h"
+#include "classicaldft_bits/physics/density/density.h"
+#include "classicaldft_bits/physics/species/species.h"
 // endregion
 
 // region Geometry

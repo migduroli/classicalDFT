@@ -76,6 +76,8 @@ set(DFT_LIB_SOURCES
     src/physics/potentials/intermolecular/potential.cpp
     src/physics/thermodynamics/eos.cpp
     src/physics/crystal/lattice.cpp
+    src/physics/density/density.cpp
+    src/physics/species/species.cpp
     # Geometry – base
     src/geometry/base/vertex.cpp
     src/geometry/base/element.cpp
@@ -149,6 +151,8 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/geometry)
     add_subdirectory(examples/physics/thermodynamics)
     add_subdirectory(examples/physics/crystal)
+    add_subdirectory(examples/physics/density)
+    add_subdirectory(examples/physics/species)
     if(DFT_USE_GRACE)
         add_subdirectory(examples/graphs)
         add_subdirectory(examples/physics/potentials/intermolecular)

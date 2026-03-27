@@ -1,0 +1,2 @@
+add_executable(example_species main.cpp)
+target_link_libraries(example_species PRIVATE classicaldft)

@@ -456,16 +456,133 @@ classicalDFT/
 
 **Goal:** Migrate the density profile and species management — the data layer of DFT.
 
-| Step | Task | Source | Details |
-|---|---|---|---|
-| 5.1 | `physics/density/density.h` | `Density.h/cpp` | `class Density` owns a `UniformMesh` and an `arma::vec` for the density profile. FFT via `FourierTransform`. Methods: `set`, `get`, `doFFT`, `getNumberAtoms`, `getCenterOfMass`, `writeVTK`, `initializeWithGaussians`, `expand`, `resize`. No raw arrays: use `operator[]` with bounds checking in debug builds |
-| 5.2 | `physics/density/external_field.h` | `Density.h`, `External_Field.h` | `class ExternalField` holds an `arma::vec` and species index. Serializable. Simple container |
-| 5.3 | Tests for density and external field | — | FFT round-trip, atom counting ($\sum\rho\,dV = N$), VTK output, Gaussian initialization |
-| 5.4 | `physics/species/species.h` | `Species.h` | `class Species`: owns `Density`, force vector, chemical potential. Constraint system (fixed mass, fixed background, homogeneous boundary). Alias coordinates ($\rho = \rho_{\min} + x^2$). Force management (zero, add, begin/end calculation). Reflection symmetry |
-| 5.5 | Tests for species | — | Alias round-trip ($x \to \rho \to x$), constraint enforcement, force accumulation |
-| 5.6 | Tag `v2.0.0-alpha.6` | | |
+#### Design decisions
 
-**Estimated scope:** 2-3 days.
+1. **Own periodic grid, not UniformMesh.** Legacy `Density` inherits from `Lattice`. We rejected composition with `UniformMesh` because the geometry mesh uses $N+1 = L/dx + 1$ vertices (standard for FEM meshes), while DFT periodic grids use $N = L/dx$ points (the boundary wraps to 0 and is not stored separately). `Density` owns its own grid parameters: `dx_`, `box_size_` (`arma::rowvec3`), `shape_` (`std::vector<long>` with $N_i = \lfloor L_i / dx \rfloor$). Grid accessors: `shape()`, `dx()`, `box_size()`, `cell_volume()`.
+
+2. **`arma::vec` for the density field.** The density profile is an `arma::vec` of length $N_\text{total}$. The `FourierTransform` owns its own FFTW-aligned buffers. To FFT: copy `arma::vec` into `FourierTransform::real()`, execute `forward()`, read Fourier data from `FourierTransform::fourier()`. Armadillo is the user-facing type; FFTW manages its own aligned memory internally.
+
+3. **External field is a plain `arma::vec` member of `Density`.** No separate class. `Density` holds an `arma::vec external_field_` (same length as density). The user sets it directly or leaves it zero-initialized. This matches the legacy design where `vWall_` lives inside `Density`.
+
+4. **Species owns its `Density`.** Each `Species` owns a `Density` via value semantics (move-constructed). The mesh can be shared across species by constructing each `Density` with the same parameters. No `std::shared_ptr` indirection needed at this stage.
+
+5. **Alias coordinates as virtual methods on Species.** The simple alias ($\rho = \rho_\min + x^2$) lives in `Species`. The FMT-bounded alias ($\eta < 1$) is a Phase 6 override in `FMTSpecies`. The Species methods are `virtual` for exactly this purpose.
+
+6. **No VTK, no Gaussian initialisation, no Boost serialisation.** VTK needs a separate utility (legacy had a memory leak). Gaussian init is a feature-branch experiment. Serialisation uses Armadillo's own `save()`/`load()` for binary I/O. All of these can be layered on later without changing the core API.
+
+7. **Compensated summation via existing `CompensatedSum`.** `dft_core::numerics::arithmetic::summation::CompensatedSum` is used for `number_of_atoms()` and any dot-product-style accumulations where numerical stability matters.
+
+#### Class: `Density`
+
+**Namespace:** `dft_core::physics::density`
+
+**Composes:**
+
+| Member | Type | Purpose |
+|---|---|---|
+| `dx_` | `double` | Grid spacing (uniform in all directions) |
+| `box_size_` | `arma::rowvec3` | Physical box dimensions $(L_x, L_y, L_z)$ |
+| `shape_` | `std::vector<long>` | Grid points per axis: $N_i = L_i / dx$ |
+| `rho_` | `arma::vec` | Density profile, length $N_x N_y N_z$ |
+| `external_field_` | `arma::vec` | External potential $V_\text{ext}(\mathbf{r})$, same length |
+| `fft_` | `numerics::fourier::FourierTransform` | FFT engine (FFTW-aligned buffers) |
+
+**Constructor:** `Density(double dx, const arma::rowvec3& box_size)`. Validates commensurability ($|L_i - N_i \cdot dx| < 10^{-10} dx$). Computes shape. Initializes `rho_` and `external_field_` to zeros. Initializes `FourierTransform` from shape.
+
+**Public API:**
+
+| Category | Method | Signature |
+|---|---|---|
+| Grid | `shape()` | `[[nodiscard]] const std::vector<long>& ... const noexcept` |
+| Grid | `dx()` | `[[nodiscard]] double ... const noexcept` |
+| Grid | `box_size()` | `[[nodiscard]] const arma::rowvec3& ... const noexcept` |
+| Grid | `cell_volume()` | `[[nodiscard]] double ... const noexcept` ($dx^3$) |
+| Read | `values()` | `[[nodiscard]] const arma::vec& ... const noexcept` |
+| Write | `values()` | `arma::vec& ... noexcept` |
+| Set | `set(const arma::vec&)` | Validates size, copies |
+| Set | `set(arma::uword, double)` | Single element |
+| Scale | `scale(double)` | `rho_ *= factor` |
+| External | `external_field()` | `const arma::vec&` / `arma::vec&` (two overloads) |
+| FFT | `forward_fft()` | Copy $\rho$ into FFT real buffer, execute forward |
+| FFT | `fft()` | `[[nodiscard]] const FourierTransform& ... const noexcept` |
+| Atoms | `number_of_atoms()` | $\sum_i \rho_i \cdot dV$ via `CompensatedSum` |
+| Energy | `external_field_energy()` | $\sum_i \rho_i \cdot V_{\text{ext},i} \cdot dV$ via `arma::dot` |
+| Stats | `min()` / `max()` | `arma::min(rho_)` / `arma::max(rho_)` |
+| COM | `center_of_mass()` | `[[nodiscard]] arma::rowvec3`, physical coordinates |
+| I/O | `save(filename)` / `load(filename)` | Binary via `arma::raw_binary` |
+| Size | `size()` | `[[nodiscard]] arma::uword ... const noexcept` |
+
+#### Class: `Species`
+
+**Namespace:** `dft_core::physics::species`
+
+**Composes:**
+
+| Member | Type | Purpose |
+|---|---|---|
+| `density_` | `Density` | Owned density profile |
+| `force_` | `arma::vec` | $\delta F / \delta \rho$, same length as density |
+| `chemical_potential_` | `double` | $\mu / k_BT$ |
+| `fixed_mass_` | `double` | If $> 0$, particle number constraint. Default $-1$ (unconstrained) |
+
+**Constructor:** `explicit Species(Density density, double chemical_potential = 0.0)`. Move-constructs `Density`. Zeros force vector.
+
+**Public API:**
+
+| Category | Method | Notes |
+|---|---|---|
+| Density | `density()` const / mutable | Two overloads |
+| Force | `force() const` | `const arma::vec&` |
+| Force | `zero_force()` | `force_.zeros()` |
+| Force | `add_to_force(const arma::vec&)` | `force_ += f` |
+| Force | `add_to_force(arma::uword, double)` | Point increment |
+| $\mu$ | `chemical_potential()` / `set_chemical_potential(double)` | |
+| Constraint | `fixed_mass()` / `set_fixed_mass(double)` | |
+| Protocol | `begin_force_calculation()` | Rescale $\rho$ to enforce $N = m_\text{fixed}$ |
+| Protocol | `end_force_calculation()` | Lagrange multiplier: $\mu = \sum dF_i \rho_i / m_\text{fixed}$, project |
+| Monitor | `convergence_monitor()` | $\lVert dF \rVert_\infty / dV$ |
+| Alias | `virtual set_density_from_alias(const arma::vec&)` | $\rho_i = \rho_\min + x_i^2$ |
+| Alias | `virtual density_alias() const` | $x_i = \sqrt{\max(0, \rho_i - \rho_\min)}$ |
+| Alias | `virtual alias_force(const arma::vec&) const` | $dF/dx_i = 2 x_i \cdot dF/d\rho_i$ |
+| Energy | `external_field_energy(bool accumulate_force)` | Delegates to `Density`; if flag, adds field to force |
+
+#### Test plan
+
+**`tests/physics/density/density.cpp`** (~25 tests):
+- Construction, size, zero-initialization, mesh accessors
+- `set(vec)` validates size; `set(index, val)`; `scale()`
+- `number_of_atoms()`: uniform $\rho \to N = \rho V$; compensated accuracy
+- `external_field_energy()`: uniform field/density, zero field
+- `forward_fft()`: constant $\rho \to$ only DC nonzero; sine wave $\to$ two peaks
+- `center_of_mass()`: uniform $\to$ center of box; localised peak
+- `min()` / `max()` with known values
+- `save()` / `load()` round-trip via temp file
+
+**`tests/physics/species/species.cpp`** (~20 tests):
+- Construction, density accessible, force zero
+- `zero_force()`, `add_to_force(vec)`, `add_to_force(i, val)`
+- Chemical potential set/get
+- Fixed mass: `begin_force_calculation()` rescaling
+- Fixed mass: `end_force_calculation()` Lagrange multiplier
+- Alias round-trip: $x \to \rho \to x$
+- Alias chain rule: `alias_force` vs numerical finite difference
+- `convergence_monitor()` = $\lVert dF \rVert_\infty / dV$
+- `external_field_energy` with/without force accumulation
+
+#### Execution order
+
+| Step | Task | Files | Status |
+|---|---|---|---|
+| 5.1 | `Density` header | `include/classicaldft_bits/physics/density/density.h` | |
+| 5.2 | `Density` source | `src/physics/density/density.cpp` | |
+| 5.3 | `Density` tests | `tests/physics/density/density.cpp` | |
+| 5.4 | `Species` header | `include/classicaldft_bits/physics/species/species.h` | |
+| 5.5 | `Species` source | `src/physics/species/species.cpp` | |
+| 5.6 | `Species` tests | `tests/physics/species/species.cpp` | |
+| 5.7 | Wire build | `CMakeLists.txt`, umbrella header | |
+| 5.8 | Build + test | All 437 existing + new tests pass | |
+| 5.9 | Density example | `examples/physics/density/` (main.cpp, CMakeLists.txt, Makefile, README.md) | |
+| 5.10 | Tag `v2.0.0-alpha.6` | | |
 
 ---
 

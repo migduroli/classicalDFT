@@ -1,0 +1,2 @@
+add_executable(example_density main.cpp)
+target_link_libraries(example_density PRIVATE classicaldft)
