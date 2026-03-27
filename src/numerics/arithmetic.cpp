@@ -16,8 +16,9 @@ namespace dft_core::numerics::arithmetic::summation {
     return return_type{sum, error_type{c_error}};
   }
 
-  return_type kahan_babuska_sum(const std::vector<x_type>& x_series, const x_type& sum_ini,
-                                const error_type& error_ini) {
+  return_type kahan_babuska_sum(
+      const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type& error_ini
+  ) {
     // The method is given in here:
     // wikipedia: https://en.wikipedia.org/wiki/Kahan_summation_algorithm#The_algorithm
 
@@ -44,8 +45,9 @@ namespace dft_core::numerics::arithmetic::summation {
     return return_type{sum, error_type{c_error}};
   }
 
-  return_type kahan_babuska_neumaier_sum(const std::vector<x_type>& x_series, const x_type& sum_ini,
-                                         const error_type& error_ini) {
+  return_type kahan_babuska_neumaier_sum(
+      const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type& error_ini
+  ) {
     // The method is given in here:
     // wikipedia: https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
 
@@ -87,8 +89,9 @@ namespace dft_core::numerics::arithmetic::summation {
     return return_type{sum, err};
   }
 
-  return_type kahan_babuska_klein_sum(const std::vector<x_type>& x_series, const x_type& sum_ini,
-                                      const error_type& error_ini) {
+  return_type kahan_babuska_klein_sum(
+      const std::vector<x_type>& x_series, const x_type& sum_ini, const error_type& error_ini
+  ) {
     // The method is given in here:
     // wikipedia: https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
 

@@ -19,7 +19,9 @@
 
 // region Numerics
 #include "classicaldft_bits/numerics/arithmetic.h"
+#include "classicaldft_bits/numerics/fourier.h"
 #include "classicaldft_bits/numerics/integration.h"
+#include "classicaldft_bits/numerics/spline.h"
 // endregion
 
 // region Physics
@@ -34,11 +36,13 @@
 // region 2D
 #include "classicaldft_bits/geometry/2D/element.h"
 #include "classicaldft_bits/geometry/2D/mesh.h"
+#include "classicaldft_bits/geometry/2D/uniform_mesh.h"
 // endregion
 
 // region 3D
 #include "classicaldft_bits/geometry/3D/element.h"
 #include "classicaldft_bits/geometry/3D/mesh.h"
+#include "classicaldft_bits/geometry/3D/uniform_mesh.h"
 // endregion
 
 // endregion

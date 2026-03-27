@@ -147,10 +147,13 @@ namespace dft_core::numerics::integration {
      * @param absolute_error
      * @param work_space_size
      */
-    explicit Integrator(const T& problem, class_method<T, x_type> method,
-                        double relative_error = DEFAULT_RELATIVE_ERROR_TOLERANCE,
-                        double absolute_error = DEFAULT_ABSOLUTE_ERROR_TOLERANCE,
-                        int work_space_size = DEFAULT_GSL_WORKING_SPACE_SIZE)
+    explicit Integrator(
+        const T& problem,
+        class_method<T, x_type> method,
+        double relative_error = DEFAULT_RELATIVE_ERROR_TOLERANCE,
+        double absolute_error = DEFAULT_ABSOLUTE_ERROR_TOLERANCE,
+        int work_space_size = DEFAULT_GSL_WORKING_SPACE_SIZE
+    )
         : working_space_size_(work_space_size),
           relative_error_(relative_error),
           absolute_error_(absolute_error),
@@ -220,8 +223,17 @@ namespace dft_core::numerics::integration {
       // Quadrature Adaptive General-integrand with Singularities (QAGS):
       // For mor information:
       // https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qags#c.gsl_integration_qags
-      gsl_integration_qags(&gsl_function_, limit_inferior, limit_superior, this->absolute_error_, this->relative_error_,
-                           this->working_space_size_, this->working_space_.get(), &this->result_, &this->error_);
+      gsl_integration_qags(
+          &gsl_function_,
+          limit_inferior,
+          limit_superior,
+          this->absolute_error_,
+          this->relative_error_,
+          this->working_space_size_,
+          this->working_space_.get(),
+          &this->result_,
+          &this->error_
+      );
 
       return this->result_;
     }
@@ -239,8 +251,16 @@ namespace dft_core::numerics::integration {
       // Quadrature Non-adaptive General-integrand (QNG):
       // For mor information:
       // https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qng#c.gsl_integration_qng
-      gsl_integration_qng(&gsl_function_, limit_inferior, limit_superior, this->absolute_error_, this->relative_error_,
-                          &this->result_, &this->error_, &number_of_evaluations);
+      gsl_integration_qng(
+          &gsl_function_,
+          limit_inferior,
+          limit_superior,
+          this->absolute_error_,
+          this->relative_error_,
+          &this->result_,
+          &this->error_,
+          &number_of_evaluations
+      );
 
       return this->result_;
     }
@@ -256,8 +276,16 @@ namespace dft_core::numerics::integration {
       // Quadrature Adaptive General-integration on Infinite Upper interval (QAGIU):
       // For more information:
       // https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qagiu#c.gsl_integration_qagiu
-      gsl_integration_qagiu(&gsl_function_, limit_inferior, this->absolute_error_, this->relative_error_,
-                            this->working_space_size_, this->working_space_.get(), &this->result_, &this->error_);
+      gsl_integration_qagiu(
+          &gsl_function_,
+          limit_inferior,
+          this->absolute_error_,
+          this->relative_error_,
+          this->working_space_size_,
+          this->working_space_.get(),
+          &this->result_,
+          &this->error_
+      );
 
       return this->result_;
     }
@@ -273,8 +301,16 @@ namespace dft_core::numerics::integration {
       // Quadrature Adaptive General-integration on Infinite Lower interval (QAGIL):
       // For more information:
       // https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qagiu#c.gsl_integration_qagil
-      gsl_integration_qagil(&gsl_function_, limit_superior, this->absolute_error_, this->relative_error_,
-                            this->working_space_size_, this->working_space_.get(), &this->result_, &this->error_);
+      gsl_integration_qagil(
+          &gsl_function_,
+          limit_superior,
+          this->absolute_error_,
+          this->relative_error_,
+          this->working_space_size_,
+          this->working_space_.get(),
+          &this->result_,
+          &this->error_
+      );
 
       return this->result_;
     }
@@ -288,8 +324,15 @@ namespace dft_core::numerics::integration {
       // Quadrature Adaptive General-integration on Infinite Lower interval (QAGI):
       // For more information:
       // https://www.gnu.org/software/gsl/doc/html/integration.html?highlight=gsl_integration_qagiu#c.gsl_integration_qagi
-      gsl_integration_qagi(&gsl_function_, this->absolute_error_, this->relative_error_, this->working_space_size_,
-                           this->working_space_.get(), &this->result_, &this->error_);
+      gsl_integration_qagi(
+          &gsl_function_,
+          this->absolute_error_,
+          this->relative_error_,
+          this->working_space_size_,
+          this->working_space_.get(),
+          &this->result_,
+          &this->error_
+      );
 
       return this->result_;
     }
@@ -324,11 +367,15 @@ namespace dft_core::numerics::integration {
      * @param absolute_error the absolute-error tolerance for the numerical method
      * @param relative_error the relative-error tolerance for the numerical method
      */
-    explicit FunctionIntegrator(general_method<return_type, x_type, params_type> method, const params_type& parameters,
-                                double absolute_error = DEFAULT_ABSOLUTE_ERROR_TOLERANCE,
-                                double relative_error = DEFAULT_RELATIVE_ERROR_TOLERANCE)
+    explicit FunctionIntegrator(
+        general_method<return_type, x_type, params_type> method,
+        const params_type& parameters,
+        double absolute_error = DEFAULT_ABSOLUTE_ERROR_TOLERANCE,
+        double relative_error = DEFAULT_RELATIVE_ERROR_TOLERANCE
+    )
         : Integrator<FunctionIntegrator<params_type, return_type, x_type>, x_type>(
-              *this, &FunctionIntegrator<params_type, return_type, x_type>::f, absolute_error, relative_error),
+              *this, &FunctionIntegrator<params_type, return_type, x_type>::f, absolute_error, relative_error
+          ),
           method_(method),
           parameters_(parameters) {}
 

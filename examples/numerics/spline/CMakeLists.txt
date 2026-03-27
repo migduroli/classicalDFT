@@ -1,0 +1,2 @@
+add_executable(example_spline main.cpp)
+target_link_libraries(example_spline PRIVATE classicaldft)

@@ -11,36 +11,36 @@ using Vector = std::vector<T>;
 
 // region Default values
 TEST(grace_plot, default_min_axis_value_test) {
-  EXPECT_DOUBLE_EQ(dft_core::grace_plot::default_min_axis_value, 0.0);
+  EXPECT_DOUBLE_EQ(dft_core::grace_plot::DEFAULT_MIN_AXIS_VALUE, 0.0);
 }
 
 TEST(grace_plot, default_max_axis_value_test) {
-  EXPECT_DOUBLE_EQ(dft_core::grace_plot::default_max_axis_value, 10.0);
+  EXPECT_DOUBLE_EQ(dft_core::grace_plot::DEFAULT_MAX_AXIS_VALUE, 10.0);
 }
 
 TEST(grace_plot, default_dataset_number_test) {
-  EXPECT_EQ(dft_core::grace_plot::default_dataset_id, 0);
+  EXPECT_EQ(dft_core::grace_plot::DEFAULT_DATASET_ID, 0);
 }
 
 TEST(grace_plot, default_x_y_size_test) {
-  EXPECT_EQ(dft_core::grace_plot::default_x_size, 800);
-  EXPECT_EQ(dft_core::grace_plot::default_y_size, 600);
+  EXPECT_EQ(dft_core::grace_plot::DEFAULT_X_SIZE, 800);
+  EXPECT_EQ(dft_core::grace_plot::DEFAULT_Y_SIZE, 600);
 }
 
 TEST(grace_plot, default_number_of_graphs_test) {
-  EXPECT_EQ(dft_core::grace_plot::default_number_of_graphs, 1);
+  EXPECT_EQ(dft_core::grace_plot::DEFAULT_NUMBER_OF_GRAPHS, 1);
 }
 
 TEST(grace_plot, default_offset_test) {
-  EXPECT_FLOAT_EQ(dft_core::grace_plot::default_offset, 0.1);
+  EXPECT_FLOAT_EQ(dft_core::grace_plot::DEFAULT_OFFSET, 0.1);
 }
 
 TEST(grace_plot, default_hspace_test) {
-  EXPECT_FLOAT_EQ(dft_core::grace_plot::default_horizontal_space, 0.15);
+  EXPECT_FLOAT_EQ(dft_core::grace_plot::DEFAULT_HORIZONTAL_SPACE, 0.15);
 }
 
 TEST(grace_plot, default_vspace_test) {
-  EXPECT_FLOAT_EQ(dft_core::grace_plot::default_vertical_space, 0.2);
+  EXPECT_FLOAT_EQ(dft_core::grace_plot::DEFAULT_VERTICAL_SPACE, 0.2);
 }
 // endregion
 

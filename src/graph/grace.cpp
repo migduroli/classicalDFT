@@ -11,11 +11,15 @@
 #include <string>
 
 namespace dft_core::grace_plot::command {
-  std::string arrange_command(const int& number_of_rows, const int& number_of_columns, const float& offset,
-                              const float& horizontal_gap, const float& vertical_gap) {
+  std::string arrange_command(
+      const int& number_of_rows,
+      const int& number_of_columns,
+      const float& offset,
+      const float& horizontal_gap,
+      const float& vertical_gap
+  ) {
     std::string cmd = "ARRANGE(" + std::to_string(number_of_rows) + ", " + std::to_string(number_of_columns) + ", " +
-                      std::to_string(offset) + ", " + std::to_string(horizontal_gap) + ", " +
-                      std::to_string(vertical_gap) + ")";
+        std::to_string(offset) + ", " + std::to_string(horizontal_gap) + ", " + std::to_string(vertical_gap) + ")";
     return cmd;
   }
   std::string set_x_min_command(const double& x_min) {
@@ -40,7 +44,7 @@ namespace dft_core::grace_plot::command {
   }
   std::string add_point_command(const double& x, const double& y, const int& dataset_id, const int& graph_id) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " POINT " +
-                      std::to_string(x) + "," + std::to_string(y);
+        std::to_string(x) + "," + std::to_string(y);
     return cmd;
   }
   std::string redraw_command() {
@@ -69,23 +73,24 @@ namespace dft_core::grace_plot::command {
   }
   std::string set_line_color_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " LINE COLOR " +
-                      std::to_string(static_cast<int>(color));
+        std::to_string(static_cast<int>(color));
     return cmd;
   }
   std::string set_symbol_color_command(const grace_plot::Color& color, const int& dataset_id, const int& graph_id) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " SYMBOL COLOR " +
-                      std::to_string(static_cast<int>(color));
+        std::to_string(static_cast<int>(color));
     return cmd;
   }
-  std::string set_symbol_color_fill_command(const grace_plot::Color& color, const int& dataset_id,
-                                            const int& graph_id) {
+  std::string set_symbol_color_fill_command(
+      const grace_plot::Color& color, const int& dataset_id, const int& graph_id
+  ) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " SYMBOL FILL COLOR " +
-                      std::to_string(static_cast<int>(color));
+        std::to_string(static_cast<int>(color));
     return cmd;
   }
   std::string set_symbol_color_fill_pattern_command(const int& pattern_id, const int& dataset_id, const int& graph_id) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " SYMBOL FILL PATTERN " +
-                      std::to_string(pattern_id);
+        std::to_string(pattern_id);
     return cmd;
   }
   std::string set_symbol_size_command(const double& size, const int& dataset_id, const int& graph_id) {
@@ -115,12 +120,12 @@ namespace dft_core::grace_plot::command {
   }
   std::string set_symbol_command(const Symbol& symbol_id, const int& dataset_id, const int& graph_id) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " SYMBOL " +
-                      std::to_string(static_cast<int>(symbol_id));
+        std::to_string(static_cast<int>(symbol_id));
     return cmd;
   }
   std::string set_line_style_command(const LineStyle& line_type, const int& dataset_id, const int& graph_id) {
     std::string cmd = "G" + std::to_string(graph_id) + ".S" + std::to_string(dataset_id) + " LINE LINESTYLE " +
-                      std::to_string(static_cast<int>(line_type));
+        std::to_string(static_cast<int>(line_type));
     return cmd;
   }
   std::string set_format_command(const ExportFormat& format) {
@@ -158,8 +163,13 @@ namespace dft_core::grace_plot::command {
 namespace dft_core::grace_plot {
   // region static methods
 
-  static void add_dataset_to_grace_object(const Grace* g, std::vector<double> const& x, std::vector<double> const& y,
-                                          const int& dataset_id, const int& graph_id) {
+  static void add_dataset_to_grace_object(
+      const Grace* g,
+      std::vector<double> const& x,
+      std::vector<double> const& y,
+      const int& dataset_id,
+      const int& graph_id
+  ) {
     auto length = x.size();
     for (size_t k = 0; k < length; k++) {
       g->add_point(x[k], y[k], dataset_id, graph_id);
@@ -171,23 +181,26 @@ namespace dft_core::grace_plot {
       throw exception::GraceException(
           "The dataset must have equal-size X and Y:"
           " x_size = " +
-          std::to_string(x.size()) + "!=" + " y_size = " + std::to_string(y.size()));
+          std::to_string(x.size()) + "!=" + " y_size = " + std::to_string(y.size())
+      );
     }
     return true;
   }
 
   static bool check_graph_id_in_bounds(const int& graph_id, const int& total_number_of_graphs) {
     if ((graph_id > (total_number_of_graphs - 1)) || (graph_id < 0)) {
-      throw exception::GraceException("The graph id is out of bounds: Min id = 0; Max id =" +
-                                      std::to_string(total_number_of_graphs));
+      throw exception::GraceException(
+          "The graph id is out of bounds: Min id = 0; Max id =" + std::to_string(total_number_of_graphs)
+      );
     }
     return true;
   }
 
   static bool check_dataset_in_bounds(const int& dataset_id, const int& last_dataset_id) {
     if (dataset_id < 0 || dataset_id > last_dataset_id) {
-      throw exception::GraceException("The dataset id is out of bounds: Min id = 0; Last dataset id =" +
-                                      std::to_string(last_dataset_id));
+      throw exception::GraceException(
+          "The dataset id is out of bounds: Min id = 0; Last dataset id =" + std::to_string(last_dataset_id)
+      );
     }
     return true;
   }
@@ -232,9 +245,15 @@ namespace dft_core::grace_plot {
 
     // Start Grace with a buffer size and open the pipe
     std::string geometry_spec = std::to_string(x_size) + "x" + std::to_string(y_size);
-    auto response =
-        GraceOpenVA(grace_name, buffer_size, option::FREE.c_str(),  // NOLINT(cppcoreguidelines-pro-type-vararg)
-                    option::NO_SAFE.c_str(), option::GEOMETRY.c_str(), geometry_spec.c_str(), NULL);
+    auto response = GraceOpenVA(
+        grace_name,
+        buffer_size,
+        option::FREE.c_str(),  // NOLINT(cppcoreguidelines-pro-type-vararg)
+        option::NO_SAFE.c_str(),
+        option::GEOMETRY.c_str(),
+        geometry_spec.c_str(),
+        NULL
+    );
 
     // Throwing exception in case of wrong communication, to keep track of what's happening
     if (-1 == response) {
@@ -267,8 +286,16 @@ namespace dft_core::grace_plot {
   // region Grace
 
   /// The configuration command which eventually sets up the graph
-  void setup_grace(const double& x_min, const double& x_max, const double& y_min, const double& y_max,
-                   const int& number_of_graphs, const float& offset, const float& hspace, float const& vspace) {
+  void setup_grace(
+      const double& x_min,
+      const double& x_max,
+      const double& y_min,
+      const double& y_max,
+      const int& number_of_graphs,
+      const float& offset,
+      const float& hspace,
+      float const& vspace
+  ) {
     if (number_of_graphs > 1) {
       int number_of_rows = get_number_of_rows(number_of_graphs);
       int number_of_columns = get_number_of_columns(number_of_graphs, number_of_rows);
@@ -402,8 +429,9 @@ namespace dft_core::grace_plot {
     this->set_color(static_cast<Color>((this->last_dataset_id() % 10) + 1), dataset_id, graph_id);
   }
 
-  void Grace::replace_dataset(std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id,
-                              const int& graph_id) {
+  void Grace::replace_dataset(
+      std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id, const int& graph_id
+  ) {
     check_equal_length(x, y);
     check_dataset_in_bounds(dataset_id, this->last_dataset_id());
     check_graph_id_in_bounds(graph_id, this->number_of_graphs());
@@ -498,8 +526,8 @@ namespace dft_core::grace_plot {
     send_command(command::set_symbol_color_command(color, dataset_id, graph_id));
   }
 
-  void Grace::set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id,
-                              const int& pattern_id) const {
+  void Grace::set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id, const int& pattern_id)
+      const {
     check_graph_id_in_bounds(graph_id, this->number_of_graphs());
     check_dataset_in_bounds(dataset_id, this->last_dataset_id());
 

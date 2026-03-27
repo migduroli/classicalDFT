@@ -73,8 +73,8 @@ namespace dft_core::physics::potentials::intermolecular {
     }
 
     return name + "_" + std::to_string(this->sigma()) + "_" + std::to_string(this->epsilon()) + "_" +
-           std::to_string(this->r_cutoff()) + "_" + std::to_string(this->r_attractive_min()) + "_" +
-           std::to_string(this->bh_perturbation());
+        std::to_string(this->r_cutoff()) + "_" + std::to_string(this->r_attractive_min()) + "_" +
+        std::to_string(this->bh_perturbation());
   }
 
   double Potential::_v_potential(double r) const {
@@ -333,7 +333,7 @@ namespace dft_core::physics::potentials::intermolecular {
     // The cutoff is built in:
     r_cutoff_ = 3;
     epsilon_ *= 2 * std::pow(r_cutoff_ / sigma_, 2) *
-                std::pow(2 * ((r_cutoff_ / sigma_) * (r_cutoff_ / sigma_) - 1) / 3.0, -3.0);
+        std::pow(2 * ((r_cutoff_ / sigma_) * (r_cutoff_ / sigma_) - 1) / 3.0, -3.0);
     epsilon_shift_ = 0.0;
 
     r_min_ = this->find_r_min();

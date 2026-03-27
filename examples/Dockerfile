@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 AS builder
+FROM debian:bookworm-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -9,15 +9,18 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     git \
     ca-certificates \
     libgsl-dev \
-    libboost-serialization-dev \
-    libboost-dev \
     libarmadillo-dev \
+    libfftw3-dev \
+    pkg-config \
+    nlohmann-json3-dev \
+    grace \
+    xvfb \
+    xauth \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY CMakeLists.txt ./
-COPY cmake/ cmake/
 COPY include/ include/
 COPY src/ src/
 COPY examples/ examples/
@@ -28,7 +31,7 @@ RUN cmake -B build \
       -DCMAKE_BUILD_TYPE=Release \
       -DDFT_BUILD_TESTS=OFF \
       -DDFT_BUILD_EXAMPLES=ON \
-      -DDFT_USE_GRACE=OFF \
+      -DDFT_USE_GRACE=ON \
     && cmake --build build --parallel "$(nproc)"
 
 ENTRYPOINT ["/bin/sh", "-c"]

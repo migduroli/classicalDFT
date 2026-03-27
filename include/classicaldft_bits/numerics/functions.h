@@ -18,8 +18,9 @@ namespace dft_core::utils::functions {
   }
 
   template <typename Obj, std::floating_point T, typename F>
-  requires std::invocable<F, const Obj&, T> std::vector<T> apply_vector_wise(const Obj& obj, F method,
-                                                                             const std::vector<T>& x) {
+  requires std::invocable<F, const Obj&, T> std::vector<T> apply_vector_wise(
+      const Obj& obj, F method, const std::vector<T>& x
+  ) {
     std::vector<T> y;
     y.reserve(x.size());
     for (const auto& k : x) {

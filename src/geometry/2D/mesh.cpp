@@ -54,8 +54,10 @@ namespace dft_core::geometry::two_dimensional {
 
     auto dx = std::vector<double>{0.1 * dimensions_[0], 0.1 * dimensions_[1]};
 
-    g.set_limits({origin_[0] - dx[0], (dimensions_[0] + origin_[0]) + dx[0]},
-                 {origin_[1] - dx[1], (dimensions_[1] + origin_[1]) + dx[1]});
+    g.set_limits(
+        {origin_[0] - dx[0], (dimensions_[0] + origin_[0]) + dx[0]},
+        {origin_[1] - dx[1], (dimensions_[1] + origin_[1]) + dx[1]}
+    );
 
     g.set_line_type(dft_core::grace_plot::LineStyle::NO_LINE, 0);
     g.set_symbol(dft_core::grace_plot::Symbol::SQUARE, 0);

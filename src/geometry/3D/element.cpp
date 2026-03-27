@@ -27,14 +27,15 @@ namespace dft_core::geometry::three_dimensional {
     auto x0_y = x0.at(y_idx);
     auto x0_z = x0.at(z_idx);
 
-    return vertex_vec{Vertex(x0),
-                      Vertex({x0_x + dx, x0_y, x0_z}),
-                      Vertex({x0_x + dx, x0_y + dx, x0_z}),
-                      Vertex({x0_x, x0_y + dx, x0_z}),
-                      Vertex({x0_x, x0_y + dx, x0_z + dx}),
-                      Vertex({x0_x + dx, x0_y + dx, x0_z + dx}),
-                      Vertex({x0_x + dx, x0_y, x0_z + dx}),
-                      Vertex({x0_x, x0_y, x0_z + dx})};
+    return vertex_vec{
+        Vertex(x0),
+        Vertex({x0_x + dx, x0_y, x0_z}),
+        Vertex({x0_x + dx, x0_y + dx, x0_z}),
+        Vertex({x0_x, x0_y + dx, x0_z}),
+        Vertex({x0_x, x0_y + dx, x0_z + dx}),
+        Vertex({x0_x + dx, x0_y + dx, x0_z + dx}),
+        Vertex({x0_x + dx, x0_y, x0_z + dx}),
+        Vertex({x0_x, x0_y, x0_z + dx})};
   }
 
   SquareBox::SquareBox() {

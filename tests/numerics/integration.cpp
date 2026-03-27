@@ -137,8 +137,9 @@ TEST(integrator, class_method_passing_works_ok_test) {
 
   double expected_value = problem.NormalDist(2 * M_PI);
   EXPECT_DOUBLE_EQ(integrator.function(2 * M_PI), expected_value);
-  EXPECT_DOUBLE_EQ(integration::Integrator<TestProblemClass>::integrand_function(2 * M_PI, &integrator),
-                   expected_value);
+  EXPECT_DOUBLE_EQ(
+      integration::Integrator<TestProblemClass>::integrand_function(2 * M_PI, &integrator), expected_value
+  );
 }
 
 // endregion

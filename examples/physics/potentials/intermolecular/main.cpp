@@ -1,6 +1,8 @@
 #include <classicaldft>
 #include <armadillo>
 
+using namespace dft_core::io;
+
 /// A convenient wrapper to convert arma::vec -> std::vector
 auto conv_arma_to_vec(const arma::vec& x)
 {

@@ -99,8 +99,13 @@ namespace dft_core::grace_plot {
      * @param vertical_gap vertical spacing
      * @return std::string
      */
-    std::string arrange_command(const int& number_of_rows, const int& number_of_columns, const float& offset,
-                                const float& horizontal_gap, const float& vertical_gap);
+    std::string arrange_command(
+        const int& number_of_rows,
+        const int& number_of_columns,
+        const float& offset,
+        const float& horizontal_gap,
+        const float& vertical_gap
+    );
 
     /**
      * @brief Returns the "WORLD XMIN x_min" command as string
@@ -211,8 +216,9 @@ namespace dft_core::grace_plot {
      * @param graph_id the integer number identifying the graph the point will be represented on
      * @return std::string
      */
-    std::string set_symbol_color_fill_command(const grace_plot::Color& color, const int& dataset_id,
-                                              const int& graph_id);
+    std::string set_symbol_color_fill_command(
+        const grace_plot::Color& color, const int& dataset_id, const int& graph_id
+    );
 
     /**
      * @brief Returns the "G{N}.S{M} SYMBOL FILL COLOR {COLOR}" command as string
@@ -221,8 +227,9 @@ namespace dft_core::grace_plot {
      * @param graph_id the integer number identifying the graph the point will be represented on
      * @return std::string
      */
-    std::string set_symbol_color_fill_pattern_command(const int& pattern_id, const int& dataset_id,
-                                                      const int& graph_id);
+    std::string set_symbol_color_fill_pattern_command(
+        const int& pattern_id, const int& dataset_id, const int& graph_id
+    );
 
     /**
      * @brief Returns the "G{N}.S{M} SYMBOL SIZE {X}" command as string
@@ -390,8 +397,12 @@ namespace dft_core::grace_plot {
   class Grace {
    public:
     /// Explicit constructor, which avoids implicit conversions
-    explicit Grace(int x_size = DEFAULT_X_SIZE, int y_size = DEFAULT_Y_SIZE, int n_graph = DEFAULT_NUMBER_OF_GRAPHS,
-                   bool show = true);
+    explicit Grace(
+        int x_size = DEFAULT_X_SIZE,
+        int y_size = DEFAULT_Y_SIZE,
+        int n_graph = DEFAULT_NUMBER_OF_GRAPHS,
+        bool show = true
+    );
     /// Default destructor
     ~Grace() { this->close(); };
 
@@ -471,8 +482,9 @@ namespace dft_core::grace_plot {
      * @throw GraceException when the dataset size is not well-balanced, i.e. x.size() != y.size()
      * @throw GraceException when the graph_id given is out of bounds
      */
-    void replace_dataset(std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id,
-                         const int& graph_id = 0);
+    void replace_dataset(
+        std::vector<double> const& x, std::vector<double> const& y, const int& dataset_id, const int& graph_id = 0
+    );
 
     /**
      * @brief Deletes a dataset identified by `dataset_id` on the graph identified by `graph_id`
@@ -600,8 +612,8 @@ namespace dft_core::grace_plot {
      * @throws GraceException in case the dataset_id given is out of bounds
      * @throws GraceException in case the graph_id given is out of bounds
      */
-    void set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id = 0,
-                         const int& pattern_id = 1) const;
+    void set_symbol_fill(const Color& color, const int& dataset_id, const int& graph_id = 0, const int& pattern_id = 1)
+        const;
 
     /**
      * @brief Sets the symbol fill in a given `dataset_id` of a given `graph_id`

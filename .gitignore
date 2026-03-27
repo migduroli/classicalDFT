@@ -4,6 +4,9 @@ log.*
 # Build directories
 **/build
 **/build-coverage
+**/build-examples
+**/build-local
+**/build-tests
 **/debug
 **/cmake-build*
 **/dummy

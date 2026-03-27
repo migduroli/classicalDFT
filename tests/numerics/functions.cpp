@@ -1,39 +1,80 @@
 #include "classicaldft_bits/numerics/functions.h"
 
+#include <cmath>
 #include <gtest/gtest.h>
 
-namespace example {
-  class TestClass {
-   public:
-    TestClass() = default;
-    double fn_cubic(double x) const { return x * x * x; }
-  };
+namespace functions = dft_core::utils::functions;
 
-  double fn_sqr(double x) {
+namespace {
+  double square(double x) {
     return x * x;
   }
-}  // namespace example
 
-using namespace dft_core::utils::functions;
+  class TestObject {
+   public:
+    double cube(double x) const { return x * x * x; }
+  };
+}  // namespace
 
-// region Methods
-TEST(functions, apply_vector_wise_fn_works_ok) {
-  auto x_vec = std::vector<double>{1.0, 2.0, 3.0, 1.765};
-  auto actual = apply_vector_wise<double>(&example::fn_sqr, x_vec);
-  auto expected = std::vector<double>{1.0, 4.0, 9.0, 3.115225};
+// ── apply_vector_wise (free function overload) ──────────────────────────────
+
+struct ApplyFreeFunctionTestCase {
+  std::string name;
+  std::vector<double> input;
+  std::vector<double> expected;
+};
+
+class ApplyFreeFunctionTest : public testing::TestWithParam<ApplyFreeFunctionTestCase> {};
+
+TEST_P(ApplyFreeFunctionTest, ProducesCorrectOutput) {
+  auto [name, input, expected] = GetParam();
+  auto actual = functions::apply_vector_wise<double>(&square, input);
+  ASSERT_EQ(actual.size(), expected.size());
   for (size_t i = 0; i < expected.size(); ++i) {
     EXPECT_DOUBLE_EQ(expected[i], actual[i]);
   }
 }
 
-TEST(functions, apply_vector_wise_method_works_ok) {
-  auto x_vec = std::vector<double>{1.0, 2.0, 3.0, 1.765};
-  auto obj = example::TestClass();
-  auto method = [](const example::TestClass& o, double x) { return o.fn_cubic(x); };
-  auto actual = apply_vector_wise<example::TestClass, double>(obj, method, x_vec);
-  auto expected = std::vector<double>{1.0, 8.0, 27.0, 5.498372125};
+INSTANTIATE_TEST_SUITE_P(
+    ApplyVectorWise,
+    ApplyFreeFunctionTest,
+    testing::Values(
+        ApplyFreeFunctionTestCase{"integers", {1.0, 2.0, 3.0}, {1.0, 4.0, 9.0}},
+        ApplyFreeFunctionTestCase{"empty", {}, {}},
+        ApplyFreeFunctionTestCase{"single", {5.0}, {25.0}},
+        ApplyFreeFunctionTestCase{"fractional", {1.5, 2.5}, {2.25, 6.25}}
+    ),
+    [](const auto& info) { return info.param.name; }
+);
+
+// ── apply_vector_wise (member function overload) ────────────────────────────
+
+struct ApplyMethodTestCase {
+  std::string name;
+  std::vector<double> input;
+  std::vector<double> expected;
+};
+
+class ApplyMethodTest : public testing::TestWithParam<ApplyMethodTestCase> {};
+
+TEST_P(ApplyMethodTest, ProducesCorrectOutput) {
+  auto [name, input, expected] = GetParam();
+  auto obj = TestObject();
+  auto method = [](const TestObject& o, double x) { return o.cube(x); };
+  auto actual = functions::apply_vector_wise<TestObject, double>(obj, method, input);
+  ASSERT_EQ(actual.size(), expected.size());
   for (size_t i = 0; i < expected.size(); ++i) {
     EXPECT_DOUBLE_EQ(expected[i], actual[i]);
   }
 }
-// endregion
+
+INSTANTIATE_TEST_SUITE_P(
+    ApplyVectorWise,
+    ApplyMethodTest,
+    testing::Values(
+        ApplyMethodTestCase{"integers", {1.0, 2.0, 3.0}, {1.0, 8.0, 27.0}},
+        ApplyMethodTestCase{"empty", {}, {}},
+        ApplyMethodTestCase{"single", {4.0}, {64.0}}
+    ),
+    [](const auto& info) { return info.param.name; }
+);

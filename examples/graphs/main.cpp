@@ -4,6 +4,8 @@
 
 int main(int argc, char **argv)
 {
+  using namespace dft_core::io;
+
   console::info("Initialising Grace...");
 
   //region Cttor
@@ -126,11 +128,11 @@ int main(int argc, char **argv)
 
   //region Example of Export
   console::info("Example: Saving the result as PNG");
-  g.print_to_file("test_graph.png", dft_core::grace_plot::ExportFormat::PNG);
-  //g.print_to_file("test_graph.pdf", dft_core::grace_plot::ExportFormat::PDF);
-  //g.print_to_file("test_graph.jpg", dft_core::grace_plot::ExportFormat::JPG);
-  //g.print_to_file("test_graph.eps", dft_core::grace_plot::ExportFormat::EPS1);
-  //g.print_to_file("test_graph.ps", dft_core::grace_plot::ExportFormat::PS);
+  g.print_to_file("export/test_graph.png", dft_core::grace_plot::ExportFormat::PNG);
+  //g.print_to_file("export/test_graph.pdf", dft_core::grace_plot::ExportFormat::PDF);
+  //g.print_to_file("export/test_graph.jpg", dft_core::grace_plot::ExportFormat::JPG);
+  //g.print_to_file("export/test_graph.eps", dft_core::grace_plot::ExportFormat::EPS1);
+  //g.print_to_file("export/test_graph.ps", dft_core::grace_plot::ExportFormat::PS);
   g.redraw_and_wait(false, false);
   //endregion
 }

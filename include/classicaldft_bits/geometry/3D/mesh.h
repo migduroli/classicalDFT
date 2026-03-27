@@ -46,7 +46,5 @@ namespace dft_core::geometry::three_dimensional {
     // endregion
   };
 
-  using Lattice = SUQMesh;
-
 }  // namespace dft_core::geometry::three_dimensional
 #endif

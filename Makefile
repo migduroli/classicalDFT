@@ -1,8 +1,11 @@
-.PHONY: help check clean build test format format-check lint lint-fix
+.PHONY: help check clean build test format format-check lint lint-fix install
 .DEFAULT_GOAL := help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+install: ## Install local dependencies and build the library
+	@./scripts/install
 
 check: ## Check project dependencies
 	@./scripts/check

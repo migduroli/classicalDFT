@@ -85,6 +85,35 @@ Key files that were **significantly modified** (not just moved):
 9. **FFTW3 abstraction**. Wrap FFTW behind a clean C++ interface (RAII plans, span-based data access).
 10. **Optional dependencies cleanly gated**. Grace (plotting), Armadillo, MPI, OpenMP as optional cmake options with feature-test macros.
 
+### Coding philosophy
+
+> The library must feel like a modern Python library to its users. When a client writes code with classicalDFT, the experience must be as readable, explicit, and Pythonic as working with scikit-learn or similar modern interfaces.
+
+#### Naming conventions
+
+- **No abbreviations in public class names.** The user instantiates `auto plan = FourierTransform(shape)` or `auto s = CompensatedSum()`. Short aliases (`auto ft = ...`) are the client's choice; the class name itself must read like prose.
+- **Method names read as verbs or descriptors.** `find_hard_sphere_diameter()`, `compute_van_der_waals_integral()`, `derivative()`, `integrate()`. No abbreviated method names.
+- **Namespaces are hierarchical and explicit.** `dft_core::numerics::fourier::FourierTransform` rather than `dft_core::fft::FFTPlan`.
+- **Constants and enums use UPPER_SNAKE_CASE or PascalCase enum members** as appropriate.
+
+#### Modern C++ (C++20) for a Pythonic feel
+
+- **Concepts everywhere.** Replace SFINAE with `requires` clauses and named concepts. Type constraints read like Python type hints.
+- **`std::span`** for non-owning views (like Python's memoryview / numpy slices).
+- **Structured bindings** for multi-return values (like Python tuple unpacking).
+- **`[[nodiscard]]`** on all accessors and pure functions (like Python linters warning on unused returns).
+- **Designated initialisers** for option structs (like Python keyword arguments).
+- **Three-way comparison (`<=>`)** for value types.
+- **`constexpr`** for anything computable at compile time.
+- **Range-based algorithms and views** where they improve readability.
+
+#### Testing requirements
+
+- **100% line coverage on every module.** No exceptions. Every public method, every error path, every branch.
+- **Parameterized tests (pytest style).** Use GTest's `TEST_P` with `INSTANTIATE_TEST_SUITE_P` to test functions across multiple inputs, mirroring `@pytest.mark.parametrize`. Each function of a module gets its own parameterized test suite where applicable.
+- **One test file per module.** Test file mirrors source file structure: `tests/numerics/fourier.cpp` tests `src/numerics/fourier.cpp`.
+- **Test names describe behaviour, not implementation.** `InterpolateSinAtMidpoints`, not `test_spline_1`.
+
 ### Target directory structure
 
 ```
@@ -122,7 +151,7 @@ classicalDFT/
 │       ├── numerics/
 │       │   ├── arithmetic.h
 │       │   ├── integration.h
-│       │   ├── fft.h                          # NEW: FFTW3 C++ wrapper
+│       │   ├── fourier.h                      # NEW: FFTW3 C++ wrapper
 │       │   ├── linear_algebra.h               # NEW: from DFT_LinAlg.h
 │       │   ├── spline.h                       # NEW: from Spliner.h
 │       │   └── eigensolver.h                  # NEW: from Eigenvalues.h + Arnoldi.h
@@ -275,36 +304,69 @@ classicalDFT/
 
 ### Phase 2: Numerics foundation
 
-**Goal:** Build the low-level numerical infrastructure that all physics modules depend on.
+**Goal:** Build the low-level numerical infrastructure that all physics modules depend on, leveraging existing libraries (Armadillo, GSL, FFTW3) rather than reimplementing.
+
+#### Design decisions
+
+1. **No custom vector types.** Jim's `DFT_Vec`/`DFT_Vec_Complex` are thin wrappers around `fftw_malloc`. Armadillo's `arma::vec`/`arma::cx_vec` already provide all the same operations (dot, norm, scale, element access) with BLAS/LAPACK acceleration. We use `arma::vec` directly everywhere linear algebra is needed.
+
+2. **`GridShape` value type.** Jim's code scatters `Nx_`, `Ny_`, `Nz_` as separate members in every class that touches the 3D grid (`DFT_FFT`, `Lattice`, `Arnoldi`, `Species`, etc.). We introduce a single `struct GridShape{nx, ny, nz}` that encapsulates grid dimensions. `UniformMesh` provides a `GridShape` to its dependents via `grid_shape()`.
+
+3. **FourierTransform: thin RAII wrapper only.** `FourierTransform` owns FFTW-aligned buffers and `fftw_plan` handles. It exposes data via `std::span<double>` and `std::span<std::complex<double>>` for zero-copy access. Users that need `arma::vec` operations wrap trivially: `arma::vec v(plan.real().data(), plan.real().size(), false, true)`.
+
+4. **Splines via GSL.** Jim's `Spliner` is a Numerical Recipes cubic spline reimplementation with raw `double*` arrays. GSL (already a dependency for integration) provides `gsl_spline` (1D) and `gsl_spline2d` (2D bicubic) with evaluation, derivatives, and integration. We wrap these with RAII, not reimplement the algorithm.
+
+5. **No standalone eigensolver.** Dense eigenproblems: use `arma::eig_sym(eigval, eigvec, A)` directly. Matrix-free Hessian (the real DFT use case): Jim's `Arnoldi.cpp` already uses Armadillo internally (`arma::cx_vec`, `arma::eig_gen`, `arma::qr`). This is a Phase 9 concern (dynamics) where the `DynamicalMatrix` interface exists. Providing premature power-iteration solvers adds code with no downstream consumer.
 
 | Step | Task | Source | Details |
 |---|---|---|---|
-| 2.1 | `numerics/linear_algebra.h` — FFTW3/DFT_Vec wrapper | `DFT_LinAlg.h` | Modern C++ wrapper: `class RealVector` (wraps `fftw_malloc`/`fftw_free` with RAII), `class ComplexVector`, `class FFTPlan` (owns `fftw_plan`). `std::span` interface. Move/copy semantics. No raw pointers exposed |
-| 2.2 | Tests for `linear_algebra.h` | — | FFT round-trip accuracy, SIMD alignment, copy/move correctness, edge cases |
-| 2.3 | `numerics/fft.h` — higher-level FFT operations | `DFT_LinAlg.h` | `class FFTConvolution` (forward + multiply + backward). `class SineTransform` for open boundaries. Batch operations |
-| 2.4 | Tests for `fft.h` | — | Convolution theorem verification, Parseval's theorem, periodic/open BC |
-| 2.5 | `numerics/spline.h` — spline interpolation | `Spliner.h/cpp` | `class CubicSpline` (1D), `class BivariateSpline` (2D). `std::vector`-only storage, no raw arrays. `SmoothingSpline` variant. Proper move semantics |
-| 2.6 | Tests for `spline.h` | — | Interpolation accuracy, boundary conditions, derivative correctness |
-| 2.7 | `numerics/eigensolver.h` — eigenvalue solver interface | `Eigenvalues.h`, `Arnoldi.h` | Abstract `class EigenSolver`. Concrete: `class RayleighQuotientSolver`, `class ArnoldiSolver` (optional, gated on Armadillo). Clean callback interface for matrix-vector products |
-| 2.8 | Tests for `eigensolver.h` | — | Known eigenvalue problems (diagonal, tridiagonal), convergence checks |
-| 2.9 | Tag `v2.0.0-alpha.3` | | |
+| 2.1 | `numerics/grid_shape.h` — grid dimension value type | NEW | `struct GridShape{unsigned nx, ny, nz}` with `total()`, `fourier_total()`, three-way comparison. Used by `FourierTransform`, `FourierConvolution`, and downstream geometry/physics code. Avoids scattering raw dimension triples |
+| 2.2 | `numerics/fourier.h` + `src/numerics/fourier.cpp` — FFTW3 RAII wrapper | `DFT_LinAlg.h` | `FourierTransform`: move-only, `GridShape`-based construction, owns `fftw_malloc`'d buffers, `std::span` access, `forward()`/`backward()`. `FourierConvolution`: composes three `FourierTransform` objects for cyclic convolution $c = \text{IFFT}[\hat{a} \cdot \hat{b}] / N$ |
+| 2.3 | Tests for `fft.h` | — | Round-trip accuracy (forward+backward recovers input), Parseval's theorem, convolution of known signals |
+| 2.4 | `numerics/spline.h` + `src/numerics/spline.cpp` — GSL-backed splines | `Spliner.h` | `CubicSpline`: RAII wrapper around `gsl_spline`/`gsl_interp_accel`, supports eval/derivative/derivative2/integrate via `std::span` input. `BivariateSpline`: wraps `gsl_spline2d` for 2D regular-grid bicubic interpolation with partial derivatives |
+| 2.5 | Tests for `spline.h` | — | Interpolation accuracy on known functions ($\sin x$, $x^3$), derivative correctness, integral verification against analytical values |
+| 2.6 | Tag `v2.0.0-alpha.3` | | |
 
-**Estimated scope:** 2-3 days. Critical foundation layer.
+**What was removed vs the original plan:** `linear_algebra.h` (custom `RealVector`/`ComplexVector` — use `arma::vec`), `eigensolver.h` (custom Rayleigh quotient / inverse iteration — use `arma::eig_sym` or defer Arnoldi to Phase 9).
+
+**Estimated scope:** 1-2 days. Thin wrappers over proven libraries.
 
 ---
 
-### Phase 3: Geometry and lattice
+### Phase 3: Geometry — uniform mesh with periodic boundaries
 
-**Goal:** Complete the geometry module and build the periodic lattice that physics code depends on.
+**Goal:** Extend the existing geometry module with `UniformMesh`, a structured uniform mesh that adds periodic boundary conditions and FFT interoperability. This replaces the legacy "Lattice" concept: there is no separate lattice class. The mesh **is** the computational domain.
 
-| Step | Task | Source | Details |
-|---|---|---|---|
-| 3.1 | Complete `geometry/3D/mesh.h` — implement `plot()` | Current stub | Use Grace or VTK output |
-| 3.2 | Add full 3D mesh tests | — | Construction, indexing, volume, negative indices |
-| 3.3 | `geometry/lattice.h` — 3D periodic rectangular lattice | `Lattice.h` | `class PeriodicLattice`: `Nx, Ny, Nz`, `dx, dy, dz`, `L[3]`. Index conversion (`pos` <-> `cartesian`), PBC (`putIntoBox`). Boundary point system (`boundary_width`, enumeration). Serialization via cereal. Uses `numerics/linear_algebra.h` types |
-| 3.4 | Tests for `lattice.h` | — | Index round-trip, PBC wrap, boundary point enumeration, serialization round-trip |
-| 3.5 | Example: lattice construction and VTK output | — | |
-| 3.6 | Tag `v2.0.0-alpha.4` | | |
+#### Design decisions
+
+1. **Build on the existing hierarchy, do not bypass it.** `UniformMesh` inherits from `SUQMesh`, which inherits from `Mesh`. It stores real `Vertex` and `Element` objects explicitly (not computed on-the-fly). Explicit is better than implicit. This is the same design used by production mesh engines (deal.II, FEniCS, MFEM) and keeps the door open for future FEM-based DFT.
+
+2. **Both 2D and 3D.** `two_dimensional::UniformMesh` extends `two_dimensional::SUQMesh`. `three_dimensional::UniformMesh` extends `three_dimensional::SUQMesh`. The physics code should be general enough to work in either dimension.
+
+3. **No separate `PeriodicLattice`.** Jim's old `Lattice` class conflated grid shape, physical spacing, index conversion, and PBC into a monolith disconnected from geometry. We do not replicate it. `UniformMesh` is a proper `Mesh` subclass that happens to also provide PBC and a `GridShape` accessor for the Fourier layer.
+
+4. **`GridShape` stays a lightweight value type.** `FourierTransform` keeps taking `GridShape` (decoupled from geometry). `UniformMesh` provides it via `.grid_shape()`. This keeps the Fourier module testable without constructing a full mesh.
+
+5. **Spacing per axis.** The base `SUQMesh` uses a single `dx` for all directions (square cells). `UniformMesh` adds per-axis spacing (`dx`, `dy`, and `dz` in 3D; `dx`, `dy` in 2D) to support rectangular (non-square) cells. The underlying elements are still `SquareBox` (the cell shape is the same, but sizes can differ per direction in future refinements). For now, `UniformMesh` constructs with a single `dx` (uniform) and exposes the spacing.
+
+#### What `UniformMesh` adds over `SUQMesh`
+
+| Feature | Method | Description |
+|---|---|---|
+| Grid shape | `grid_shape()` | Returns `GridShape{nx, ny, nz}` (or `{nx, ny, 1}` for 2D) for FFT interop |
+| Spacing | `spacing()` | Returns `{dx, dy, dz}` or `{dx, dy}` as `std::vector<double>` |
+| Box size | `box_size()` | `dimensions()` (inherited, same thing) |
+| PBC wrap | `wrap(position)` | Wraps a spatial position into the periodic box: $x_i \mapsto x_i \bmod L_i$ |
+| Cell volume | `cell_volume()` | Product of spacings (equivalent to `element_volume()`, aliased) |
+| Position from index | `position(flat_index)` | Returns the spatial coordinates of a grid point by its global index |
+
+| Step | Task | Details |
+|---|---|---|
+| 3.1 | `geometry/2D/uniform_mesh.h` + `.cpp` | `two_dimensional::UniformMesh : public two_dimensional::SUQMesh`. Constructor takes `(dx, dimensions, origin)`. Adds `grid_shape()`, `spacing()`, `wrap()`, `position()`, `cell_volume()` |
+| 3.2 | `geometry/3D/uniform_mesh.h` + `.cpp` | `three_dimensional::UniformMesh : public three_dimensional::SUQMesh`. Same interface |
+| 3.3 | Tests for `UniformMesh` (2D and 3D) | Construction, `grid_shape()` matches shape, PBC wrap, position round-trip, cell volume |
+| 3.4 | Update umbrella header | Add 2D and 3D `uniform_mesh.h` to `<classicaldft>` |
+| 3.5 | Tag `v2.0.0-alpha.4` | |
 
 **Estimated scope:** 1-2 days.
 
@@ -334,8 +396,8 @@ classicalDFT/
 
 | Step | Task | Source | Details |
 |---|---|---|---|
-| 5.1 | `physics/density/density.h` | `Density.h/cpp` | `class Density` owns a `PeriodicLattice` and a `RealVector` (from `numerics/linear_algebra.h`). FFT via `FFTPlan`. Methods: `set`, `get`, `doFFT`, `getNumberAtoms`, `getCenterOfMass`, `writeVTK`, `initializeWithGaussians`, `expand`, `resize`. No raw arrays: use `operator[]` with bounds checking in debug builds |
-| 5.2 | `physics/density/external_field.h` | `Density.h`, `External_Field.h` | `class ExternalField` holds a `RealVector` and species index. Serializable. Simple container |
+| 5.1 | `physics/density/density.h` | `Density.h/cpp` | `class Density` owns a `UniformMesh` and an `arma::vec` for the density profile. FFT via `FourierTransform`. Methods: `set`, `get`, `doFFT`, `getNumberAtoms`, `getCenterOfMass`, `writeVTK`, `initializeWithGaussians`, `expand`, `resize`. No raw arrays: use `operator[]` with bounds checking in debug builds |
+| 5.2 | `physics/density/external_field.h` | `Density.h`, `External_Field.h` | `class ExternalField` holds an `arma::vec` and species index. Serializable. Simple container |
 | 5.3 | Tests for density and external field | — | FFT round-trip, atom counting ($\sum\rho\,dV = N$), VTK output, Gaussian initialization |
 | 5.4 | `physics/species/species.h` | `Species.h` | `class Species`: owns `Density`, force vector, chemical potential. Constraint system (fixed mass, fixed background, homogeneous boundary). Alias coordinates ($\rho = \rho_{\min} + x^2$). Force management (zero, add, begin/end calculation). Reflection symmetry |
 | 5.5 | Tests for species | — | Alias round-trip ($x \to \rho \to x$), constraint enforcement, force accumulation |
@@ -352,7 +414,7 @@ classicalDFT/
 | Step | Task | Source | Details |
 |---|---|---|---|
 | 6.1 | `physics/fmt/fundamental_measures.h` | `Fundamental_Measures.h` | `struct FundamentalMeasures`: 19 components ($\eta, s_0, s_1, s_2, \mathbf{v}_1, \mathbf{v}_2, \mathbf{T}$) plus derived quantities (`vTv`, `Tr_T2`, `Tr_T3`). Use `std::array` for components. `calculate_derived()` method |
-| 6.2 | `physics/fmt/weighted_density.h` | `FMT_Weighted_Density.h` | `class WeightedDensity`: owns weight array, weighted density, $d\Phi$ array, all as `RealVector`. FFT convolution via `FFTConvolution`. RAII for all arrays |
+| 6.2 | `physics/fmt/weighted_density.h` | `FMT_Weighted_Density.h` | `class WeightedDensity`: owns weight array, weighted density, $d\Phi$ array, all as `arma::vec`. Fourier convolution via `FourierConvolution`. RAII for all arrays |
 | 6.3 | `physics/fmt/fmt_helper.h` | `FMT_Helper.h` | `class FMTHelper`: static methods for analytic G-functions (`G_eta`, `G_s`, `G_vx`, `G_txx`, `G_txy`, `G_I1x`, `G_I2`). Document the underlying integrals with LaTeX in doc-strings. Add NaN-guard assertions |
 | 6.4 | `physics/fmt/fmt.h` | `FMT.h/cpp` | Abstract `class FMT`: `calculateFreeEnergyAndDerivatives()`, `addSecondDerivative()`. Protected pure virtuals for `f1_`, `f2_`, `f3_` and their derivatives. Concrete via inheritance: `class Rosenfeld`, `class RSLT`, `class ExplicitlyStableFMT`, `class WhiteBearI`, `class WhiteBearII`. Each model defines $\Phi_3$ and its cross-derivatives |
 | 6.5 | `physics/species/fmt_species.h` | `Species.h`, `FMT_Species.cpp` | `class FMTSpecies : public Species`: 11-component weighted densities, `Initialize()` (generates weight functions), `calculateFundamentalMeasures()` (FFT convolution), `calculateForce()`. Alias system for $\eta < 1$ |
@@ -441,28 +503,29 @@ The migration order above respects these dependencies (each module depends only 
 Phase 0-1: utils, exceptions, graph (no physics deps)
      │
      v
-Phase 2: numerics/linear_algebra, numerics/fft, numerics/spline, numerics/eigensolver
+Phase 2: numerics/grid_shape, numerics/fourier (FFTW3 wrapper), numerics/spline (GSL wrapper)
+         ── arma::vec used directly for all linear algebra, arma::eig_sym for dense eigenproblems
      │
      v
-Phase 3: geometry/lattice (depends on linear_algebra)
+Phase 3: geometry/lattice (owns GridShape, provides it to FFT layer)
      │
      v
 Phase 4: thermodynamics/enskog, thermodynamics/eos, crystal (depends on lattice, potentials)
      │
      v
-Phase 5: density, species (depends on lattice, linear_algebra)
+Phase 5: density, species (depends on lattice, arma::vec, FFTPlan)
      │
      v
-Phase 6: FMT (depends on density, species, linear_algebra, fft)
+Phase 6: FMT (depends on density, species, FFTConvolution)
      │
      v
-Phase 7: interaction (depends on density, fft, potentials)
+Phase 7: interaction (depends on density, FFTConvolution, potentials)
      │
      v
 Phase 8: DFT solver (depends on FMT, interaction, species, density)
      │
      v
-Phase 9: dynamics (depends on DFT, linear_algebra, eigensolver)
+Phase 9: dynamics (depends on DFT, arma::vec, Arnoldi eigensolver using arma::cx_vec/eig_gen/qr)
      │
      v
 Phase 10: polish, docs, benchmarks
@@ -477,10 +540,7 @@ Phase 10: polish, docs, benchmarks
    - **protobuf** (cross-language, schema-based) — overkill for this
    - Custom binary I/O — fragile
 
-2. **Armadillo dependency**: Currently used in `potential.h` (`arma::vec` overloads) and `Arnoldi.h`. Options:
-   - Keep as optional (gate behind `#ifdef DFT_HAS_ARMADILLO`)
-   - Replace with Eigen (header-only, no linking needed)
-   - Replace with `std::vector` + custom operations
+2. **Armadillo dependency**: Used in `potential.h` (`arma::vec` overloads), will be used as the primary vector/matrix library throughout. `arma::vec` replaces all custom vector types. `arma::eig_sym`/`arma::eig_gen` handle dense eigenproblems. `arma::cx_vec`/`arma::cx_mat`/`arma::qr` power the Arnoldi solver. **Decision: required dependency, not optional.**
 
 3. **Grace dependency**: xmgrace is old and platform-dependent. Options:
    - Keep as optional backend behind cmake option

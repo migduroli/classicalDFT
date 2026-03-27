@@ -5,7 +5,7 @@ source scripts/str_lib.sh
 
 BUILD_DIR="build-coverage"
 COVERAGE_DIR="coverage"
-FAIL_UNDER="${DFT_COV_FAIL_UNDER:-60}"
+FAIL_UNDER="${DFT_COV_FAIL_UNDER:-95}"
 
 # lcov 2.x is strict about data consistency; suppress known-harmless warnings
 # lcov 1.x does not support --ignore-errors, so detect the version
@@ -223,6 +223,6 @@ if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
   if [[ -f /.dockerenv ]]; then
     test_coverage "$@"
   else
-    docker compose run --rm -T -e DFT_COV_FAIL_UNDER="${DFT_COV_FAIL_UNDER:-60}" app scripts/test "$@"
+    docker compose run --rm -T -e DFT_COV_FAIL_UNDER="${DFT_COV_FAIL_UNDER:-95}" app scripts/test "$@"
   fi
 fi

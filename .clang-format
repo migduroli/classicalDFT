@@ -11,13 +11,13 @@ AccessModifierOffset: -1
 SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
 IncludeCategories:
-  # 1. Related header (e.g. foo.cpp includes foo.h)
+  # Related header (e.g. foo.cpp includes foo.h)
   - Regex: '^"classicaldft_bits/'
     Priority: 2
-  # 2. System/library headers
+  # System/library headers
   - Regex: '^<'
     Priority: 3
-  # 3. Other project headers
+  # Other project headers
   - Regex: '.*'
     Priority: 1
 
@@ -29,10 +29,12 @@ AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Empty
 
 # Alignment
-AlignAfterOpenBracket: Align
-AlignOperands: Align
+AlignAfterOpenBracket: BlockIndent
+AlignOperands: DontAlign
 AlignTrailingComments: true
 PointerAlignment: Left
+BinPackArguments: false
+BinPackParameters: false
 
 # Namespaces
 NamespaceIndentation: All

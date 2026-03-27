@@ -26,6 +26,10 @@ find_package(GSL REQUIRED)
 # Armadillo (used in potentials)
 find_package(Armadillo REQUIRED)
 
+# FFTW3 (FFT operations)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFTW3 REQUIRED IMPORTED_TARGET fftw3)
+
 # nlohmann/json (config parser)
 find_package(nlohmann_json 3.11 REQUIRED)
 
@@ -66,6 +70,8 @@ set(DFT_LIB_SOURCES
     # Numerics
     src/numerics/arithmetic.cpp
     src/numerics/integration.cpp
+    src/numerics/fourier.cpp
+    src/numerics/spline.cpp
     # Physics
     src/physics/potentials/intermolecular/potential.cpp
     # Geometry – base
@@ -75,9 +81,11 @@ set(DFT_LIB_SOURCES
     # Geometry – 2D
     src/geometry/2D/element.cpp
     src/geometry/2D/mesh.cpp
+    src/geometry/2D/uniform_mesh.cpp
     # Geometry – 3D
     src/geometry/3D/element.cpp
     src/geometry/3D/mesh.cpp
+    src/geometry/3D/uniform_mesh.cpp
 )
 
 add_library(classicaldft STATIC ${DFT_LIB_SOURCES})
@@ -97,6 +105,7 @@ target_link_libraries(classicaldft
         GSL::gsl
         GSL::gslcblas
         ${ARMADILLO_LIBRARIES}
+        PkgConfig::FFTW3
         nlohmann_json::nlohmann_json
 )
 
@@ -133,6 +142,8 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/config)
     add_subdirectory(examples/numerics/integration)
     add_subdirectory(examples/numerics/arithmetic)
+    add_subdirectory(examples/numerics/fourier)
+    add_subdirectory(examples/numerics/spline)
     add_subdirectory(examples/geometry)
     if(DFT_USE_GRACE)
         add_subdirectory(examples/graphs)

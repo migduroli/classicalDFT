@@ -22,8 +22,11 @@ namespace dft_core::numerics::arithmetic::summation {
   using error_type = std::vector<x_type>;
   using return_type = std::tuple<x_type, error_type>;
 
-  template <class return_type = return_type, class input_type = x_type, class sum_type = x_type,
-            class err_type = error_type>
+  template <
+      class return_type = return_type,
+      class input_type = x_type,
+      class sum_type = x_type,
+      class err_type = error_type>
   using summation_method = std::function<return_type(input_type, x_type, err_type)>;
   // endregion
 
@@ -69,8 +72,9 @@ namespace dft_core::numerics::arithmetic::summation {
    *  1) the sum value, and
    *  2) the status of the compensation in case we need to continue the sum later
    */
-  return_type kahan_babuska_sum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0,
-                                const error_type& error_ini = {0.0});
+  return_type kahan_babuska_sum(
+      const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type& error_ini = {0.0}
+  );
   return_type kahan_babuska_add(x_type x, x_type sum, error_type error);
 
   /**
@@ -94,8 +98,9 @@ namespace dft_core::numerics::arithmetic::summation {
    *  1) the sum value, and
    *  2) the status of the compensation in case we need to continue the sum later
    */
-  return_type kahan_babuska_neumaier_sum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0,
-                                         const error_type& error_ini = {0.0});
+  return_type kahan_babuska_neumaier_sum(
+      const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type& error_ini = {0.0}
+  );
   return_type kahan_babuska_neumaier_add(x_type x, x_type sum, error_type error);
 
   /**
@@ -119,8 +124,9 @@ namespace dft_core::numerics::arithmetic::summation {
    *  1) the sum value, and
    *  2) the status of the compensation in case we need to continue the sum later
    */
-  return_type kahan_babuska_klein_sum(const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0,
-                                      const error_type& error_ini = {0.0, 0.0});
+  return_type kahan_babuska_klein_sum(
+      const std::vector<x_type>& x_series, const x_type& sum_ini = 0.0, const error_type& error_ini = {0.0, 0.0}
+  );
   return_type kahan_babuska_klein_add(x_type x, x_type sum, error_type error);
 
   // endregion

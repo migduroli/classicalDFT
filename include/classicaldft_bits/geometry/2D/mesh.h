@@ -57,8 +57,6 @@ namespace dft_core::geometry::two_dimensional {
     // endregion
   };
 
-  using Lattice = SUQMesh;
-
 }  // namespace dft_core::geometry::two_dimensional
 
 #endif

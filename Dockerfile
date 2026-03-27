@@ -20,6 +20,8 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     ca-certificates \
     libgsl-dev \
     libarmadillo-dev \
+    libfftw3-dev \
+    pkg-config \
     nlohmann-json3-dev \
     lcov \
     clang-format \

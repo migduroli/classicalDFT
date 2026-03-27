@@ -5,6 +5,7 @@
 int main(int argc, char **argv)
 {
   using namespace dft_core::geometry;
+  using namespace dft_core::io;
 
   // region Vertex: Initializer cttor
   console::info("Vertex | Constructor");
@@ -72,25 +73,25 @@ int main(int argc, char **argv)
   // endregion
 
   // region 2D::SUQMesh
-  console::info("Mesh 2D: lattice");
+  console::info("Mesh 2D: SUQMesh");
 
   auto origin_2D = std::vector<double>{0,0};
   auto lengths_2D = std::vector<double>{1.0,1.0};
-  auto lattice_2D = two_dimensional::Lattice(0.25, lengths_2D, origin_2D);
+  auto mesh_2D = two_dimensional::SUQMesh(0.25, lengths_2D, origin_2D);
 
-  std::cout << lattice_2D << std::endl;
+  std::cout << mesh_2D << std::endl;
 
-  std::cout << "Vertex[-1,-1]: " << lattice_2D[{-1,-1}] << std::endl;
-  std::cout << "Vertex[2,3]: " << lattice_2D[{2,3}] << std::endl;
+  std::cout << "Vertex[-1,-1]: " << mesh_2D[{-1,-1}] << std::endl;
+  std::cout << "Vertex[2,3]: " << mesh_2D[{2,3}] << std::endl;
 
   std::cout << "Element[10]: " << std::endl;
-  std::cout << lattice_2D.elements()[10] << std::endl;
+  std::cout << mesh_2D.elements()[10] << std::endl;
 
   std::cout << "Element volume: " << std::endl
-            << lattice_2D.element_volume() << std::endl;
+            << mesh_2D.element_volume() << std::endl;
 
-  console::info("Mesh 2D: lattice plot");
-  lattice_2D.plot();
+  console::info("Mesh 2D: SUQMesh plot");
+  mesh_2D.plot();
 
   // endregion
 
@@ -100,19 +101,61 @@ int main(int argc, char **argv)
   std::cout << "Default square-box (3D):" << std::endl
             << default_box_3D << std::endl;
 
-  console::info("Mesh 3D: lattice");
+  console::info("Mesh 3D: SUQMesh");
   auto origin_3D = std::vector<double>{0,0,0};
   auto lengths_3D = std::vector<double>{1.0,1.0,1.0};
-  auto lattice_3D = three_dimensional::Lattice(0.25, lengths_3D, origin_3D);
+  auto mesh_3D = three_dimensional::SUQMesh(0.25, lengths_3D, origin_3D);
 
-  std::cout << lattice_3D << std::endl;
-  std::cout << "Vertex[-1,-1,-1]: " << lattice_3D[{-1,-1,-1}] << std::endl;
-  std::cout << "Vertex[2,3,1]: " << lattice_3D[{2,3,1}] << std::endl;
+  std::cout << mesh_3D << std::endl;
+  std::cout << "Vertex[-1,-1,-1]: " << mesh_3D[{-1,-1,-1}] << std::endl;
+  std::cout << "Vertex[2,3,1]: " << mesh_3D[{2,3,1}] << std::endl;
 
   std::cout << "Element[10]: " << std::endl;
-  std::cout << lattice_3D.elements()[10] << std::endl;
+  std::cout << mesh_3D.elements()[10] << std::endl;
 
   std::cout << "Element volume: " << std::endl
-            << lattice_3D.element_volume() << std::endl;
+            << mesh_3D.element_volume() << std::endl;
+  // endregion
+
+  // region 2D::UniformMesh
+  console::info("UniformMesh 2D: periodic boundary conditions");
+
+  auto um_origin_2D = std::vector<double>{0, 0};
+  auto um_lengths_2D = std::vector<double>{4.0, 4.0};
+  auto uniform_2D = two_dimensional::UniformMesh(1.0, um_lengths_2D, um_origin_2D);
+
+  std::cout << uniform_2D << std::endl;
+  std::cout << "Spacing: " << uniform_2D.spacing() << std::endl;
+  std::cout << "Shape: [" << uniform_2D.shape()[0] << ", " << uniform_2D.shape()[1] << "]" << std::endl;
+  std::cout << "Element volume: " << uniform_2D.element_volume() << std::endl;
+
+  // PBC wrapping
+  std::cout << std::endl;
+  std::cout << "wrap({1.5, 2.5}):  " << uniform_2D.wrap(Vertex({1.5, 2.5})) << std::endl;
+  std::cout << "wrap({5.5, 7.0}):  " << uniform_2D.wrap(Vertex({5.5, 7.0})) << std::endl;
+  std::cout << "wrap({-1.0, -0.5}): " << uniform_2D.wrap(Vertex({-1.0, -0.5})) << std::endl;
+
+  console::info("UniformMesh 2D: plot");
+  uniform_2D.plot();
+  // endregion
+
+  // region 3D::UniformMesh
+  console::info("UniformMesh 3D: periodic boundary conditions");
+
+  auto um_origin_3D = std::vector<double>{0, 0, 0};
+  auto um_lengths_3D = std::vector<double>{4.0, 4.0, 4.0};
+  auto uniform_3D = three_dimensional::UniformMesh(1.0, um_lengths_3D, um_origin_3D);
+
+  std::cout << uniform_3D << std::endl;
+  std::cout << "Spacing: " << uniform_3D.spacing() << std::endl;
+  std::cout << "Shape: [" << uniform_3D.shape()[0] << ", " << uniform_3D.shape()[1]
+            << ", " << uniform_3D.shape()[2] << "]" << std::endl;
+  std::cout << "Element volume: " << uniform_3D.element_volume() << std::endl;
+
+  // PBC wrapping
+  std::cout << std::endl;
+  std::cout << "wrap({1.5, 2.5, 3.5}):     " << uniform_3D.wrap(Vertex({1.5, 2.5, 3.5})) << std::endl;
+  std::cout << "wrap({5.5, 7.0, 12.5}):    " << uniform_3D.wrap(Vertex({5.5, 7.0, 12.5})) << std::endl;
+  std::cout << "wrap({-1.0, -0.5, -5.0}):  " << uniform_3D.wrap(Vertex({-1.0, -0.5, -5.0})) << std::endl;
   // endregion
 }
