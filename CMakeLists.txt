@@ -74,6 +74,8 @@ set(DFT_LIB_SOURCES
     src/numerics/spline.cpp
     # Physics
     src/physics/potentials/intermolecular/potential.cpp
+    src/physics/thermodynamics/eos.cpp
+    src/physics/crystal/lattice.cpp
     # Geometry – base
     src/geometry/base/vertex.cpp
     src/geometry/base/element.cpp
@@ -145,6 +147,8 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/numerics/fourier)
     add_subdirectory(examples/numerics/spline)
     add_subdirectory(examples/geometry)
+    add_subdirectory(examples/physics/thermodynamics)
+    add_subdirectory(examples/physics/crystal)
     if(DFT_USE_GRACE)
         add_subdirectory(examples/graphs)
         add_subdirectory(examples/physics/potentials/intermolecular)

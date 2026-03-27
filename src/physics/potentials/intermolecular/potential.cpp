@@ -1,11 +1,9 @@
 #include "classicaldft_bits/physics/potentials/intermolecular/potential.h"
 
-#include "classicaldft_bits/numerics/functions.h"
 #include "classicaldft_bits/numerics/integration.h"
 
 #include <cmath>
 using namespace dft_core::numerics::integration;
-using namespace dft_core::utils;
 
 namespace dft_core::physics::potentials::intermolecular {
 
@@ -85,12 +83,10 @@ namespace dft_core::physics::potentials::intermolecular {
     return _v_potential(r);
   }
 
-  std::vector<double> Potential::v_potential(const std::vector<double>& r) const {
-    return functions::apply_vector_wise<Potential, double>(*this, &Potential::_v_potential, r);
-  }
-
   arma::vec Potential::v_potential(const arma::vec& r) const {
-    return {this->v_potential(arma::conv_to<std::vector<double>>::from(r))};
+    arma::vec result = r;
+    result.transform([this](double ri) { return _v_potential(ri); });
+    return result;
   }
 
   double Potential::_v_potential_r2(double r_squared) const {
@@ -101,12 +97,10 @@ namespace dft_core::physics::potentials::intermolecular {
     return _v_potential_r2(r_squared);
   }
 
-  std::vector<double> Potential::v_potential_r2(const std::vector<double>& r_squared) const {
-    return functions::apply_vector_wise<Potential, double>(*this, &Potential::_v_potential_r2, r_squared);
-  }
-
   arma::vec Potential::v_potential_r2(const arma::vec& r_squared) const {
-    return {this->v_potential_r2(arma::conv_to<std::vector<double>>::from(r_squared))};
+    arma::vec result = r_squared;
+    result.transform([this](double ri) { return _v_potential_r2(ri); });
+    return result;
   }
 
   double Potential::_w_repulsive(double r) const {
@@ -121,12 +115,10 @@ namespace dft_core::physics::potentials::intermolecular {
     return _w_repulsive(r);
   }
 
-  std::vector<double> Potential::w_repulsive(const std::vector<double>& r) const {
-    return functions::apply_vector_wise<Potential, double>(*this, &Potential::_w_repulsive, r);
-  }
-
   arma::vec Potential::w_repulsive(const arma::vec& r) const {
-    return {this->w_repulsive(arma::conv_to<std::vector<double>>::from(r))};
+    arma::vec result = r;
+    result.transform([this](double ri) { return _w_repulsive(ri); });
+    return result;
   }
 
   void Potential::set_wca_limit(double r) {
@@ -150,12 +142,10 @@ namespace dft_core::physics::potentials::intermolecular {
     return _w_attractive(r);
   }
 
-  std::vector<double> Potential::w_attractive(const std::vector<double>& r) const {
-    return functions::apply_vector_wise<Potential, double>(*this, &Potential::_w_attractive, r);
-  }
-
   arma::vec Potential::w_attractive(const arma::vec& r) const {
-    return {this->w_attractive(arma::conv_to<std::vector<double>>::from(r))};
+    arma::vec result = r;
+    result.transform([this](double ri) { return _w_attractive(ri); });
+    return result;
   }
 
   double Potential::w_attractive_r2(double r_squared) const {
@@ -206,10 +196,6 @@ namespace dft_core::physics::potentials::intermolecular {
   }
 
   double Potential::operator()(double r) const {
-    return v_potential(r);
-  }
-
-  std::vector<double> Potential::operator()(const std::vector<double>& r) const {
     return v_potential(r);
   }
 

@@ -114,6 +114,68 @@ Key files that were **significantly modified** (not just moved):
 - **One test file per module.** Test file mirrors source file structure: `tests/numerics/fourier.cpp` tests `src/numerics/fourier.cpp`.
 - **Test names describe behaviour, not implementation.** `InterpolateSinAtMidpoints`, not `test_spline_1`.
 
+### Style rules (evolved during implementation)
+
+These rules were established during the Phase 0-4 implementation and override or extend the original plan where they conflict.
+
+#### Armadillo is the numeric array type at all public API boundaries
+
+- `arma::vec`, `arma::mat`, `arma::rowvec3`, `arma::uword` etc. are the standard types for numeric arrays in public interfaces.
+- `std::vector<double>` overloads are **never** offered as alternatives. Callers with `std::vector` convert trivially via `arma::vec(std_vec)` or `arma::conv_to`.
+- The `arma::vec` code path must be the **native** implementation, not a wrapper that converts to `std::vector` and back.
+- Internal/private code may use plain types when appropriate: unit cell construction helpers, GSL/FFTW interop, compile-time data tables.
+- Helper utilities that exist solely to bridge `std::vector<double>` to member functions (e.g. `apply_vector_wise`) are dead code under this rule and must be removed.
+
+#### Class name IS the model
+
+- No suffixes encoding the algorithm or approximation: `CarnahanStarling`, not `CarnahanStarlingHS` or `free_energy_cs`.
+- No suffixes encoding the variable: `PercusYevick`, not `PercusYevickEta`.
+- The class hierarchy embodies the taxonomy. The name is the identity. If the user writes `auto fluid = CarnahanStarling();`, the type says everything.
+
+#### Class hierarchies, not free functions with model tags
+
+- Abstract base class defines the interface: `HardSphereFluid` with virtual `free_energy_density(eta)`, `derivative(eta, order)`, `pressure(eta)`, `contact_value(eta)`.
+- Concrete classes implement the physics: `CarnahanStarling`, `PercusYevick` (with `Route` enum for virial vs compressibility).
+- Free functions that depend on thermodynamic quantities take them as parameters (`bulk_viscosity(density, chi)`), not as model selectors (`bulk_viscosity_cs(density)`).
+- No reproducing Jim's pattern of suffixed free functions.
+
+#### Method overloading over separate names
+
+- `positions()` / `positions(dnn)` / `positions(box)` — dispatch on argument type/count.
+- Never `positions()` / `positions_scaled(dnn)` / `positions_with_box(box)`.
+- The same applies everywhere: if two methods differ only in how they scale or transform, they should be overloads of the same name.
+
+#### Derivatives parameterized by packing fraction, not density
+
+- Thermodynamic classes (`CarnahanStarling`, `PercusYevick`) work in packing fraction $\eta$.
+- EOS classes compose thermodynamic classes and handle the $\rho \leftrightarrow \eta$ conversion (via $(\pi/6)\sigma^3$).
+- This keeps the math clean and the chain rule explicit. The user never wonders which variable a derivative is with respect to.
+
+#### No redundant path components in filenames
+
+- `crystal/lattice.h`, not `crystal/crystal_lattice.h`.
+- `thermodynamics/enskog.h`, not `thermodynamics/enskog_transport.h`.
+- The directory provides the context; the filename should not repeat it.
+
+#### Consistent vocabulary with geometry layer
+
+- `dimensions()` for physical extents (matching `Mesh::dimensions`).
+- `shape()` for discrete counts as `std::vector<long>` (matching `Mesh::shape`).
+- `size()` for total count (matching STL convention).
+- When a physics class uses concepts that overlap with geometry (lengths, counts, positions), prefer the vocabulary already established in the geometry layer.
+
+#### No broken inheritance for vocabulary sharing
+
+- Crystal `Lattice` shares vocabulary with `Mesh` (`dimensions`, `shape`) but does **not** inherit from it.
+- `Mesh` is for computational grids with uniform $\Delta x$ and regular vertex enumeration. A crystal lattice has irregular atom positions in a periodic box. The IS-A relationship does not hold.
+- Shared concepts expressed through consistent naming, not through base class pointers.
+
+#### Leverage dependencies, do not reimplement
+
+- If Armadillo does it (`arma::dot`, `each_row() %=`, `arma::round`, `arma::approx_equal`), use it.
+- Never write manual element-by-element loops for operations that Armadillo vectorises.
+- Same applies to GSL (splines, integration) and FFTW (transforms). Thin RAII wrappers, not reimplementations.
+
 ### Target directory structure
 
 ```
@@ -376,17 +438,17 @@ classicalDFT/
 
 **Goal:** Migrate the equation-of-state and hard-sphere thermodynamics code.
 
-| Step | Task | Source | Details |
-|---|---|---|---|
-| 4.1 | `physics/thermodynamics/enskog.h` | `Enskog.h` | `namespace dft_core::physics::thermodynamics`. Free functions for PY/Carnahan-Starling: `eta_from_density(rho, hsd)`, `free_energy_cs(eta)`, `pressure_cs(eta)`, `chemical_potential_cs(eta)`, `contact_value(eta)`. Plus transport coefficients (`viscosity`, `diffusion`, `thermal_conductivity`) |
-| 4.2 | Tests for `enskog.h` | — | Known limiting values ($\eta \to 0$, known CS values at $\eta = 0.49$), virial expansion coefficients |
-| 4.3 | `physics/thermodynamics/eos.h` | `EOS.h` | Abstract `class EOS` with `phi_ex(rho)`, `dphi_ex(rho)`, `d2phi_ex(rho)`, `d3phi_ex(rho)`, `free_energy_per_atom(rho)`, `pressure(rho)`. Concrete: `NullEOS`, `PercusYevickEOS`, `JohnsonZollwegGubbinsEOS`, `MeckeEOS`, `FMSA_EOS`. Store parameters as `constexpr` arrays where possible |
-| 4.4 | Tests for `eos.h` | — | Thermodynamic identities ($p = \rho^2 \partial f/\partial \rho$), known tabulated values, consistency between derivatives |
-| 4.5 | `physics/crystal/crystal_lattice.h` | `Crystal_Lattice.h/cpp` | `class CrystalLattice` with `enum class Structure { BCC, FCC, HCP }`, `enum class Orientation { _001, _010, _100, _110, _101, _011, _111 }`. Clean constructor, `positions()` returns `std::vector<std::array<double,3>>`. XYZ export |
-| 4.6 | Tests for `crystal_lattice.h` | — | Coordination numbers, nearest-neighbor distances, symmetry checks |
-| 4.7 | Tag `v2.0.0-alpha.5` | | |
+| Step | Task | Source | Status | Details |
+|---|---|---|---|---|
+| 4.1 | `physics/thermodynamics/enskog.h` | `Enskog.h` | **DONE** | Class hierarchy in `dft_core::physics::thermodynamics`. Abstract `HardSphereFluid` base with virtual `free_energy_density(eta)`, `derivative(eta, order)`, `pressure(eta)`, `chemical_potential(rho)`, `contact_value(eta)`. Concrete: `CarnahanStarling`, `PercusYevick` (with `Route` enum for virial/compressibility). Transport as free functions in `transport` namespace taking `(density, chi)`. All derivatives w.r.t. $\eta$. Header-only |
+| 4.2 | Tests for `enskog.h` | — | **DONE** | 28 tests. Ideal gas limits ($\eta \to 0$), known values at $\eta = 0.49$, virial coefficients $B_2$ through $B_4$, thermodynamic identity $p = \rho \mu - f$, CS/PY-virial/PY-compressibility cross-validation |
+| 4.3 | `physics/thermodynamics/eos.h` + `eos.cpp` | `EOS.h` | **DONE** | Abstract `EquationOfState` base (stores $kT$). Concrete: `IdealGas`, `eos::PercusYevick` (composes `thermodynamics::PercusYevick` with $(\pi/6)\sigma^3$ density conversion), `LennardJonesJZG` (32-param fit), `LennardJonesMecke` (33-param fit). EOS works in density space; enskog classes work in $\eta$ space |
+| 4.4 | Tests for `eos.h` | — | **DONE** | 24 tests. Ideal gas analytically known values, PY-EOS recovers `thermodynamics::PercusYevick` via chain rule, LJ-JZG/Mecke reproduce published tables, thermodynamic identities |
+| 4.5 | `physics/crystal/lattice.h` + `lattice.cpp` | `Crystal_Lattice.h/cpp` | **DONE** | `class Lattice` with `arma::mat positions_` (N$\times$3), `arma::rowvec3 dimensions_`. Three `positions()` overloads: `const arma::mat&` (raw), `arma::mat positions(double dnn)` (uniform scale), `arma::mat positions(const arma::rowvec3& box)` (anisotropic scale via `each_row() %=`). Enums: `Structure` (BCC/FCC/HCP), `Orientation`. Constructor takes `std::vector<long> shape = {1,1,1}` |
+| 4.6 | Tests for `lattice.h` | — | **DONE** | 25 tests. Coordination numbers, nearest-neighbor distances, all orientations for BCC/FCC/HCP, anisotropic scaling, XYZ export, invalid input rejection |
+| 4.7 | Tag `v2.0.0-alpha.5` | | | |
 
-**Estimated scope:** 2-3 days.
+**Status: COMPLETE.** 77 tests across thermodynamics (52) + crystal (25).
 
 ---
 
@@ -540,7 +602,7 @@ Phase 10: polish, docs, benchmarks
    - **protobuf** (cross-language, schema-based) — overkill for this
    - Custom binary I/O — fragile
 
-2. **Armadillo dependency**: Used in `potential.h` (`arma::vec` overloads), will be used as the primary vector/matrix library throughout. `arma::vec` replaces all custom vector types. `arma::eig_sym`/`arma::eig_gen` handle dense eigenproblems. `arma::cx_vec`/`arma::cx_mat`/`arma::qr` power the Arnoldi solver. **Decision: required dependency, not optional.**
+2. **Armadillo dependency**: Required dependency, not optional. Armadillo types (`arma::vec`, `arma::mat`, `arma::rowvec3`, `arma::uword`) are the **exclusive** numeric array types at all public API boundaries. No `std::vector<double>` overloads are offered as alternatives. The `arma::vec` code path is always the native implementation, never a wrapper that round-trips through `std::vector`. Dense eigenproblems use `arma::eig_sym`/`arma::eig_gen`. Arnoldi uses `arma::cx_vec`/`arma::cx_mat`/`arma::qr`. Internal/private code may use plain types for interop (FFTW, GSL) or compile-time data tables. See "Style rules" section for full details.
 
 3. **Grace dependency**: xmgrace is old and platform-dependent. Options:
    - Keep as optional backend behind cmake option

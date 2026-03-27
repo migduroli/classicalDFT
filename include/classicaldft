@@ -26,6 +26,9 @@
 
 // region Physics
 #include "classicaldft_bits/physics/potentials/intermolecular/potential.h"
+#include "classicaldft_bits/physics/thermodynamics/enskog.h"
+#include "classicaldft_bits/physics/thermodynamics/eos.h"
+#include "classicaldft_bits/physics/crystal/lattice.h"
 // endregion
 
 // region Geometry

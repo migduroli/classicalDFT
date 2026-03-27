@@ -55,14 +55,7 @@ TEST(Potential, VPotentialScalar) {
   EXPECT_DOUBLE_EQ(v.v_potential(0.5), 0.25);
 }
 
-TEST(Potential, VPotentialVector) {
-  auto v = FakePotential();
-  auto result = v.v_potential(std::vector<double>{0.5, 1.0});
-  EXPECT_DOUBLE_EQ(result[0], 0.25);
-  EXPECT_DOUBLE_EQ(result[1], 1.0);
-}
-
-TEST(Potential, VPotentialArma) {
+TEST(Potential, VPotentialVec) {
   auto v = FakePotential();
   auto result = v.v_potential(arma::vec{0.5, 1.0});
   EXPECT_DOUBLE_EQ(result(0), 0.25);
@@ -74,14 +67,7 @@ TEST(Potential, VPotentialR2Scalar) {
   EXPECT_DOUBLE_EQ(v.v_potential_r2(0.25), 0.25);
 }
 
-TEST(Potential, VPotentialR2Vector) {
-  auto v = FakePotential();
-  auto result = v.v_potential_r2(std::vector<double>{0.25, 1.0});
-  EXPECT_DOUBLE_EQ(result[0], 0.25);
-  EXPECT_DOUBLE_EQ(result[1], 1.0);
-}
-
-TEST(Potential, VPotentialR2Arma) {
+TEST(Potential, VPotentialR2Vec) {
   auto v = FakePotential();
   auto result = v.v_potential_r2(arma::vec{0.25, 1.0});
   EXPECT_DOUBLE_EQ(result(0), 0.25);
@@ -94,14 +80,7 @@ TEST(Potential, WRepulsiveScalar) {
   EXPECT_DOUBLE_EQ(v.w_repulsive(0.5), 1.25);
 }
 
-TEST(Potential, WRepulsiveVector) {
-  auto v = FakePotential();
-  auto result = v.w_repulsive(std::vector<double>{0.0, 0.5});
-  EXPECT_DOUBLE_EQ(result[0], DEFAULT_ENERGY_SCALE);
-  EXPECT_DOUBLE_EQ(result[1], 1.25);
-}
-
-TEST(Potential, WRepulsiveArma) {
+TEST(Potential, WRepulsiveVec) {
   auto v = FakePotential();
   auto result = v.w_repulsive(arma::vec{0.0, 0.5});
   EXPECT_DOUBLE_EQ(result(0), DEFAULT_ENERGY_SCALE);
@@ -114,13 +93,7 @@ TEST(Potential, WAttractiveScalar) {
   EXPECT_DOUBLE_EQ(v.w_attractive(0.5), -DEFAULT_ENERGY_SCALE);
 }
 
-TEST(Potential, WAttractiveVector) {
-  auto v = FakePotential();
-  auto result = v.w_attractive(std::vector<double>{0.0, 0.5});
-  EXPECT_DOUBLE_EQ(result[0], -DEFAULT_ENERGY_SCALE);
-}
-
-TEST(Potential, WAttractiveArma) {
+TEST(Potential, WAttractiveVec) {
   auto v = FakePotential();
   auto result = v.w_attractive(arma::vec{0.0, 0.5});
   EXPECT_DOUBLE_EQ(result(0), -DEFAULT_ENERGY_SCALE);
@@ -176,8 +149,6 @@ TEST(Potential, WAttractiveR2BeyondCutoff) {
 TEST(Potential, OperatorBrackets) {
   auto v = FakePotential();
   EXPECT_DOUBLE_EQ(v(0.5), v.v_potential(0.5));
-  auto vec_result = v(std::vector<double>{0.5, 1.0});
-  EXPECT_DOUBLE_EQ(vec_result[0], v.v_potential(0.5));
   auto arma_result = v(arma::vec{0.5, 1.0});
   EXPECT_DOUBLE_EQ(arma_result(0), v.v_potential(0.5));
 }

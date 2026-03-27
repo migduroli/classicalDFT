@@ -3,7 +3,6 @@
 
 #include <armadillo>
 #include <iostream>
-#include <vector>
 
 namespace dft_core::physics::potentials {
 
@@ -131,12 +130,10 @@ namespace dft_core::physics::potentials {
 
       /// The repulsive part of the potential
       [[nodiscard]] double w_repulsive(double r) const;
-      [[nodiscard]] std::vector<double> w_repulsive(const std::vector<double>& r) const;
       [[nodiscard]] arma::vec w_repulsive(const arma::vec& r) const;
 
       /// The attractive tail
       [[nodiscard]] double w_attractive(double r) const;
-      [[nodiscard]] std::vector<double> w_attractive(const std::vector<double>& r) const;
       [[nodiscard]] arma::vec w_attractive(const arma::vec& r) const;
 
       /// The attractive part calculated from r2
@@ -144,12 +141,10 @@ namespace dft_core::physics::potentials {
 
       /// The cut and shifted potential at point r
       [[nodiscard]] double v_potential(double r) const;
-      [[nodiscard]] std::vector<double> v_potential(const std::vector<double>& r) const;
       [[nodiscard]] arma::vec v_potential(const arma::vec& r) const;
 
       /// The cut and shifted potential at point r calculated from r^2
       [[nodiscard]] double v_potential_r2(double r_squared) const;
-      [[nodiscard]] std::vector<double> v_potential_r2(const std::vector<double>& r_squared) const;
       [[nodiscard]] arma::vec v_potential_r2(const arma::vec& r) const;
 
       /// Identifier string with the name of the potential and some characteristic parameters
@@ -182,7 +177,6 @@ namespace dft_core::physics::potentials {
        * @return The interparticle potential evaluated at `r`
        */
       double operator()(double r) const;
-      std::vector<double> operator()(const std::vector<double>& r) const;
       arma::vec operator()(const arma::vec& r) const;
 
       // endregion
