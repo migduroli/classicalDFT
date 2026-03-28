@@ -1,4 +1,4 @@
-#include "classicaldft_bits/physics/species/species.h"
+#include "classicaldft_bits/physics/species/base.h"
 
 #include <cmath>
 #include <gtest/gtest.h>

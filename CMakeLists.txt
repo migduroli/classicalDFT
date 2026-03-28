@@ -78,6 +78,10 @@ set(DFT_LIB_SOURCES
     src/physics/crystal/lattice.cpp
     src/physics/density/density.cpp
     src/physics/species/species.cpp
+    src/physics/fmt/convolution.cpp
+    src/physics/fmt/weights.cpp
+    src/physics/fmt/functional.cpp
+    src/physics/fmt/species.cpp
     # Geometry – base
     src/geometry/base/vertex.cpp
     src/geometry/base/element.cpp
@@ -153,6 +157,7 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/physics/crystal)
     add_subdirectory(examples/physics/density)
     add_subdirectory(examples/physics/species)
+    add_subdirectory(examples/physics/fmt)
     if(DFT_USE_GRACE)
         add_subdirectory(examples/graphs)
         add_subdirectory(examples/physics/potentials/intermolecular)

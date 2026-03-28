@@ -588,20 +588,263 @@ classicalDFT/
 
 ### Phase 6: Fundamental Measure Theory
 
-**Goal:** Migrate the FMT engine — the most mathematically dense part of the library.
+**Goal:** Migrate the FMT engine, the most mathematically dense part of the library. Every class, method name, and member follows the conventions established in Phases 4-5.
 
-| Step | Task | Source | Details |
-|---|---|---|---|
-| 6.1 | `physics/fmt/fundamental_measures.h` | `Fundamental_Measures.h` | `struct FundamentalMeasures`: 19 components ($\eta, s_0, s_1, s_2, \mathbf{v}_1, \mathbf{v}_2, \mathbf{T}$) plus derived quantities (`vTv`, `Tr_T2`, `Tr_T3`). Use `std::array` for components. `calculate_derived()` method |
-| 6.2 | `physics/fmt/weighted_density.h` | `FMT_Weighted_Density.h` | `class WeightedDensity`: owns weight array, weighted density, $d\Phi$ array, all as `arma::vec`. Fourier convolution via `FourierConvolution`. RAII for all arrays |
-| 6.3 | `physics/fmt/fmt_helper.h` | `FMT_Helper.h` | `class FMTHelper`: static methods for analytic G-functions (`G_eta`, `G_s`, `G_vx`, `G_txx`, `G_txy`, `G_I1x`, `G_I2`). Document the underlying integrals with LaTeX in doc-strings. Add NaN-guard assertions |
-| 6.4 | `physics/fmt/fmt.h` | `FMT.h/cpp` | Abstract `class FMT`: `calculateFreeEnergyAndDerivatives()`, `addSecondDerivative()`. Protected pure virtuals for `f1_`, `f2_`, `f3_` and their derivatives. Concrete via inheritance: `class Rosenfeld`, `class RSLT`, `class ExplicitlyStableFMT`, `class WhiteBearI`, `class WhiteBearII`. Each model defines $\Phi_3$ and its cross-derivatives |
-| 6.5 | `physics/species/fmt_species.h` | `Species.h`, `FMT_Species.cpp` | `class FMTSpecies : public Species`: 11-component weighted densities, `Initialize()` (generates weight functions), `calculateFundamentalMeasures()` (FFT convolution), `calculateForce()`. Alias system for $\eta < 1$ |
-| 6.6 | `physics/species/fmt_species_eos.h` | `FMT_Species_EOS.cpp` | `class FMTSpeciesEOS : public FMTSpecies`: EOS correction $\Delta F_{\text{EOS}}$ |
-| 6.7 | Tests for FMT | — | Known Rosenfeld free energy at specific $\eta$ values, CS pressure recovery, consistency between models, weight function symmetry, FFT convolution accuracy |
-| 6.8 | Tag `v2.0.0-beta.1` | | |
+#### Design decisions
 
-**Estimated scope:** 3-5 days. This is the hardest phase.
+1. **`arma::vec` everywhere.** Weighted densities, weight functions, and $\partial\Phi/\partial n_\alpha$ fields are all `arma::vec` of length $N_\text{tot}$. No custom vector types. No raw `double*` arrays. Fourier buffers live inside `FourierTransform` objects with `std::span` access; the `arma::vec` is the user-facing type.
+
+2. **`FundamentalMeasures` is a plain struct with Armadillo types.** The 19-component struct uses `double` for scalars, `arma::rowvec3` for vectors, `arma::mat33` for the tensor. Derived quantities (`v2_dot_v2`, `trace_T2`, `trace_T3`, `vTv`) are computed by a `calculate_derived()` method. No raw C arrays.
+
+3. **`WeightedDensity` bundles three fields.** Each of the 11 stored components owns: a `FourierTransform` for the weight function (pre-FFT'd), an `arma::vec` for the real-space weighted density $n_\alpha(\mathbf{r})$, and an `arma::vec` for $\partial\Phi/\partial n_\alpha(\mathbf{r})$. The class provides `convolve_with(fourier_rho)` (Schur product in Fourier space + IFFT) and `accumulate_force(fourier_output)` (FFT of $d\Phi$, Schur product with weight, accumulate).
+
+4. **FMT model hierarchy mirrors the thermodynamics pattern.** Abstract `FundamentalMeasureTheory` base class with pure virtual `f1(eta)`, `f2(eta)`, `f3(eta)` and their first two derivatives, plus pure virtual `phi3(fm)` and its cross-derivatives. Concrete: `Rosenfeld`, `RSLT`, `WhiteBearI`, `WhiteBearII`. No `esFMT` as a separate user-visible class; it is a protected implementation detail of `WhiteBearI`/`WhiteBearII` via template parameters or `protected` constructor with $(A, B)$.
+
+5. **`FMTSpecies` inherits `Species`, not the other way.** `FMTSpecies` overrides the alias system to enforce $\eta < 1$: $\rho = \rho_\min + c \cdot y^2 / (1 + y^2)$ where $c = (1 - \eta_\min) / dV$. It owns the 11 `WeightedDensity` components, generates weights analytically via the `WeightGenerator` helper, and provides `calculate_weighted_densities(bool needs_tensor)` and `set_measure_derivatives(FundamentalMeasures, pos, needs_tensor)`.
+
+6. **`WeightGenerator` is a static utility (no state).** Replaces legacy `FMT_Helper`. Pure functions that compute the analytic integrals of the FMT weight kernels over rectangular grid cells: `volume_weight(R, cell)`, `surface_weight(R, cell)`, `vector_weight(R, cell)`, `tensor_diagonal_weight(R, cell)`, `tensor_off_diagonal_weight(R, cell)`. Internal helpers (`integrate_arc`, `integrate_cap`) are private. All methods are `[[nodiscard]] static constexpr` where possible.
+
+7. **11 stored components, 19 expanded.** The `FMTSpecies` stores 11 `WeightedDensity` objects exploiting the relations $s_0 = s/d^2$, $s_1 = s/d$, $s_2 = s$ and $v_{1,i} = v_i/d$, $v_{2,i} = v_i$. Expansion to 19 components happens inside `get_measures(pos)` → `FundamentalMeasures`. The collapse from 19 derivatives back to 11 happens in `set_measure_derivatives()`.
+
+8. **Second derivatives via 3-step FFT convolution.** `FundamentalMeasureTheory::add_hessian_vector_product(v, result, species)` implements: (a) convolve $v$ with each weight to get $\Psi_b$, (b) contract $\Psi_b$ with $\partial^2\Phi/\partial n_a \partial n_b$ at each site, (c) back-convolve with weights. This is the $O(N \log N)$ method.
+
+9. **No AO species in Phase 6.** The Asakura-Oosawa extension is deferred. If needed, it will be a separate `AOSpecies` class in a later phase.
+
+10. **No Boost serialization.** Binary I/O uses Armadillo `save()`/`load()` for weight data (if caching is ever needed).
+
+#### Class: `FundamentalMeasures`
+
+**Namespace:** `dft_core::physics::fmt`
+
+**File:** `include/classicaldft_bits/physics/fmt/fundamental_measures.h`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `eta` | `double` | Packing fraction $\eta$ |
+| `s0` | `double` | Scalar measure $s_0 = \pi \rho$ |
+| `s1` | `double` | Scalar measure $s_1 = \pi \rho d$ |
+| `s2` | `double` | Scalar measure $s_2 = \pi \rho d^2$ |
+| `v1` | `arma::rowvec3` | Vector measure $\mathbf{v}_1$ |
+| `v2` | `arma::rowvec3` | Vector measure $\mathbf{v}_2$ |
+| `T` | `arma::mat33` | Tensor measure $\mathbf{T}$ (symmetric) |
+
+**Derived (computed by `calculate_derived()`):**
+
+| Field | Type | Expression |
+|-------|------|------------|
+| `v1_dot_v2` | `double` | $\mathbf{v}_1 \cdot \mathbf{v}_2$ |
+| `v2_dot_v2` | `double` | $|\mathbf{v}_2|^2$ |
+| `vTv` | `double` | $\mathbf{v}_2^T \mathbf{T} \mathbf{v}_2$ |
+| `trace_T2` | `double` | $\mathrm{Tr}(\mathbf{T}^2)$ |
+| `trace_T3` | `double` | $\mathrm{Tr}(\mathbf{T}^3)$ |
+
+**Methods:**
+- `void calculate_derived()` — computes all derived fields from primary fields
+- `static FundamentalMeasures uniform(double density, double hsd)` — factory for homogeneous fluid
+
+#### Class: `WeightedDensity`
+
+**Namespace:** `dft_core::physics::fmt`
+
+**File:** `include/classicaldft_bits/physics/fmt/weighted_density.h`
+
+| Member | Type | Purpose |
+|--------|------|---------|
+| `weight_` | `FourierTransform` | Pre-FFT'd weight function $\hat{w}_\alpha(\mathbf{k})$ |
+| `density_` | `arma::vec` | Real-space weighted density $n_\alpha(\mathbf{r})$ |
+| `d_phi_` | `arma::vec` | $\partial\Phi/\partial n_\alpha(\mathbf{r})$ |
+
+**Methods:**
+
+| Method | Signature |
+|--------|-----------|
+| Constructor | `WeightedDensity(std::vector<long> shape)` |
+| `convolve_with` | `void convolve_with(std::span<const std::complex<double>> rho_fourier)` |
+| `accumulate_force` | `void accumulate_force(std::span<std::complex<double>> output_fourier, bool conjugate = false) const` |
+| `density` | `[[nodiscard]] const arma::vec&` / `arma::vec&` |
+| `d_phi` | `[[nodiscard]] const arma::vec&` / `arma::vec&` |
+| `weight` | `[[nodiscard]] const FourierTransform&` |
+| `set_weight_from_real` | `void set_weight_from_real(const arma::vec& w)` — copies into FFT buffer, executes forward FFT, normalizes by $1/N$ |
+
+#### Class: `FundamentalMeasureTheory` (abstract)
+
+**Namespace:** `dft_core::physics::fmt`
+
+**File:** `include/classicaldft_bits/physics/fmt/fmt.h` + `src/physics/fmt/fmt.cpp`
+
+**Pure virtual (model-specific):**
+
+| Method | Signature | Physics |
+|--------|-----------|---------|
+| `f1` | `[[nodiscard]] double f1(double eta) const` | $f_1(\eta)$ |
+| `d_f1` | `[[nodiscard]] double d_f1(double eta) const` | $f_1'(\eta)$ |
+| `d2_f1` | `[[nodiscard]] double d2_f1(double eta) const` | $f_1''(\eta)$ |
+| `f2` | `[[nodiscard]] double f2(double eta) const` | $f_2(\eta)$ |
+| `d_f2` | `[[nodiscard]] double d_f2(double eta) const` | $f_2'(\eta)$ |
+| `d2_f2` | `[[nodiscard]] double d2_f2(double eta) const` | $f_2''(\eta)$ |
+| `f3` | `[[nodiscard]] double f3(double eta) const` | $f_3(\eta)$ |
+| `d_f3` | `[[nodiscard]] double d_f3(double eta) const` | $f_3'(\eta)$ |
+| `d2_f3` | `[[nodiscard]] double d2_f3(double eta) const` | $f_3''(\eta)$ |
+| `phi3` | `[[nodiscard]] double phi3(const FundamentalMeasures&) const` | $\Phi_3$ |
+| `d_phi3_d_s2` | `[[nodiscard]] double ...` | $\partial\Phi_3/\partial s_2$ |
+| `d_phi3_d_v2` | `[[nodiscard]] arma::rowvec3 ...` | $\partial\Phi_3/\partial \mathbf{v}_2$ |
+| `needs_tensor` | `[[nodiscard]] bool needs_tensor() const` | Whether $\mathbf{T}$ is used |
+| `name` | `[[nodiscard]] std::string name() const` | Model identifier |
+
+**Virtual with default (for tensor models):**
+
+| Method | Default |
+|--------|---------|
+| `d_phi3_d_T(int j, int k, fm)` | `return 0.0` |
+| `d2_phi3_d_s2_d_s2(fm)` | `throw` |
+| `d2_phi3_d_v2_d_s2(fm)` | `throw` |
+| `d2_phi3_d_v2_d_v2(fm)` | `throw` |
+| `d2_phi3_d_s2_d_T(j, k, fm)` | `return 0.0` |
+| `d2_phi3_d_v2_d_T(i, j, k, fm)` | `return 0.0` |
+| `d2_phi3_d_T_d_T(i, j, k, l, fm)` | `return 0.0` |
+
+**Non-virtual (implemented in base):**
+
+| Method | Role |
+|--------|------|
+| `free_energy_and_forces(species)` | Full pipeline: convolve → accumulate $\Phi$ → back-convolve forces. Returns $F \cdot dV$ |
+| `phi(fm)` | $\Phi = -\frac{1}{\pi} s_0 f_1 + \frac{1}{2\pi}(s_1 s_2 - \mathbf{v}_1 \cdot \mathbf{v}_2) f_2 + \Phi_3 f_3$ |
+| `d_phi(fm)` | Computes all $\partial\Phi/\partial n_\alpha$ → returns `FundamentalMeasures` |
+| `d2_phi_dot_v(fm, v)` | Hessian-vector product $\sum_b (\partial^2\Phi/\partial n_a \partial n_b) v_b$ |
+| `add_hessian_vector_product(v, result, species)` | 3-step FFT Hessian-vector product |
+| `bulk_excess_free_energy(densities, species)` | Bulk $F_\text{ex}$ from homogeneous measures |
+| `bulk_excess_chemical_potential(densities, species, index)` | Bulk $\mu_\text{ex}$ |
+
+#### Concrete models
+
+**File:** `include/classicaldft_bits/physics/fmt/fmt.h` (all inline in header, following `enskog.h` pattern)
+
+| Class | Inherits | $f_3(\eta)$ | $\Phi_3$ | Tensor? |
+|-------|----------|-------------|----------|---------|
+| `Rosenfeld` | `FundamentalMeasureTheory` | $1/(1-\eta)^2$ | $\frac{1}{24\pi}(s_2^3 - 3 s_2 |\mathbf{v}_2|^2)$ | No |
+| `RSLT` | `Rosenfeld` | $\frac{1}{\eta(1-\eta)^2} + \frac{\ln(1-\eta)}{\eta^2}$ | $\frac{1}{36\pi} s_2^3 (1-\psi)^3$ | No |
+| `WhiteBearI` | `FundamentalMeasureTheory` | Same as RSLT | $\frac{A}{24\pi}(\ldots) + \frac{B}{24\pi}(\ldots)$ with $A\!=\!1, B\!=\!-1$ | Yes |
+| `WhiteBearII` | `FundamentalMeasureTheory` | Modified $f_3$ | Same $\Phi_3$ as WhiteBearI but different $f_2, f_3$ | Yes |
+
+`WhiteBearI` and `WhiteBearII` each define their own full set of `f1`..`f3`, `phi3`, and all tensor derivatives inline. They share a `protected` helper for the esFMT $\Phi_3$ formula by calling a free function `es_phi3(A, B, fm)` rather than through inheritance.
+
+#### Class: `FMTSpecies`
+
+**Namespace:** `dft_core::physics::species`
+
+**File:** `include/classicaldft_bits/physics/species/fmt_species.h` + `src/physics/species/fmt_species.cpp`
+
+**Inherits:** `Species`
+
+| Member | Type | Purpose |
+|--------|------|---------|
+| `hsd_` | `double` | Hard-sphere diameter |
+| `weighted_densities_` | `std::array<WeightedDensity, 11>` | Components: eta, s, v[3], T_upper[6] |
+
+**Component index scheme (private helpers):**
+- `eta_index() = 0`
+- `scalar_index() = 1`
+- `vector_index(j) = 2 + j` for $j \in \{0,1,2\}$
+- `tensor_index(j, k)` for upper triangle: $T_{00}=5, T_{01}=6, T_{02}=7, T_{11}=8, T_{12}=9, T_{22}=10$
+
+**Constructor:** `FMTSpecies(Density density, double hsd, double chemical_potential = 0.0)`. Generates weight functions via `WeightGenerator`, FFTs them, stores in `weighted_densities_`.
+
+**Methods:**
+
+| Method | Signature | Role |
+|--------|-----------|------|
+| `hsd` | `[[nodiscard]] double hsd() const noexcept` | Accessor |
+| `calculate_weighted_densities` | `void ...(bool needs_tensor)` | FFT $\rho$, Schur multiply with each weight, IFFT |
+| `get_measures` | `[[nodiscard]] FundamentalMeasures ...(arma::uword pos) const` | Extract 19 measures at lattice point (expanding 11 → 19 via $d$) |
+| `set_measure_derivatives` | `void ...(const FundamentalMeasures& d_phi, arma::uword pos, bool needs_tensor)` | Collapse 19 → 11 derivatives (chain rule for $s_0/s_1/s_2$, $v_1/v_2$), parity flip on vectors |
+| `accumulate_forces` | `void ...(bool needs_tensor)` | FFT each $d\Phi$, Schur with weight, accumulate into Fourier force buffer, IFFT, multiply by $dV$, add to `force_` |
+
+**Alias override:** `set_density_from_alias`, `density_alias`, `alias_force` override the `Species` virtuals with the bounded alias: $\rho = \rho_\min + c \cdot y^2/(1+y^2)$, $c = (1 - \eta_\min)/dV$, $\eta_\min = \rho_\min \cdot (\pi/6) d^3$.
+
+#### Class: `WeightGenerator`
+
+**Namespace:** `dft_core::physics::fmt`
+
+**File:** `include/classicaldft_bits/physics/fmt/weight_generator.h` + `src/physics/fmt/weight_generator.cpp`
+
+Static utility. All public methods are `[[nodiscard]] static`.
+
+| Method | Signature | Integral |
+|--------|-----------|----------|
+| `volume_weight` | `double ...(double R, double X, double Vy, double Vz, double Tx, double Ty, double Tz)` | $\int_\text{cell} \Theta(R - |\mathbf{r}|) \, d^3r$ |
+| `surface_weight` | `double ...(...)` | $\int_\text{cell} \delta(R - |\mathbf{r}|) R \, d^3r$ |
+| `vector_weight` | `double ...(...)` | $\int_\text{cell} \delta(R - |\mathbf{r}|) (x_i/R) R \, d^3r$ |
+| `tensor_diagonal_weight` | `double ...(...)` | $\int_\text{cell} \delta(R - |\mathbf{r}|) (x_i^2/R^2) R \, d^3r$ |
+| `tensor_off_diagonal_weight` | `double ...(...)` | $\int_\text{cell} \delta(R - |\mathbf{r}|) (x_i x_j/R^2) R \, d^3r$ |
+| `generate_weights` | `void ...(double hsd, double dx, const std::vector<long>& shape, std::array<WeightedDensity, 11>& weights)` | Full weight-generation pipeline (octant loop, PBC placement) |
+
+**Private helpers:** `integrate_arc(X, A)` and `integrate_cap(X, V, R)` (the legacy `getI`/`getJ`).
+
+#### Test plan
+
+**`tests/physics/fmt/fundamental_measures.cpp`** (~15 tests):
+- Default construction: all zeros
+- Uniform construction: verify $\eta, s_0, s_1, s_2$ formulas for known $\rho, d$
+- `calculate_derived()`: $\text{Tr}(\mathbf{T}^2)$ and $\text{Tr}(\mathbf{T}^3)$ for known tensors
+- $\mathbf{v}_2^T \mathbf{T} \mathbf{v}_2$ for known inputs
+- Symmetric tensor: verify $T = T^T$ in uniform case
+
+**`tests/physics/fmt/weight_generator.cpp`** (~20 tests):
+- Cell fully inside sphere: volume weight = $dV$, surface weight = 0
+- Cell fully outside sphere: all weights = 0
+- Weight sum over all cells $\approx \frac{4}{3}\pi R^3$ (volume), $\approx 4\pi R^2$ (surface)
+- Vector weight sum = 0 (parity cancellation)
+- Tensor trace sum $\approx s_2$ (from $T_{ii}$ identity)
+- Consistency: volume weight monotonically increases with $R$
+- Known limiting case: $R \gg dx$ gives $w_\eta \to dV$ everywhere inside
+
+**`tests/physics/fmt/weighted_density.cpp`** (~10 tests):
+- Construction allocates correct sizes
+- `convolve_with` on uniform density gives expected uniform weighted density
+- `set_weight_from_real` + `convolve_with` round-trip on known weight
+
+**`tests/physics/fmt/fmt.cpp`** (~30 tests):
+- Each model: $f_1, f_2, f_3$ and derivatives at $\eta = 0$ (dilute limit)
+- Each model: $f_1, f_2, f_3$ at $\eta = 0.4$ (moderate density)
+- `phi(uniform_fm)` recovers bulk free energy density matching `CarnahanStarling` (for WhiteBearI) and PY (for Rosenfeld)
+- `d_phi`: numerical gradient vs analytic for each measure
+- `bulk_excess_free_energy` matches thermodynamics layer at several densities
+- `bulk_excess_chemical_potential` matches thermodynamics layer
+- `phi3` derivatives: numerical finite difference vs analytic for all models
+- Taylor expansion guards: verify $f_3(\eta \to 0)$ accuracy to machine precision
+- `needs_tensor()`: false for Rosenfeld/RSLT, true for WhiteBearI/WhiteBearII
+
+**`tests/physics/species/fmt_species.cpp`** (~25 tests):
+- Construction with known $d$: 11 weighted density components allocated
+- Weight generation: weight sums match analytic integrals ($4\pi R^3/3$, $4\pi R^2$, etc.)
+- `calculate_weighted_densities`: uniform density gives bulk measures
+- `get_measures`: $s_0 = s/d^2$ identity verified
+- `set_measure_derivatives`: round-trip with known $\partial\Phi$
+- Alias bounded: $\rho$ never exceeds $(1 - \eta_\min)/dV + \rho_\min$ regardless of alias value
+- Alias round-trip: $y \to \rho \to y$
+- Alias chain rule: numerical finite difference vs analytic
+- Full pipeline: `free_energy_and_forces()` on uniform density recovers bulk excess free energy
+- Force consistency: numerical gradient of free energy vs analytic force (central differences on $\rho$)
+
+#### Execution order
+
+| Step | Task | Files | Status |
+|------|------|-------|--------|
+| 6.1 | `FundamentalMeasures` struct | `include/classicaldft_bits/physics/fmt/fundamental_measures.h` | |
+| 6.2 | `FundamentalMeasures` tests | `tests/physics/fmt/fundamental_measures.cpp` | |
+| 6.3 | `WeightedDensity` class | `include/classicaldft_bits/physics/fmt/weighted_density.h` + `.cpp` | |
+| 6.4 | `WeightedDensity` tests | `tests/physics/fmt/weighted_density.cpp` | |
+| 6.5 | `WeightGenerator` utility | `include/classicaldft_bits/physics/fmt/weight_generator.h` + `.cpp` | |
+| 6.6 | `WeightGenerator` tests | `tests/physics/fmt/weight_generator.cpp` | |
+| 6.7 | `FundamentalMeasureTheory` abstract + Rosenfeld | `include/classicaldft_bits/physics/fmt/fmt.h` + `src/physics/fmt/fmt.cpp` | |
+| 6.8 | `RSLT`, `WhiteBearI`, `WhiteBearII` | Same files (inline in header, following `enskog.h` pattern) | |
+| 6.9 | FMT tests | `tests/physics/fmt/fmt.cpp` | |
+| 6.10 | `FMTSpecies` class | `include/classicaldft_bits/physics/species/fmt_species.h` + `src/physics/species/fmt_species.cpp` | |
+| 6.11 | `FMTSpecies` tests | `tests/physics/species/fmt_species.cpp` | |
+| 6.12 | Wire build | `CMakeLists.txt`, umbrella header | |
+| 6.13 | Build + test all | All existing + ~100 new tests pass | |
+| 6.14 | FMT example | `examples/physics/fmt/` (main.cpp, CMakeLists.txt, Makefile, README.md) | |
+| 6.15 | Tag `v2.0.0-beta.1` | | |
 
 ---
 

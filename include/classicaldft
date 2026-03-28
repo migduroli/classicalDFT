@@ -30,7 +30,12 @@
 #include "classicaldft_bits/physics/thermodynamics/eos.h"
 #include "classicaldft_bits/physics/crystal/lattice.h"
 #include "classicaldft_bits/physics/density/density.h"
-#include "classicaldft_bits/physics/species/species.h"
+#include "classicaldft_bits/physics/species/base.h"
+#include "classicaldft_bits/physics/fmt/measures.h"
+#include "classicaldft_bits/physics/fmt/convolution.h"
+#include "classicaldft_bits/physics/fmt/weights.h"
+#include "classicaldft_bits/physics/fmt/functional.h"
+#include "classicaldft_bits/physics/fmt/species.h"
 // endregion
 
 // region Geometry
