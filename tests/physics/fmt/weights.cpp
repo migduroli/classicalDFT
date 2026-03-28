@@ -1,6 +1,7 @@
 #include "classicaldft_bits/physics/fmt/weights.h"
-#include "classicaldft_bits/physics/fmt/measures.h"
+
 #include "classicaldft_bits/numerics/fourier.h"
+#include "classicaldft_bits/physics/fmt/measures.h"
 
 #include <cmath>
 #include <gtest/gtest.h>
@@ -29,7 +30,8 @@ class WeightsUniformTest : public ::testing::Test {
     Weights::generate(test_diameter, test_dx, test_shape, ws_);
 
     rho_fft_ = FourierTransform(test_shape);
-    for (auto& v : rho_fft_.real()) v = rho0_;
+    for (auto& v : rho_fft_.real())
+      v = rho0_;
     rho_fft_.forward();
 
     ws_.for_each([&](ConvolutionField& ch) { ch.convolve(rho_fft_.fourier()); });
@@ -99,8 +101,7 @@ TEST(Weights, DifferentDiameterGivesDifferentWeights) {
   auto ws2 = make_weight_set(test_shape);
   Weights::generate(1.5, test_dx, test_shape, ws2);
 
-  EXPECT_NE(std::abs(ws1.eta.weight().fourier()[0]),
-            std::abs(ws2.eta.weight().fourier()[0]));
+  EXPECT_NE(std::abs(ws1.eta.weight().fourier()[0]), std::abs(ws2.eta.weight().fourier()[0]));
 }
 
 TEST(Weights, ScalarDCComponent) {

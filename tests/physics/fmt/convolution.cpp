@@ -51,7 +51,8 @@ TEST(ConvolutionField, UniformConvolutionGivesUniform) {
   cf.set_weight_from_real(w);
 
   FourierTransform rho_fft(test_shape);
-  for (auto& v : rho_fft.real()) v = rho0;
+  for (auto& v : rho_fft.real())
+    v = rho0;
   rho_fft.forward();
 
   cf.convolve(rho_fft.fourier());
@@ -103,7 +104,8 @@ TEST(ConvolutionField, AccumulateBasic) {
   cf.accumulate(output.fourier());
 
   double sum = 0.0;
-  for (auto& c : output.fourier()) sum += std::abs(c);
+  for (auto& c : output.fourier())
+    sum += std::abs(c);
   EXPECT_GT(sum, 0.0);
 }
 

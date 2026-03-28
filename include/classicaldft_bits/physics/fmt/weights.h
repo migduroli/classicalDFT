@@ -35,9 +35,7 @@ namespace dft_core::physics::fmt {
      * Indices follow Cartesian convention: 0=x, 1=y, 2=z.
      * Since $T_{ij} = T_{ji}$, only the upper triangle is stored.
      */
-    [[nodiscard]] ConvolutionField& tensor(int i, int j) {
-      return (i <= j) ? tensor__[i][j] : tensor__[j][i];
-    }
+    [[nodiscard]] ConvolutionField& tensor(int i, int j) { return (i <= j) ? tensor__[i][j] : tensor__[j][i]; }
 
     [[nodiscard]] const ConvolutionField& tensor(int i, int j) const {
       return (i <= j) ? tensor__[i][j] : tensor__[j][i];
@@ -53,7 +51,8 @@ namespace dft_core::physics::fmt {
     void for_each(F&& fn) {
       fn(eta);
       fn(scalar);
-      for (auto& v : vector) fn(v);
+      for (auto& v : vector)
+        fn(v);
       for (int i = 0; i < 3; ++i)
         for (int j = i; j < 3; ++j)
           fn(tensor__[i][j]);
@@ -63,7 +62,8 @@ namespace dft_core::physics::fmt {
     void for_each(F&& fn) const {
       fn(eta);
       fn(scalar);
-      for (const auto& v : vector) fn(v);
+      for (const auto& v : vector)
+        fn(v);
       for (int i = 0; i < 3; ++i)
         for (int j = i; j < 3; ++j)
           fn(tensor__[i][j]);
@@ -89,12 +89,7 @@ namespace dft_core::physics::fmt {
      * @param shape Grid dimensions $(N_x, N_y, N_z)$.
      * @param weights Output WeightSet (channels must already be constructed).
      */
-    static void generate(
-        double diameter,
-        double dx,
-        const std::vector<long>& shape,
-        WeightSet& weights
-    );
+    static void generate(double diameter, double dx, const std::vector<long>& shape, WeightSet& weights);
 
    private:
     [[nodiscard]] static double volume_hat(double k, double R);

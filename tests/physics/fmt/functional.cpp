@@ -1,4 +1,5 @@
 #include "classicaldft_bits/physics/fmt/functional.h"
+
 #include "classicaldft_bits/physics/thermodynamics/enskog.h"
 
 #include <cmath>
@@ -46,33 +47,28 @@ TEST(Functional, WhiteBearIIDiluteLimits) {
 
 TEST(Functional, RosenfeldF1Derivative) {
   Rosenfeld model;
-  EXPECT_NEAR(model.d_f1(0.3),
-              numerical_derivative([&](double e) { return model.f1(e); }, 0.3), 1e-8);
+  EXPECT_NEAR(model.d_f1(0.3), numerical_derivative([&](double e) { return model.f1(e); }, 0.3), 1e-8);
 }
 
 TEST(Functional, RosenfeldF2Derivative) {
   Rosenfeld model;
-  EXPECT_NEAR(model.d_f2(0.3),
-              numerical_derivative([&](double e) { return model.f2(e); }, 0.3), 1e-8);
+  EXPECT_NEAR(model.d_f2(0.3), numerical_derivative([&](double e) { return model.f2(e); }, 0.3), 1e-8);
 }
 
 TEST(Functional, RosenfeldF3Derivative) {
   Rosenfeld model;
-  EXPECT_NEAR(model.d_f3(0.3),
-              numerical_derivative([&](double e) { return model.f3(e); }, 0.3), 1e-8);
+  EXPECT_NEAR(model.d_f3(0.3), numerical_derivative([&](double e) { return model.f3(e); }, 0.3), 1e-8);
 }
 
 TEST(Functional, RosenfeldF1SecondDerivative) {
   Rosenfeld model;
-  EXPECT_NEAR(model.d2_f1(0.3),
-              numerical_derivative([&](double e) { return model.d_f1(e); }, 0.3), 1e-6);
+  EXPECT_NEAR(model.d2_f1(0.3), numerical_derivative([&](double e) { return model.d_f1(e); }, 0.3), 1e-6);
 }
 
 TEST(Functional, RSLTDerivativesConsistent) {
   RSLT model;
   for (double eta : {0.1, 0.2, 0.3, 0.4}) {
-    EXPECT_NEAR(model.d_f3(eta),
-                numerical_derivative([&](double e) { return model.f3(e); }, eta), 1e-5)
+    EXPECT_NEAR(model.d_f3(eta), numerical_derivative([&](double e) { return model.f3(e); }, eta), 1e-5)
         << "eta=" << eta;
   }
 }
@@ -80,8 +76,7 @@ TEST(Functional, RSLTDerivativesConsistent) {
 TEST(Functional, WhiteBearIDerivativesConsistent) {
   WhiteBearI model;
   for (double eta : {0.1, 0.2, 0.3, 0.4}) {
-    EXPECT_NEAR(model.d_f3(eta),
-                numerical_derivative([&](double e) { return model.f3(e); }, eta), 1e-5)
+    EXPECT_NEAR(model.d_f3(eta), numerical_derivative([&](double e) { return model.f3(e); }, eta), 1e-5)
         << "eta=" << eta;
   }
 }
@@ -89,11 +84,9 @@ TEST(Functional, WhiteBearIDerivativesConsistent) {
 TEST(Functional, WhiteBearIIDerivativesConsistent) {
   WhiteBearII model;
   for (double eta : {0.1, 0.2, 0.3, 0.4}) {
-    EXPECT_NEAR(model.d_f2(eta),
-                numerical_derivative([&](double e) { return model.f2(e); }, eta), 1e-5)
+    EXPECT_NEAR(model.d_f2(eta), numerical_derivative([&](double e) { return model.f2(e); }, eta), 1e-5)
         << "eta=" << eta;
-    EXPECT_NEAR(model.d_f3(eta),
-                numerical_derivative([&](double e) { return model.f3(e); }, eta), 1e-5)
+    EXPECT_NEAR(model.d_f3(eta), numerical_derivative([&](double e) { return model.f3(e); }, eta), 1e-5)
         << "eta=" << eta;
   }
 }
@@ -175,23 +168,35 @@ TEST(Functional, RosenfeldDPhiNumericalGradient) {
   double h = 1e-7;
 
   {
-    auto mp = m; mp.eta += h; mp.compute_derived();
-    auto mm = m; mm.eta -= h; mm.compute_derived();
+    auto mp = m;
+    mp.eta += h;
+    mp.compute_derived();
+    auto mm = m;
+    mm.eta -= h;
+    mm.compute_derived();
     EXPECT_NEAR(dm.eta, (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-6);
   }
   {
-    auto mp = m; mp.n0 += h;
-    auto mm = m; mm.n0 -= h;
+    auto mp = m;
+    mp.n0 += h;
+    auto mm = m;
+    mm.n0 -= h;
     EXPECT_NEAR(dm.n0, (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-6);
   }
   {
-    auto mp = m; mp.n1 += h;
-    auto mm = m; mm.n1 -= h;
+    auto mp = m;
+    mp.n1 += h;
+    auto mm = m;
+    mm.n1 -= h;
     EXPECT_NEAR(dm.n1, (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-6);
   }
   {
-    auto mp = m; mp.n2 += h; mp.compute_derived();
-    auto mm = m; mm.n2 -= h; mm.compute_derived();
+    auto mp = m;
+    mp.n2 += h;
+    mp.compute_derived();
+    auto mm = m;
+    mm.n2 -= h;
+    mm.compute_derived();
     EXPECT_NEAR(dm.n2, (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-6);
   }
 }
@@ -203,18 +208,30 @@ TEST(Functional, WhiteBearIDPhiNumericalGradient) {
   double h = 1e-7;
 
   {
-    auto mp = m; mp.eta += h; mp.compute_derived();
-    auto mm = m; mm.eta -= h; mm.compute_derived();
+    auto mp = m;
+    mp.eta += h;
+    mp.compute_derived();
+    auto mm = m;
+    mm.eta -= h;
+    mm.compute_derived();
     EXPECT_NEAR(dm.eta, (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-5);
   }
   {
-    auto mp = m; mp.n2 += h; mp.compute_derived();
-    auto mm = m; mm.n2 -= h; mm.compute_derived();
+    auto mp = m;
+    mp.n2 += h;
+    mp.compute_derived();
+    auto mm = m;
+    mm.n2 -= h;
+    mm.compute_derived();
     EXPECT_NEAR(dm.n2, (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-5);
   }
   {
-    auto mp = m; mp.T(0, 0) += h; mp.compute_derived();
-    auto mm = m; mm.T(0, 0) -= h; mm.compute_derived();
+    auto mp = m;
+    mp.T(0, 0) += h;
+    mp.compute_derived();
+    auto mm = m;
+    mm.T(0, 0) -= h;
+    mm.compute_derived();
     EXPECT_NEAR(dm.T(0, 0), (model.phi(mp) - model.phi(mm)) / (2.0 * h), 1e-5);
   }
 }

@@ -36,10 +36,7 @@ namespace dft_core::physics::fmt {
     std::copy_n(real.data(), field_.n_elem, field_.memptr());
   }
 
-  void ConvolutionField::accumulate(
-      std::span<std::complex<double>> output_fourier,
-      bool conjugate
-  ) {
+  void ConvolutionField::accumulate(std::span<std::complex<double>> output_fourier, bool conjugate) {
     auto real = scratch_.real();
     std::copy_n(derivative_.memptr(), derivative_.n_elem, real.data());
     scratch_.forward();

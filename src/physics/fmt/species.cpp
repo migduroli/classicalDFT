@@ -79,8 +79,7 @@ namespace dft_core::physics::fmt {
     weights_.eta.derivative()(pos) = dm.eta;
 
     // Chain rule: d/d(scalar) = dPhi/dn0 / (4piR^2) + dPhi/dn1 / (4piR) + dPhi/dn2
-    weights_.scalar.derivative()(pos) =
-        dm.n0 * inv_4piR2 + dm.n1 * inv_4piR + dm.n2;
+    weights_.scalar.derivative()(pos) = dm.n0 * inv_4piR2 + dm.n1 * inv_4piR + dm.n2;
 
     // Chain rule: d/d(vector_a) = dPhi/dv1_a / (4piR) + dPhi/dv2_a
     arma::rowvec3 dv = dm.v1 * inv_4piR + dm.v2;
@@ -178,7 +177,8 @@ namespace dft_core::physics::fmt {
     for (arma::uword i = 0; i < rho.n_elem; ++i) {
       double delta = std::max(0.0, rho(i) - rho_min);
       double denom = density_range_ - delta;
-      if (denom <= 0.0) denom = 1e-30;
+      if (denom <= 0.0)
+        denom = 1e-30;
       x(i) = std::sqrt(delta / denom);
     }
     return x;

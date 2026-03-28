@@ -44,20 +44,14 @@ namespace dft_core::physics::fmt {
     double R2 = R * R;
 
     double gp_over_k = 4.0 * std::numbers::pi * R * (R * cos_kR / k2 - sin_kR / k3);
-    double gpp = 4.0 * std::numbers::pi * R *
-        (-R2 * sin_kR / k - 2.0 * R * cos_kR / k2 + 2.0 * sin_kR / k3);
+    double gpp = 4.0 * std::numbers::pi * R * (-R2 * sin_kR / k - 2.0 * R * cos_kR / k2 + 2.0 * sin_kR / k3);
 
     return {-(gpp - gp_over_k) / R2, -gp_over_k / R2};
   }
 
   // ── Weight generation ─────────────────────────────────────────────────────
 
-  void Weights::generate(
-      double diameter,
-      double dx,
-      const std::vector<long>& shape,
-      WeightSet& w
-  ) {
+  void Weights::generate(double diameter, double dx, const std::vector<long>& shape, WeightSet& w) {
     double R = 0.5 * diameter;
     long Nx = shape[0];
     long Ny = shape[1];
@@ -73,7 +67,8 @@ namespace dft_core::physics::fmt {
     auto fk_eta = w.eta.weight_fourier();
     auto fk_scalar = w.scalar.weight_fourier();
     std::array<std::span<std::complex<double>>, 3> fk_vec;
-    for (int a = 0; a < 3; ++a) fk_vec[a] = w.vector[a].weight_fourier();
+    for (int a = 0; a < 3; ++a)
+      fk_vec[a] = w.vector[a].weight_fourier();
     // Upper triangle: (0,0),(0,1),(0,2),(1,1),(1,2),(2,2)
     std::array<std::array<std::span<std::complex<double>>, 3>, 3> fk_T;
     for (int i = 0; i < 3; ++i)
