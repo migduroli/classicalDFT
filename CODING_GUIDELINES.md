@@ -15,7 +15,7 @@ project. All new code, refactored code, examples, and tests must follow it.
 | Linting | `.clang-tidy` (see naming table below) |
 | Linear algebra | Armadillo (`arma::vec`, `arma::rowvec3`, `arma::mat33`) |
 | FFT | FFTW3 |
-| Plotting | Grace (`libgrace_np`), guarded by `DFT_HAS_GRACE` |
+| Plotting | matplotlib-cpp (primary, `DFT_HAS_MATPLOTLIB`), Grace (`DFT_HAS_GRACE`, optional fallback) |
 | Testing | GoogleTest 1.14 (fetched via `FetchContent`) |
 | Build | CMake 3.20+, single static library `classicaldft` |
 

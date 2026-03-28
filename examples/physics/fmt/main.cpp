@@ -7,6 +7,10 @@
 #include <numbers>
 #include <vector>
 
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
+
 using namespace dft_core::physics::fmt;
 using namespace dft_core::physics::density;
 using namespace dft_core::physics::thermodynamics;
@@ -171,108 +175,72 @@ int main() {
     }
   }
 
-  // ── Grace plots ───────────────────────────────────────────────────────
+  // ── Plots ──────────────────────────────────────────────────────────────
 
-#ifdef DFT_HAS_GRACE
-  using namespace dft_core::grace_plot;
+#ifdef DFT_HAS_MATPLOTLIB
+  namespace plt = matplotlibcpp;
+  plt::backend("Agg");
 
   // ── Plot 1: excess free energy comparison ─────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Excess free energy per particle: FMT models vs EOS");
-    g.set_label("\\xh", Axis::X);
-    g.set_label("f\\sex\\N / kT", Axis::Y);
-
-    auto ds_ros = g.add_dataset(eta_vec, f_ros);
-    g.set_color(Color::BLACK, ds_ros);
-    g.set_legend("Rosenfeld (= PY comp.)", ds_ros);
-
-    auto ds_pyv = g.add_dataset(eta_vec, f_pyv);
-    g.set_color(Color::RED, ds_pyv);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_pyv);
-    g.set_legend("PY (virial)", ds_pyv);
-
-    auto ds_wb1 = g.add_dataset(eta_vec, f_wb1);
-    g.set_color(Color::BLUE, ds_wb1);
-    g.set_legend("White Bear I (= CS)", ds_wb1);
-
-    auto ds_wb2 = g.add_dataset(eta_vec, f_wb2);
-    g.set_color(Color::DARKGREEN, ds_wb2);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_wb2);
-    g.set_legend("White Bear II", ds_wb2);
-
-    g.set_x_limits(0.0, 0.5);
-    g.set_y_limits(0.0, 8.0);
-    g.set_ticks(0.1, 1.0);
-    g.print_to_file("exports/fmt_free_energy.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("Rosenfeld (= PY comp.)", eta_vec, f_ros, "k-");
+    plt::named_plot("PY (virial)", eta_vec, f_pyv, "r--");
+    plt::named_plot("White Bear I (= CS)", eta_vec, f_wb1, "b-");
+    plt::named_plot("White Bear II", eta_vec, f_wb2, "g:");
+    plt::xlim(0.0, 0.5);
+    plt::ylim(0.0, 8.0);
+    plt::xlabel(R"($\eta$)");
+    plt::ylabel(R"($f_\mathrm{ex} / k_BT$)");
+    plt::title("Excess free energy per particle: FMT vs EOS");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/fmt_free_energy.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/fmt_free_energy.png") << std::endl;
   }
 
   // ── Plot 2: pressure comparison ───────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Compressibility factor: FMT models vs exact EOS");
-    g.set_label("\\xh", Axis::X);
-    g.set_label("P / (\\xr\\f{} kT)", Axis::Y);
-
-    auto ds_ros = g.add_dataset(eta_vec, p_ros);
-    g.set_color(Color::BLACK, ds_ros);
-    g.set_legend("Rosenfeld (= PY comp.)", ds_ros);
-
-    auto ds_pyc = g.add_dataset(eta_vec, p_pyc);
-    g.set_color(Color::RED, ds_pyc);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_pyc);
-    g.set_legend("PY (comp.) exact", ds_pyc);
-
-    auto ds_wb1 = g.add_dataset(eta_vec, p_wb1);
-    g.set_color(Color::BLUE, ds_wb1);
-    g.set_legend("White Bear I (= CS)", ds_wb1);
-
-    auto ds_cs = g.add_dataset(eta_vec, p_cs_vec);
-    g.set_color(Color::ORANGE, ds_cs);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_cs);
-    g.set_legend("CS exact", ds_cs);
-
-    g.set_x_limits(0.0, 0.5);
-    g.set_y_limits(0.0, 25.0);
-    g.set_ticks(0.1, 5.0);
-    g.print_to_file("exports/fmt_pressure.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("Rosenfeld (= PY comp.)", eta_vec, p_ros, "k-");
+    plt::named_plot("PY (comp.) exact", eta_vec, p_pyc, "r--");
+    plt::named_plot("White Bear I (= CS)", eta_vec, p_wb1, "b-");
+    plt::named_plot("CS exact", eta_vec, p_cs_vec, "m:");
+    plt::xlim(0.0, 0.5);
+    plt::ylim(0.0, 25.0);
+    plt::xlabel(R"($\eta$)");
+    plt::ylabel(R"($P / (\rho\, k_BT)$)");
+    plt::title("Compressibility factor: FMT vs exact EOS");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/fmt_pressure.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/fmt_pressure.png") << std::endl;
   }
 
   // ── Plot 3: chemical potential ────────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Excess chemical potential: FMT models");
-    g.set_label("\\xh", Axis::X);
-    g.set_label("\\xm\\f{}\\sex\\N / kT", Axis::Y);
-
-    auto ds_ros = g.add_dataset(eta_vec, mu_ros);
-    g.set_color(Color::BLACK, ds_ros);
-    g.set_legend("Rosenfeld", ds_ros);
-
-    auto ds_wb1 = g.add_dataset(eta_vec, mu_wb1);
-    g.set_color(Color::BLUE, ds_wb1);
-    g.set_legend("White Bear I", ds_wb1);
-
-    auto ds_wb2 = g.add_dataset(eta_vec, mu_wb2);
-    g.set_color(Color::DARKGREEN, ds_wb2);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_wb2);
-    g.set_legend("White Bear II", ds_wb2);
-
-    g.set_x_limits(0.0, 0.5);
-    g.set_ticks(0.1, 5.0);
-    g.print_to_file("exports/fmt_chemical_potential.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("Rosenfeld", eta_vec, mu_ros, "k-");
+    plt::named_plot("White Bear I", eta_vec, mu_wb1, "b-");
+    plt::named_plot("White Bear II", eta_vec, mu_wb2, "g:");
+    plt::xlim(0.0, 0.5);
+    plt::xlabel(R"($\eta$)");
+    plt::ylabel(R"($\mu_\mathrm{ex} / k_BT$)");
+    plt::title("Excess chemical potential: FMT models");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/fmt_chemical_potential.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/fmt_chemical_potential.png") << std::endl;
   }
 
   // ── Plot 4: f-functions ───────────────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("FMT f-functions");
-    g.set_label("\\xh", Axis::X);
-    g.set_label("f(\\xh\\f{})", Axis::Y);
-
     std::vector<double> f1_r(N), f2_r(N), f3_r(N), f3_rslt(N), f3_wb2_v(N);
     for (int i = 0; i < N; ++i) {
       double eta = eta_vec[i];
@@ -283,42 +251,27 @@ int main() {
       f3_wb2_v[i] = wb2.f3(eta);
     }
 
-    auto ds_f1 = g.add_dataset(eta_vec, f1_r);
-    g.set_color(Color::BLACK, ds_f1);
-    g.set_legend("f\\s1\\N = ln(1-\\xh\\f{})", ds_f1);
-
-    auto ds_f2 = g.add_dataset(eta_vec, f2_r);
-    g.set_color(Color::RED, ds_f2);
-    g.set_legend("f\\s2\\N = 1/(1-\\xh\\f{})", ds_f2);
-
-    auto ds_f3 = g.add_dataset(eta_vec, f3_r);
-    g.set_color(Color::BLUE, ds_f3);
-    g.set_legend("f\\s3\\N Rosenfeld", ds_f3);
-
-    auto ds_f3r = g.add_dataset(eta_vec, f3_rslt);
-    g.set_color(Color::DARKGREEN, ds_f3r);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_f3r);
-    g.set_legend("f\\s3\\N RSLT / WBI", ds_f3r);
-
-    auto ds_f3w = g.add_dataset(eta_vec, f3_wb2_v);
-    g.set_color(Color::ORANGE, ds_f3w);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_f3w);
-    g.set_legend("f\\s3\\N WBII", ds_f3w);
-
-    g.set_x_limits(0.0, 0.5);
-    g.set_y_limits(-5.0, 30.0);
-    g.set_ticks(0.1, 5.0);
-    g.print_to_file("exports/fmt_f_functions.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($f_1 = \ln(1-\eta)$)", eta_vec, f1_r, "k-");
+    plt::named_plot(R"($f_2 = 1/(1-\eta)$)", eta_vec, f2_r, "r-");
+    plt::named_plot(R"($f_3$ Rosenfeld)", eta_vec, f3_r, "b-");
+    plt::named_plot(R"($f_3$ RSLT / WBI)", eta_vec, f3_rslt, "g--");
+    plt::named_plot(R"($f_3$ WBII)", eta_vec, f3_wb2_v, "m:");
+    plt::xlim(0.0, 0.5);
+    plt::ylim(-5.0, 30.0);
+    plt::xlabel(R"($\eta$)");
+    plt::ylabel(R"($f(\eta)$)");
+    plt::title("FMT f-functions");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/fmt_f_functions.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/fmt_f_functions.png") << std::endl;
   }
 
   // ── Plot 5: bounded alias mapping ─────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Bounded alias: \\xr\\f{}(y) = \\xr\\f{}\\smin\\N + c y\\S2\\N/(1+y\\S2\\N)");
-    g.set_label("y (alias variable)", Axis::X);
-    g.set_label("\\xr\\f{}(y) / \\xh\\f{}(y)", Axis::Y);
-
     double c = rho_max - dft_core::physics::species::Species::RHO_MIN;
     int M = 300;
     std::vector<double> y_vals(M), rho_vals(M), eta_vals(M), drho_dy(M);
@@ -332,25 +285,21 @@ int main() {
       drho_dy[i] = c * 2.0 * y / denom;
     }
 
-    auto ds_rho = g.add_dataset(y_vals, rho_vals);
-    g.set_color(Color::BLACK, ds_rho);
-    g.set_legend("\\xr\\f{}(y)", ds_rho);
-
-    auto ds_eta = g.add_dataset(y_vals, eta_vals);
-    g.set_color(Color::RED, ds_eta);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_eta);
-    g.set_legend("\\xh\\f{}(y)", ds_eta);
-
-    auto ds_drho = g.add_dataset(y_vals, drho_dy);
-    g.set_color(Color::BLUE, ds_drho);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_drho);
-    g.set_legend("d\\xr\\f{}/dy", ds_drho);
-
-    g.set_x_limits(0.0, 5.0);
-    g.set_y_limits(0.0, 2.5);
-    g.set_ticks(1.0, 0.5);
-    g.print_to_file("exports/fmt_alias.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($\rho(y)$)", y_vals, rho_vals, "k-");
+    plt::named_plot(R"($\eta(y)$)", y_vals, eta_vals, "r--");
+    plt::named_plot(R"($d\rho/dy$)", y_vals, drho_dy, "b:");
+    plt::xlim(0.0, 5.0);
+    plt::ylim(0.0, 2.5);
+    plt::xlabel(R"($y$ (alias variable))");
+    plt::ylabel(R"($\rho(y)$ / $\eta(y)$)");
+    plt::title(R"(Bounded alias: $\rho(y) = \rho_\mathrm{min} + c\,y^2/(1+y^2)$)");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/fmt_alias.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/fmt_alias.png") << std::endl;
   }
 #endif
 

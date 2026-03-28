@@ -61,6 +61,19 @@ std::cout << "Volume: " << lattice.volume() << std::endl;
 ## Running
 
 ```bash
-make run   # builds and runs inside Docker
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
 ```
+
+## Plots
+
+When built with `DFT_USE_MATPLOTLIB=ON` (default), plots are saved to `exports/`:
+
+| File | Content |
+|------|---------|
+| `mesh_2d_suq.png` | SUQMesh 2D vertices (dx = 0.25) |
+| `mesh_2d_uniform.png` | UniformMesh 2D with periodic boundary conditions |
+
+![SUQMesh 2D](exports/mesh_2d_suq.png)
+![UniformMesh 2D](exports/mesh_2d_uniform.png)
 

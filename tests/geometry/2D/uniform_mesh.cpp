@@ -97,11 +97,18 @@ TEST(TwoDimensionalUniformMesh, WrapNegative) {
 
 // ── Plot (without Grace) ────────────────────────────────────────────────────
 
-#ifndef DFT_HAS_GRACE
-TEST(TwoDimensionalUniformMesh, PlotWithoutGraceThrows) {
+#ifdef DFT_HAS_MATPLOTLIB
+TEST(TwoDimensionalUniformMesh, PlotWithMatplotlib) {
   auto origin = std::vector<double>{0, 0};
   auto dimensions = std::vector<double>{1, 1};
   auto m = two_dimensional::UniformMesh(0.5, dimensions, origin);
-  EXPECT_THROW(m.plot(), std::runtime_error);
+  EXPECT_NO_THROW(m.plot("exports/test_uniform_mesh_2d.png", false));
+}
+#elif !defined(DFT_HAS_GRACE)
+TEST(TwoDimensionalUniformMesh, PlotWithoutBackendThrows) {
+  auto origin = std::vector<double>{0, 0};
+  auto dimensions = std::vector<double>{1, 1};
+  auto m = two_dimensional::UniformMesh(0.5, dimensions, origin);
+  EXPECT_THROW(m.plot("exports/test_uniform_mesh_2d.png", false), std::runtime_error);
 }
 #endif

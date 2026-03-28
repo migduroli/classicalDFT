@@ -4,7 +4,12 @@
 #ifdef DFT_HAS_GRACE
 #include "classicaldft_bits/graph/grace.h"
 #endif
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
 
+#include <filesystem>
+#include <iostream>
 #include <numeric>
 #include <stdexcept>
 
@@ -45,8 +50,40 @@ namespace dft_core::geometry::two_dimensional {
     this->initialise(dx);
   }
 
-  void SUQMesh::plot() const {
-#ifdef DFT_HAS_GRACE
+  void SUQMesh::plot(const std::string& path, const bool interactive) const {
+#ifdef DFT_HAS_MATPLOTLIB
+    namespace plt = matplotlibcpp;
+    if (!interactive) {
+      plt::backend("Agg");
+    }
+
+    std::vector<double> xs(vertices_raw_.size()), ys(vertices_raw_.size());
+    for (size_t i = 0; i < vertices_raw_.size(); ++i) {
+      xs[i] = vertices_raw_[i].coordinates()[0];
+      ys[i] = vertices_raw_[i].coordinates()[1];
+    }
+
+    plt::figure_size(700, 700);
+    plt::named_plot("Vertices", xs, ys, "bs");
+    double pad_x = 0.1 * dimensions_[0];
+    double pad_y = 0.1 * dimensions_[1];
+    plt::xlim(origin_[0] - pad_x, dimensions_[0] + origin_[0] + pad_x);
+    plt::ylim(origin_[1] - pad_y, dimensions_[1] + origin_[1] + pad_y);
+    plt::xlabel(R"($x$)");
+    plt::ylabel(R"($y$)");
+    plt::title("2D mesh (" + std::to_string(shape_[0]) + "x" + std::to_string(shape_[1]) + " vertices)");
+    plt::grid(true);
+    plt::tight_layout();
+
+    if (interactive) {
+      plt::show();
+    } else {
+      std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+      plt::save(path);
+      plt::close();
+      std::cout << "Plot saved: " << std::filesystem::absolute(path) << std::endl;
+    }
+#elif defined(DFT_HAS_GRACE)
     auto g = dft_core::grace_plot::Grace();
     for (const auto& v : vertices_raw_) {
       g.add_point(v.coordinates()[0], v.coordinates()[1]);
@@ -64,9 +101,13 @@ namespace dft_core::geometry::two_dimensional {
     g.set_symbol_color(dft_core::grace_plot::Color::BLUE, 0);
     g.set_symbol_fill(dft_core::grace_plot::Color::DARKGREEN, 0);
 
-    g.redraw_and_wait();
+    if (interactive) {
+      g.redraw_and_wait();
+    } else {
+      g.print_to_file(path);
+    }
 #else
-    throw std::runtime_error("Grace not available: build with -DDFT_USE_GRACE=ON");
+    throw std::runtime_error("No plotting backend available: build with -DDFT_USE_MATPLOTLIB=ON or -DDFT_USE_GRACE=ON");
 #endif
   }
 

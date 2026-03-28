@@ -40,7 +40,7 @@ namespace dft_core::geometry::two_dimensional {
     /**
      * Gets the graphical representation of the SUQMesh
      */
-    void plot() const override;
+    void plot(const std::string& path = "", const bool interactive = true) const override;
 
     /**
      * Gets a reference to the vector which contains the mesh elements

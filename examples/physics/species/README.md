@@ -16,15 +16,20 @@ external fields, the fixed-mass constraint, and the force protocol.
 ## Running
 
 ```bash
-make run-local
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
 ```
 
-## Plots (requires Grace)
+## Plots
 
-When built with `DFT_HAS_GRACE`, three plots are saved to `exports/`:
+When built with `DFT_USE_MATPLOTLIB=ON` (default), three plots are saved to `exports/`:
 
 | File | Content |
 |------|---------|
 | `barometric_density.png` | Barometric density $\rho(z) \propto e^{-gz}$ and linear external field |
 | `alias_mapping.png` | Alias coordinate $x(\rho)$ and sensitivity $dx/d\rho = 1/(2x)$ |
 | `force_profiles.png` | Force in $\rho$-space and $x$-space along $z$ |
+
+![Barometric density](exports/barometric_density.png)
+![Alias mapping](exports/alias_mapping.png)
+![Force profiles](exports/force_profiles.png)

@@ -105,9 +105,18 @@ TEST(ThreeDimensionalUniformMesh, WrapExactBoundary) {
   EXPECT_NEAR(w.coordinates()[2], 0.0, 1e-12);
 }
 
-TEST(ThreeDimensionalUniformMesh, PlotThrowsNotImplemented) {
+#ifdef DFT_HAS_MATPLOTLIB
+TEST(ThreeDimensionalUniformMesh, PlotWithMatplotlib) {
   auto origin = std::vector<double>{0, 0, 0};
   auto dimensions = std::vector<double>{1, 1, 1};
   auto m = three_dimensional::UniformMesh(1.0, dimensions, origin);
-  EXPECT_THROW(m.plot(), std::runtime_error);
+  EXPECT_NO_THROW(m.plot("exports/test_uniform_mesh_3d.png", false));
 }
+#else
+TEST(ThreeDimensionalUniformMesh, PlotWithoutBackendThrows) {
+  auto origin = std::vector<double>{0, 0, 0};
+  auto dimensions = std::vector<double>{1, 1, 1};
+  auto m = three_dimensional::UniformMesh(1.0, dimensions, origin);
+  EXPECT_THROW(m.plot("exports/test_uniform_mesh_3d.png", false), std::runtime_error);
+}
+#endif

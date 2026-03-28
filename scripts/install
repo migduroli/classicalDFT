@@ -15,7 +15,7 @@ install_deps_macos() {
 
   message "info" "Installing dependencies via Homebrew"
 
-  local packages=(cmake gsl armadillo fftw nlohmann-json grace)
+  local packages=(cmake gsl armadillo fftw nlohmann-json grace python3)
   for pkg in "${packages[@]}"; do
     if brew list --formula "$pkg" &>/dev/null; then
       message "success" "$pkg already installed"
@@ -24,6 +24,10 @@ install_deps_macos() {
       message "success" "Installed $pkg"
     fi
   done
+
+  message "info" "Installing Python packages for matplotlib-cpp"
+  pip3 install --quiet matplotlib numpy
+  message "success" "matplotlib and numpy installed"
 
   if ! brew list --cask xquartz &>/dev/null; then
     message "warning" "XQuartz not found (required for Grace GUI)"
@@ -47,7 +51,10 @@ install_deps_linux() {
     libarmadillo-dev \
     libfftw3-dev \
     nlohmann-json3-dev \
-    grace
+    grace \
+    python3-dev \
+    python3-matplotlib \
+    python3-numpy
 
   message "success" "All packages installed"
 }
@@ -72,7 +79,8 @@ build_local() {
     -DCMAKE_BUILD_TYPE=Release \
     -DDFT_BUILD_TESTS=ON \
     -DDFT_BUILD_EXAMPLES=ON \
-    -DDFT_USE_GRACE=ON
+    -DDFT_USE_GRACE=ON \
+    -DDFT_USE_MATPLOTLIB=ON
 
   message "info" "Building"
 

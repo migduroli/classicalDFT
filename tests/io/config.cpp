@@ -71,7 +71,7 @@ TEST(ConfigParser, ThrowsOnMissingJsonFile) {
 
 TEST(ConfigParser, ThrowsOnMissingKey) {
   auto config = config_parser::ConfigParser("config.ini");
-  EXPECT_THROW(config.get<std::string>("nonexistent.key"), std::runtime_error);
+  EXPECT_THROW((void)config.get<std::string>("nonexistent.key"), std::runtime_error);
 }
 
 // ── INI parser edge cases ───────────────────────────────────────────────────

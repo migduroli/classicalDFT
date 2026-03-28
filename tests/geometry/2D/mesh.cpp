@@ -134,11 +134,18 @@ TEST(TwoDimensionalMesh, StreamOutput) {
 
 // ── Plot (without Grace) ────────────────────────────────────────────────────
 
-#ifndef DFT_HAS_GRACE
-TEST(TwoDimensionalMesh, PlotWithoutGraceThrows) {
+#ifdef DFT_HAS_MATPLOTLIB
+TEST(TwoDimensionalMesh, PlotWithMatplotlib) {
   auto origin = std::vector<double>{0, 0};
   auto dimensions = std::vector<double>{1, 1};
   auto m = two_dimensional::SUQMesh(0.5, dimensions, origin);
-  EXPECT_THROW(m.plot(), std::runtime_error);
+  EXPECT_NO_THROW(m.plot("exports/test_mesh_2d.png", false));
+}
+#elif !defined(DFT_HAS_GRACE)
+TEST(TwoDimensionalMesh, PlotWithoutBackendThrows) {
+  auto origin = std::vector<double>{0, 0};
+  auto dimensions = std::vector<double>{1, 1};
+  auto m = two_dimensional::SUQMesh(0.5, dimensions, origin);
+  EXPECT_THROW(m.plot("exports/test_mesh_2d.png", false), std::runtime_error);
 }
 #endif

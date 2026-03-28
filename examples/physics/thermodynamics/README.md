@@ -39,5 +39,24 @@ double p_lj = jzg.pressure(0.5);
 ## Running
 
 ```bash
-make run   # builds and runs inside Docker
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
 ```
+
+## Plots
+
+When built with `DFT_USE_MATPLOTLIB=ON` (default), plots are saved to `exports/`:
+
+| File | Content |
+|------|---------|
+| `hs_pressure.png` | Hard-sphere compressibility factor: CS vs PY (virial and compressibility) |
+| `contact_value.png` | Pair correlation at contact $\chi(\eta)$ |
+| `transport_viscosity.png` | Enskog shear and bulk viscosity vs density |
+| `transport_thermal.png` | Thermal conductivity and sound damping vs density |
+| `eos_comparison.png` | Equations of state: JZG, Mecke, PY at $k_BT = 1.3$ |
+
+![Hard-sphere pressure](exports/hs_pressure.png)
+![Contact value](exports/contact_value.png)
+![Viscosities](exports/transport_viscosity.png)
+![Thermal transport](exports/transport_thermal.png)
+![Equations of state](exports/eos_comparison.png)

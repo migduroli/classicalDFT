@@ -70,12 +70,21 @@ TEST(ThreeDimensionalMesh, GlobalIndexToCartesian) {
   EXPECT_EQ(cart[2], 1);
 }
 
-TEST(ThreeDimensionalMesh, PlotThrowsNotImplemented) {
+#ifdef DFT_HAS_MATPLOTLIB
+TEST(ThreeDimensionalMesh, PlotWithMatplotlib) {
   auto origin = std::vector<double>{0, 0, 0};
   auto dimensions = std::vector<double>{1, 1, 1};
   auto m = three_dimensional::SUQMesh(1.0, dimensions, origin);
-  EXPECT_THROW(m.plot(), std::runtime_error);
+  EXPECT_NO_THROW(m.plot("exports/test_mesh_3d.png", false));
 }
+#else
+TEST(ThreeDimensionalMesh, PlotWithoutBackendThrows) {
+  auto origin = std::vector<double>{0, 0, 0};
+  auto dimensions = std::vector<double>{1, 1, 1};
+  auto m = three_dimensional::SUQMesh(1.0, dimensions, origin);
+  EXPECT_THROW(m.plot("exports/test_mesh_3d.png", false), std::runtime_error);
+}
+#endif
 
 TEST(ThreeDimensionalMesh, StreamOutput) {
   auto origin = std::vector<double>{0, 0, 0};

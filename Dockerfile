@@ -23,6 +23,9 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     libfftw3-dev \
     pkg-config \
     nlohmann-json3-dev \
+    python3-dev \
+    python3-matplotlib \
+    python3-numpy \
     lcov \
     clang-format \
     clang-tidy \

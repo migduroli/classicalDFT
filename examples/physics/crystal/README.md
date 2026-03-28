@@ -39,5 +39,26 @@ fcc.export_to("lattice.csv", ExportFormat::CSV);
 ## Running
 
 ```bash
-make run   # builds and runs inside Docker
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
 ```
+
+## Plots
+
+When built with `DFT_USE_MATPLOTLIB=ON` (default), plots are saved to `exports/`:
+
+| File | Content |
+|------|---------|
+| `fcc_001.png` | FCC [001] projection ($4^3$ unit cells) |
+| `fcc_110.png` | FCC [110] projection |
+| `fcc_111.png` | FCC [111] projection |
+| `bcc_001.png` | BCC [001] projection |
+| `bcc_110.png` | BCC [110] projection |
+| `bcc_111.png` | BCC [111] projection |
+| `hcp_001.png` | HCP [001] projection |
+| `hcp_010.png` | HCP [010] projection |
+| `hcp_100.png` | HCP [100] projection |
+
+![FCC 001](exports/fcc_001.png)
+![BCC 001](exports/bcc_001.png)
+![HCP 001](exports/hcp_001.png)

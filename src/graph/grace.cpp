@@ -324,12 +324,12 @@ namespace dft_core::grace_plot {
         x_max_(DEFAULT_MAX_AXIS_VALUE),
         y_min_(DEFAULT_MIN_AXIS_VALUE),
         y_max_(DEFAULT_MAX_AXIS_VALUE),
-        offset_(DEFAULT_OFFSET),
-        horizontal_space_(DEFAULT_HORIZONTAL_SPACE),
-        vertical_space_(DEFAULT_VERTICAL_SPACE),
         last_dataset_id_(DEFAULT_DATASET_ID),
         number_of_graphs_(n_graph),
-        show_(show) {
+        show_(show),
+        offset_(DEFAULT_OFFSET),
+        horizontal_space_(DEFAULT_HORIZONTAL_SPACE),
+        vertical_space_(DEFAULT_VERTICAL_SPACE) {
     if (show_) {
       register_grace_error_function();
       start_grace_communication(x_size, y_size);

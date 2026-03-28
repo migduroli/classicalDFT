@@ -1,182 +1,214 @@
 #include <classicaldft>
 #include <armadillo>
 
+#include <cmath>
+#include <filesystem>
+#include <iostream>
+#include <vector>
+
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
+
 using namespace dft_core::io;
 
-/// A convenient wrapper to convert arma::vec -> std::vector
-auto conv_arma_to_vec(const arma::vec& x)
+int main()
 {
-  auto y = arma::conv_to<std::vector<double>>::from(x);
-  return y;
-}
+  std::filesystem::create_directories("exports");
 
-int main(int argc, char **argv)
-{
-  console::info("Initialising Grace...");
+  auto to_vec = [](const arma::vec& v) {
+    return arma::conv_to<std::vector<double>>::from(v);
+  };
 
-  //region Grace set up:
-  auto g = dft_core::grace_plot::Grace();
-  const int N_POINTS = 80;
-
-  //region Grid set up:
-  auto x_vector = arma::linspace(0.75, 1.5, N_POINTS);
-  auto y_lims = std::vector<double>{-2, 10};
-  g.set_x_limits(x_vector.min(), x_vector.max());
-  g.set_y_limits(y_lims[0], y_lims[1]);
-  //endregion
-
-  //endregion
-
-  //region Instantiation of the potentials:
   using namespace dft_core::physics::potentials::intermolecular;
+
+  const int N = 200;
+  auto x_arma = arma::linspace(0.75, 1.8, N);
+  auto x = to_vec(x_arma);
+  double kT = 1.0;
+
   auto lj = LennardJones();
   auto twf = tenWoldeFrenkel();
   auto wrdf = WangRamirezDobnikarFrenkel();
-  //endregion
 
-  //region Lennard-Jones:
-  //region Potential:
-  auto lj_vector = lj.v_potential(x_vector); // equivalent to lj(x_vector);
-  auto lj_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(lj_vector));
-  //endregion
+  // ── Compute potentials ──────────────────────────────────────────────
 
-  //region Minimum:
-  auto lj_min = g.add_dataset(std::vector<double>{lj.r_min()}, std::vector<double>{lj.v_min()});
-  g.set_line_type(dft_core::grace_plot::LineStyle::NO_LINE, lj_min);
-  g.set_symbol(dft_core::grace_plot::Symbol::SQUARE, lj_min);
-  g.set_symbol_fill(dft_core::grace_plot::Color::RED, lj_min);
-  //endregion
+  auto v_lj = to_vec(lj.v_potential(x_arma));
+  auto v_twf = to_vec(twf(x_arma));
+  auto v_wrdf = to_vec(wrdf(x_arma));
 
-  //region Hard-sphere diameter:
-  auto y_vec = arma::linspace(y_lims[0], y_lims[1], 10);
-  auto hs_diameter = lj.find_hard_sphere_diameter(1.0);
-  auto hs_x = arma::vec(10, arma::fill::ones); hs_x *= hs_diameter;
-  auto lj_hs = g.add_dataset(conv_arma_to_vec(hs_x), conv_arma_to_vec(y_vec));
-  g.set_color(dft_core::grace_plot::Color::RED, lj_hs);
-  g.set_line_type(dft_core::grace_plot::LineStyle::DASHEDLINE_EN, lj_hs);
-  console::info("LJ hard-sphere diameter (kT = 1.0) = " + std::to_string(hs_diameter));
-  //endregion
+  double d_lj = lj.find_hard_sphere_diameter(kT);
+  double d_twf = twf.find_hard_sphere_diameter(kT);
+  double d_wrdf = wrdf.find_hard_sphere_diameter(kT);
 
-  //region Pertubation theory:
-  auto lj_att = lj.w_attractive(x_vector);
-  auto lj_att_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(lj_att));
-  g.set_color(dft_core::grace_plot::Color::RED, lj_att_ds);
-  g.set_line_type(dft_core::grace_plot::LineStyle::D_DOTTEDDASHEDLINE_EM, lj_att_ds);
-  g.set_symbol(dft_core::grace_plot::Symbol::CIRCLE, lj_att_ds);
-  g.set_symbol_size(0.25, lj_att_ds);
+  auto att_lj = to_vec(lj.w_attractive(x_arma));
+  auto rep_lj = to_vec(lj.w_repulsive(x_arma));
+  auto att_twf = to_vec(twf.w_attractive(x_arma));
+  auto rep_twf = to_vec(twf.w_repulsive(x_arma));
+  auto att_wrdf = to_vec(wrdf.w_attractive(x_arma));
+  auto rep_wrdf = to_vec(wrdf.w_repulsive(x_arma));
 
-  auto lj_rep = lj.w_repulsive(x_vector);
-  auto lj_rep_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(lj_rep));
-  g.set_color(dft_core::grace_plot::Color::RED, lj_rep_ds);
-  g.set_line_type(dft_core::grace_plot::LineStyle::D_DOTTEDDASHEDLINE_EN, lj_rep_ds);
-  g.set_symbol(dft_core::grace_plot::Symbol::STAR, lj_rep_ds);
-  g.set_symbol_size(0.25, lj_rep_ds);
-  //endregion
-  //endregion
+  console::info("LJ   hard-sphere diameter (kT = 1.0) = " + std::to_string(d_lj));
+  console::info("tWF  hard-sphere diameter (kT = 1.0) = " + std::to_string(d_twf));
+  console::info("WRDF hard-sphere diameter (kT = 1.0) = " + std::to_string(d_wrdf));
 
-  //region ten Wolde-Frenkel:
-  //region Potential:
-  auto twf_vector = twf(x_vector);
-  auto twf_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(twf_vector));
-  g.set_color(dft_core::grace_plot::Color::BLUE,twf_ds);
-  //endregion
+  // ── Plots ──────────────────────────────────────────────────────────────
 
-  //region Minimum:
-  auto twf_min = g.add_dataset(std::vector<double>{twf.r_min()}, std::vector<double>{twf.v_min()});
-  g.set_line_type(dft_core::grace_plot::LineStyle::NO_LINE, twf_min);
-  g.set_symbol(dft_core::grace_plot::Symbol::DIAMOND, twf_min);
-  g.set_symbol_fill(dft_core::grace_plot::Color::BLUE, twf_min);
-  //endregion
+#ifdef DFT_HAS_MATPLOTLIB
+  namespace plt = matplotlibcpp;
+  plt::backend("Agg");
 
-  //region Hard-sphere diameter:
-  hs_x /= hs_diameter;
-  hs_diameter = twf.find_hard_sphere_diameter(1.0); hs_x *= hs_diameter;
-  auto twf_hs = g.add_dataset(conv_arma_to_vec(hs_x), conv_arma_to_vec(y_vec));
-  g.set_color(dft_core::grace_plot::Color::BLUE, twf_hs);
-  g.set_line_type(dft_core::grace_plot::LineStyle::DASHEDLINE_EN, twf_hs);
-  console::info("tWF hard-sphere diameter (kT = 1.0) = " + std::to_string(hs_diameter));
-  //endregion
+  auto save_plot = [](const std::string& path) {
+    plt::save(path);
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute(path) << std::endl;
+  };
 
-  //region Pertubation theory:
-  auto twf_att = twf.w_attractive(x_vector);
-  auto twf_att_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(twf_att));
-  g.set_color(dft_core::grace_plot::Color::BLUE, twf_att_ds);
-  g.set_line_type(dft_core::grace_plot::LineStyle::DOTTEDLINE, twf_att_ds);
-  g.set_symbol(dft_core::grace_plot::Symbol::STAR, twf_att_ds);
-  g.set_symbol_size(0.25, twf_att_ds);
+  // ── Individual potential: Lennard-Jones ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($v_\mathrm{LJ}(r)$)", x, v_lj, "k-");
+    plt::named_plot("Minimum", std::vector<double>{lj.r_min()}, std::vector<double>{lj.v_min()}, "rs");
+    plt::plot(std::vector<double>{d_lj, d_lj}, std::vector<double>{-2.0, 10.0}, {{"color", "grey"}, {"linestyle", "--"}, {"label", R"($d_\mathrm{HS}$)"}});
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($v(r) / \epsilon$)");
+    plt::title(R"(Lennard-Jones potential ($d_\mathrm{HS}$ = )" + std::to_string(d_lj).substr(0, 5) + ")");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/potential_lj.png");
+  }
 
-  auto twf_rep = twf.w_repulsive(x_vector);
-  auto twf_rep_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(twf_rep));
-  g.set_color(dft_core::grace_plot::Color::BLUE, twf_rep_ds);
-  g.set_line_type(dft_core::grace_plot::LineStyle::D_DOTTEDDASHEDLINE_EN, twf_rep_ds);
-  g.set_symbol(dft_core::grace_plot::Symbol::STAR, twf_rep_ds);
-  g.set_symbol_size(0.25, twf_rep_ds);
-  //endregion
-  //endregion
+  // ── Individual potential: ten Wolde-Frenkel ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($v_\mathrm{tWF}(r)$)", x, v_twf, "b-");
+    plt::named_plot("Minimum", std::vector<double>{twf.r_min()}, std::vector<double>{twf.v_min()}, "bD");
+    plt::plot(std::vector<double>{d_twf, d_twf}, std::vector<double>{-2.0, 10.0}, {{"color", "grey"}, {"linestyle", "--"}, {"label", R"($d_\mathrm{HS}$)"}});
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($v(r) / \epsilon$)");
+    plt::title(R"(ten Wolde-Frenkel potential ($d_\mathrm{HS}$ = )" + std::to_string(d_twf).substr(0, 5) + ")");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/potential_twf.png");
+  }
 
-  //region Wang-Ramirez-Dobnikar-Frenkel:
-  //region Potential:
-  auto wrdf_vector = wrdf(x_vector);
-  auto wrdf_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(wrdf_vector));
-  g.set_color(dft_core::grace_plot::Color::ORANGE, wrdf_ds);
-  //endregion
+  // ── Individual potential: WRDF ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($v_\mathrm{WRDF}(r)$)", x, v_wrdf, "r-");
+    plt::named_plot("Minimum", std::vector<double>{wrdf.r_min()}, std::vector<double>{wrdf.v_min()}, "rs");
+    plt::plot(std::vector<double>{d_wrdf, d_wrdf}, std::vector<double>{-2.0, 10.0}, {{"color", "grey"}, {"linestyle", "--"}, {"label", R"($d_\mathrm{HS}$)"}});
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($v(r) / \epsilon$)");
+    plt::title(R"(WRDF potential ($d_\mathrm{HS}$ = )" + std::to_string(d_wrdf).substr(0, 5) + ")");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/potential_wrdf.png");
+  }
 
-  //region Minimum:
-  auto wrdf_min = g.add_dataset(std::vector<double>{wrdf.r_min()}, std::vector<double>{wrdf.v_min()});
-  g.set_line_type(dft_core::grace_plot::LineStyle::NO_LINE, wrdf_min);
-  g.set_symbol(dft_core::grace_plot::Symbol::SQUARE, wrdf_min);
-  g.set_symbol_fill(dft_core::grace_plot::Color::ORANGE, wrdf_min);
-  //endregion
+  // ── Full potentials comparison ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot("Lennard-Jones", x, v_lj, "k-");
+    plt::named_plot("ten Wolde-Frenkel", x, v_twf, "b-");
+    plt::named_plot("WRDF", x, v_wrdf, "r-");
+    plt::named_plot("LJ min", std::vector<double>{lj.r_min()}, std::vector<double>{lj.v_min()}, "ks");
+    plt::named_plot("tWF min", std::vector<double>{twf.r_min()}, std::vector<double>{twf.v_min()}, "bD");
+    plt::named_plot("WRDF min", std::vector<double>{wrdf.r_min()}, std::vector<double>{wrdf.v_min()}, "rs");
+    plt::plot(std::vector<double>{d_lj, d_lj}, std::vector<double>{-2.0, 10.0}, "k--");
+    plt::plot(std::vector<double>{d_twf, d_twf}, std::vector<double>{-2.0, 10.0}, "b--");
+    plt::plot(std::vector<double>{d_wrdf, d_wrdf}, std::vector<double>{-2.0, 10.0}, "r--");
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($v(r) / \epsilon$)");
+    plt::title("Intermolecular potentials comparison");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/potentials_comparison.png");
+  }
 
-  //region Hard-sphere diameter:
-  hs_diameter = wrdf.find_hard_sphere_diameter(1.0);
-  hs_x = arma::vec(10, arma::fill::ones); hs_x *= hs_diameter;
-  auto wrdf_hs = g.add_dataset(conv_arma_to_vec(hs_x), conv_arma_to_vec(y_vec));
-  g.set_color(dft_core::grace_plot::Color::ORANGE, wrdf_hs);
-  g.set_line_type(dft_core::grace_plot::LineStyle::DASHEDLINE_EN, wrdf_hs);
-  console::info("WRDF hard-sphere diameter (kT = 1.0) = " + std::to_string(hs_diameter));
-  //endregion
+  // ── Individual perturbation: LJ ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($v_\mathrm{LJ}(r)$)", x, v_lj, "k-");
+    plt::named_plot(R"($w_\mathrm{att}(r)$)", x, att_lj, "b-");
+    plt::named_plot(R"($w_\mathrm{rep}(r)$)", x, rep_lj, "r--");
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($w(r) / \epsilon$)");
+    plt::title("LJ: WCA perturbation decomposition");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/perturbation_lj.png");
+  }
 
-  //region Pertubation theory:
-  auto wrdf_att = wrdf.w_attractive(x_vector);
-  auto wrdf_att_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(wrdf_att));
-  g.set_color(dft_core::grace_plot::Color::ORANGE, wrdf_att_ds);
-  g.set_line_type(dft_core::grace_plot::LineStyle::D_DOTTEDDASHEDLINE_EM, wrdf_att_ds);
-  g.set_symbol(dft_core::grace_plot::Symbol::PLUS, wrdf_att_ds);
-  g.set_symbol_size(0.25, wrdf_att_ds);
+  // ── Individual perturbation: tWF ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($v_\mathrm{tWF}(r)$)", x, v_twf, "b-");
+    plt::named_plot(R"($w_\mathrm{att}(r)$)", x, att_twf, "c-");
+    plt::named_plot(R"($w_\mathrm{rep}(r)$)", x, rep_twf, "m--");
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($w(r) / \epsilon$)");
+    plt::title("tWF: WCA perturbation decomposition");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/perturbation_twf.png");
+  }
 
-  auto wrdf_rep = wrdf.w_repulsive(x_vector);
-  auto wrdf_rep_ds = g.add_dataset(conv_arma_to_vec(x_vector), conv_arma_to_vec(wrdf_rep));
-  g.set_color(dft_core::grace_plot::Color::ORANGE, wrdf_rep_ds);
-  g.set_line_type(dft_core::grace_plot::LineStyle::D_DOTTEDDASHEDLINE_EN, wrdf_rep_ds);
-  g.set_symbol(dft_core::grace_plot::Symbol::STAR, wrdf_rep_ds);
-  g.set_symbol_size(0.25, wrdf_rep_ds);
-  //endregion
-  //endregion
+  // ── Individual perturbation: WRDF ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($v_\mathrm{WRDF}(r)$)", x, v_wrdf, "r-");
+    plt::named_plot(R"($w_\mathrm{att}(r)$)", x, att_wrdf, "c-");
+    plt::named_plot(R"($w_\mathrm{rep}(r)$)", x, rep_wrdf, "m--");
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($w(r) / \epsilon$)");
+    plt::title("WRDF: WCA perturbation decomposition");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/perturbation_wrdf.png");
+  }
 
-  //region Legend:
-  g.set_legend("Lennard-Jones (LJ)", lj_ds);
-  g.set_legend("ten Wolde-Frenkel (tWF)", twf_ds);
-  g.set_legend("Wang-Ramirez-Dobnikar-Frenkel (WRDF)", wrdf_ds);
+  // ── All perturbation decompositions ──
+  {
+    plt::figure_size(800, 550);
+    plt::named_plot(R"(LJ $w_\mathrm{att}$)", x, att_lj, "k-");
+    plt::named_plot(R"(LJ $w_\mathrm{rep}$)", x, rep_lj, "k--");
+    plt::named_plot(R"(tWF $w_\mathrm{att}$)", x, att_twf, "b-");
+    plt::named_plot(R"(tWF $w_\mathrm{rep}$)", x, rep_twf, "b--");
+    plt::named_plot(R"(WRDF $w_\mathrm{att}$)", x, att_wrdf, "r-");
+    plt::named_plot(R"(WRDF $w_\mathrm{rep}$)", x, rep_wrdf, "r--");
+    plt::xlim(0.75, 1.8);
+    plt::ylim(-2.0, 10.0);
+    plt::xlabel(R"($r / \sigma$)");
+    plt::ylabel(R"($w(r) / \epsilon$)");
+    plt::title("Perturbation theory decomposition (all potentials)");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    save_plot("exports/perturbation_decomposition.png");
+  }
+#endif
 
-  g.set_legend("LJ min", lj_min);
-  g.set_legend("LJ attractive", lj_att_ds);
-  g.set_legend("LJ repulsive", lj_rep_ds);
-  g.set_legend("LJ HS diameter", lj_hs);
-
-  g.set_legend("tWF min", twf_min);
-  g.set_legend("tWF HS diameter", twf_hs);
-  g.set_legend("tWF attractive", twf_att_ds);
-  g.set_legend("tWF repulsive", twf_rep_ds);
-
-  g.set_legend("WRDF min", wrdf_min);
-  g.set_legend("WRDF HS diameter", wrdf_hs);
-  g.set_legend("WRDF attractive", wrdf_att_ds);
-  g.set_legend("WRDF repulsive", wrdf_rep_ds);
-  //endregion
-
-  g.redraw_and_wait();
-
-  //g.print_to_file("potentials.png", dft_core::grace_plot::ExportFormat::PNG);
-  //g.redraw_and_wait();
+  return 0;
 }

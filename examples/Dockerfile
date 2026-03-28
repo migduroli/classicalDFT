@@ -13,9 +13,9 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     libfftw3-dev \
     pkg-config \
     nlohmann-json3-dev \
-    grace \
-    xvfb \
-    xauth \
+    python3-dev \
+    python3-matplotlib \
+    python3-numpy \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,7 +31,8 @@ RUN cmake -B build \
       -DCMAKE_BUILD_TYPE=Release \
       -DDFT_BUILD_TESTS=OFF \
       -DDFT_BUILD_EXAMPLES=ON \
-      -DDFT_USE_GRACE=ON \
+      -DDFT_USE_GRACE=OFF \
+      -DDFT_USE_MATPLOTLIB=ON \
     && cmake --build build --parallel "$(nproc)"
 
 ENTRYPOINT ["/bin/sh", "-c"]

@@ -1,13 +1,20 @@
 #include <classicaldft>
 
 #include <cmath>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <numbers>
 
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
+
 using namespace dft_core::physics::thermodynamics;
 
 int main() {
+  std::filesystem::create_directories("exports");
+
   // ── Hard-sphere thermodynamics ──────────────────────────────────────────
 
   std::cout << "=== Hard-sphere fluid models ===\n\n";
@@ -125,18 +132,14 @@ int main() {
               << "\n";
   }
 
-  // ── Grace plots ───────────────────────────────────────────────────────
+  // ── Plots ──────────────────────────────────────────────────────────────
 
-#ifdef DFT_HAS_GRACE
-  using namespace dft_core::grace_plot;
+#ifdef DFT_HAS_MATPLOTLIB
+  namespace plt = matplotlibcpp;
+  plt::backend("Agg");
 
   // ── Plot 1: hard-sphere pressure ──────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Hard-sphere compressibility factor");
-    g.set_label("\\xh", Axis::X);
-    g.set_label("P / \\r kT", Axis::Y);
-
     const int N = 100;
     std::vector<double> eta_fine(N), cs_fine(N), pyv_fine(N), pyc_fine(N);
     for (int i = 0; i < N; ++i) {
@@ -147,34 +150,25 @@ int main() {
       pyc_fine[i] = py_comp.pressure(e);
     }
 
-    auto ds_cs = g.add_dataset(eta_fine, cs_fine);
-    g.set_color(Color::BLACK, ds_cs);
-    g.set_legend("Carnahan-Starling", ds_cs);
-
-    auto ds_pyv = g.add_dataset(eta_fine, pyv_fine);
-    g.set_color(Color::RED, ds_pyv);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_pyv);
-    g.set_legend("PY (virial)", ds_pyv);
-
-    auto ds_pyc = g.add_dataset(eta_fine, pyc_fine);
-    g.set_color(Color::BLUE, ds_pyc);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_pyc);
-    g.set_legend("PY (compressibility)", ds_pyc);
-
-    g.set_x_limits(0.0, 0.5);
-    g.set_y_limits(0.0, 30.0);
-    g.set_ticks(0.1, 5.0);
-    g.print_to_file("exports/hs_pressure.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("Carnahan\u2013Starling", eta_fine, cs_fine, "k-");
+    plt::named_plot("PY (virial)", eta_fine, pyv_fine, "r--");
+    plt::named_plot("PY (compressibility)", eta_fine, pyc_fine, "b:");
+    plt::xlim(0.0, 0.5);
+    plt::ylim(0.0, 30.0);
+    plt::xlabel(R"($\eta$)");
+    plt::ylabel(R"($P / \rho k_BT$)");
+    plt::title("Hard-sphere compressibility factor");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/hs_pressure.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/hs_pressure.png") << std::endl;
   }
 
   // ── Plot 2: contact value ─────────────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Pair correlation at contact");
-    g.set_label("\\xh", Axis::X);
-    g.set_label("\\xc\\f{}(\\xh\\f{})", Axis::Y);
-
     const int N = 100;
     std::vector<double> eta_fine(N), chi_cs_fine(N), chi_pyv_fine(N), chi_pyc_fine(N);
     for (int i = 0; i < N; ++i) {
@@ -185,34 +179,25 @@ int main() {
       chi_pyc_fine[i] = py_comp.contact_value(e);
     }
 
-    auto ds_cs = g.add_dataset(eta_fine, chi_cs_fine);
-    g.set_color(Color::BLACK, ds_cs);
-    g.set_legend("Carnahan-Starling", ds_cs);
-
-    auto ds_pyv = g.add_dataset(eta_fine, chi_pyv_fine);
-    g.set_color(Color::RED, ds_pyv);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_pyv);
-    g.set_legend("PY (virial)", ds_pyv);
-
-    auto ds_pyc = g.add_dataset(eta_fine, chi_pyc_fine);
-    g.set_color(Color::BLUE, ds_pyc);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_pyc);
-    g.set_legend("PY (compressibility)", ds_pyc);
-
-    g.set_x_limits(0.0, 0.5);
-    g.set_y_limits(0.0, 20.0);
-    g.set_ticks(0.1, 5.0);
-    g.print_to_file("exports/contact_value.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("Carnahan\u2013Starling", eta_fine, chi_cs_fine, "k-");
+    plt::named_plot("PY (virial)", eta_fine, chi_pyv_fine, "r--");
+    plt::named_plot("PY (compressibility)", eta_fine, chi_pyc_fine, "b:");
+    plt::xlim(0.0, 0.5);
+    plt::ylim(0.0, 20.0);
+    plt::xlabel(R"($\eta$)");
+    plt::ylabel(R"($\chi(\eta)$)");
+    plt::title("Pair correlation at contact");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/contact_value.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/contact_value.png") << std::endl;
   }
 
   // ── Plot 3: transport coefficients ────────────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Enskog transport coefficients (d = kT = 1)");
-    g.set_label("\\r", Axis::X);
-    g.set_label("Transport coefficient", Axis::Y);
-
     const int N = 80;
     std::vector<double> rho_fine(N), sh(N), bk(N), th(N), sd(N);
     for (int i = 0; i < N; ++i) {
@@ -225,38 +210,37 @@ int main() {
       sd[i] = transport::sound_damping(d, chi);
     }
 
-    auto ds_sh = g.add_dataset(rho_fine, sh);
-    g.set_color(Color::BLACK, ds_sh);
-    g.set_legend("Shear viscosity", ds_sh);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($\eta_\mathrm{shear}$)", rho_fine, sh, "k-");
+    plt::named_plot(R"($\eta_\mathrm{bulk}$)", rho_fine, bk, "r--");
+    plt::xlim(0.0, 0.8);
+    plt::xlabel(R"($\rho\sigma^3$)");
+    plt::ylabel(R"(Viscosity / $(m k_BT)^{1/2} \sigma^{-2}$)");
+    plt::title(R"(Enskog viscosities ($d = k_BT = 1$))");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/transport_viscosity.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/transport_viscosity.png") << std::endl;
 
-    auto ds_bk = g.add_dataset(rho_fine, bk);
-    g.set_color(Color::RED, ds_bk);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_bk);
-    g.set_legend("Bulk viscosity", ds_bk);
-
-    auto ds_th = g.add_dataset(rho_fine, th);
-    g.set_color(Color::BLUE, ds_th);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_th);
-    g.set_legend("Thermal conductivity", ds_th);
-
-    auto ds_sd = g.add_dataset(rho_fine, sd);
-    g.set_color(Color::DARKGREEN, ds_sd);
-    g.set_line_type(LineStyle::DOTTEDDASHEDLINE_EN, ds_sd);
-    g.set_legend("Sound damping", ds_sd);
-
-    g.set_x_limits(0.0, 0.8);
-    g.set_ticks(0.1, 0.5);
-    g.print_to_file("exports/transport.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($\lambda$ (thermal conductivity))", rho_fine, th, "b-");
+    plt::named_plot(R"($\Gamma$ (sound damping))", rho_fine, sd, "g--");
+    plt::xlim(0.0, 0.8);
+    plt::xlabel(R"($\rho\sigma^3$)");
+    plt::ylabel("Transport coefficient");
+    plt::title(R"(Thermal conductivity and sound damping ($d = k_BT = 1$))");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/transport_thermal.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/transport_thermal.png") << std::endl;
   }
 
   // ── Plot 4: equations of state comparison ─────────────────────────────
   {
-    auto g = Grace();
-    g.set_title("Equations of state (kT = 1.3)");
-    g.set_label("\\r", Axis::X);
-    g.set_label("P / \\r kT", Axis::Y);
-
     const int N = 100;
     std::vector<double> rho_fine(N), p_jzg_f(N), p_jzg_cut_f(N), p_mecke_f(N), p_py_f(N);
     for (int i = 0; i < N; ++i) {
@@ -268,29 +252,21 @@ int main() {
       p_py_f[i] = py_eos.pressure(d);
     }
 
-    auto ds_jzg = g.add_dataset(rho_fine, p_jzg_f);
-    g.set_color(Color::BLACK, ds_jzg);
-    g.set_legend("LJ-JZG", ds_jzg);
-
-    auto ds_jzg_cut = g.add_dataset(rho_fine, p_jzg_cut_f);
-    g.set_color(Color::RED, ds_jzg_cut);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_jzg_cut);
-    g.set_legend("JZG (r\\sc\\N = 2.5)", ds_jzg_cut);
-
-    auto ds_mecke = g.add_dataset(rho_fine, p_mecke_f);
-    g.set_color(Color::BLUE, ds_mecke);
-    g.set_line_type(LineStyle::DOTTEDLINE, ds_mecke);
-    g.set_legend("Mecke", ds_mecke);
-
-    auto ds_py_eos = g.add_dataset(rho_fine, p_py_f);
-    g.set_color(Color::DARKGREEN, ds_py_eos);
-    g.set_line_type(LineStyle::DOTTEDDASHEDLINE_EN, ds_py_eos);
-    g.set_legend("PY (HS)", ds_py_eos);
-
-    g.set_x_limits(0.0, 0.85);
-    g.set_ticks(0.1, 2.0);
-    g.print_to_file("exports/eos_comparison.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("LJ-JZG", rho_fine, p_jzg_f, "k-");
+    plt::named_plot(R"(JZG ($r_c = 2.5$))", rho_fine, p_jzg_cut_f, "r--");
+    plt::named_plot("Mecke", rho_fine, p_mecke_f, "b:");
+    plt::named_plot("PY (HS)", rho_fine, p_py_f, "g-.");
+    plt::xlim(0.0, 0.85);
+    plt::xlabel(R"($\rho$)");
+    plt::ylabel(R"($P / \rho k_BT$)");
+    plt::title(R"(Equations of state ($k_BT = 1.3$))");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/eos_comparison.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/eos_comparison.png") << std::endl;
   }
 #endif
 }

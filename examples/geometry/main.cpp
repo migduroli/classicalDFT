@@ -1,9 +1,12 @@
 #include <cmath>
 #include <armadillo>
 #include <classicaldft>
+#include <filesystem>
+#include <cstring>
 
 int main(int argc, char **argv)
 {
+  std::filesystem::create_directories("exports");
   using namespace dft_core::geometry;
   using namespace dft_core::io;
 
@@ -84,14 +87,10 @@ int main(int argc, char **argv)
   std::cout << "Vertex[-1,-1]: " << mesh_2D[{-1,-1}] << std::endl;
   std::cout << "Vertex[2,3]: " << mesh_2D[{2,3}] << std::endl;
 
-  std::cout << "Element[10]: " << std::endl;
-  std::cout << mesh_2D.elements()[10] << std::endl;
-
-  std::cout << "Element volume: " << std::endl
-            << mesh_2D.element_volume() << std::endl;
+  std::cout << "Number of elements: " << mesh_2D.elements().size() << std::endl;
+  std::cout << "Element volume: " << mesh_2D.element_volume() << std::endl;
 
   console::info("Mesh 2D: SUQMesh plot");
-  mesh_2D.plot();
 
   // endregion
 
@@ -110,11 +109,8 @@ int main(int argc, char **argv)
   std::cout << "Vertex[-1,-1,-1]: " << mesh_3D[{-1,-1,-1}] << std::endl;
   std::cout << "Vertex[2,3,1]: " << mesh_3D[{2,3,1}] << std::endl;
 
-  std::cout << "Element[10]: " << std::endl;
-  std::cout << mesh_3D.elements()[10] << std::endl;
-
-  std::cout << "Element volume: " << std::endl
-            << mesh_3D.element_volume() << std::endl;
+  std::cout << "Number of elements: " << mesh_3D.elements().size() << std::endl;
+  std::cout << "Element volume: " << mesh_3D.element_volume() << std::endl;
   // endregion
 
   // region 2D::UniformMesh
@@ -136,7 +132,6 @@ int main(int argc, char **argv)
   std::cout << "wrap({-1.0, -0.5}): " << uniform_2D.wrap(Vertex({-1.0, -0.5})) << std::endl;
 
   console::info("UniformMesh 2D: plot");
-  uniform_2D.plot();
   // endregion
 
   // region 3D::UniformMesh
@@ -158,4 +153,9 @@ int main(int argc, char **argv)
   std::cout << "wrap({5.5, 7.0, 12.5}):    " << uniform_3D.wrap(Vertex({5.5, 7.0, 12.5})) << std::endl;
   std::cout << "wrap({-1.0, -0.5, -5.0}):  " << uniform_3D.wrap(Vertex({-1.0, -0.5, -5.0})) << std::endl;
   // endregion
+
+  // ── Plots ──────────────────────────────────────────────────────────────
+
+  mesh_2D.plot("exports/mesh_2d.png");
+  mesh_3D.plot("exports/mesh_3d_xy.png");
 }

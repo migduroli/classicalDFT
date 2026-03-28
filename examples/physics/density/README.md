@@ -51,15 +51,20 @@ s.set_density_from_alias(x);  // round-trip
 ## Running
 
 ```bash
-make run-local
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
 ```
 
-## Plots (requires Grace)
+## Plots
 
-When built with `DFT_HAS_GRACE`, three plots are saved to `exports/`:
+When built with `DFT_USE_MATPLOTLIB=ON` (default), three plots are saved to `exports/`:
 
 | File | Content |
 |------|---------|
 | `density_profile.png` | Sinusoidal density $\rho_0 + A\sin(2\pi z/L)$ and hard-wall external field along $z$ |
 | `fft_spectrum.png` | FFT power spectrum $|F(k_z)|/N$ showing DC peak at $k_z=0$ and sine mode at $k_z=1$ |
 | `alias_mapping.png` | Species alias coordinate $x(\rho) = \sqrt{\rho - \rho_{\min}}$ |
+
+![Density profile](exports/density_profile.png)
+![FFT spectrum](exports/fft_spectrum.png)
+![Alias mapping](exports/alias_mapping.png)

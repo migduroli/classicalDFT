@@ -18,12 +18,13 @@ energy and force calculations, and the bounded alias mapping.
 ## Running
 
 ```bash
-make run-local
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
 ```
 
-## Plots (requires Grace)
+## Plots
 
-When built with `DFT_HAS_GRACE`, five plots are saved to `exports/`:
+When built with `DFT_USE_MATPLOTLIB=ON` (default), five plots are saved to `exports/`:
 
 | File | Content |
 |------|---------|
@@ -32,3 +33,9 @@ When built with `DFT_HAS_GRACE`, five plots are saved to `exports/`:
 | `fmt_chemical_potential.png` | Excess chemical potential for Rosenfeld, WBI, WBII |
 | `fmt_f_functions.png` | Model-defining $f_1, f_2, f_3$ functions of $\eta$ |
 | `fmt_alias.png` | Bounded alias $\rho(y)$, $\eta(y)$, and $d\rho/dy$ |
+
+![Free energy](exports/fmt_free_energy.png)
+![Pressure](exports/fmt_pressure.png)
+![Chemical potential](exports/fmt_chemical_potential.png)
+![f-functions](exports/fmt_f_functions.png)
+![Bounded alias](exports/fmt_alias.png)

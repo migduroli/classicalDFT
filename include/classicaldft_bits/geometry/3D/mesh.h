@@ -37,7 +37,7 @@ namespace dft_core::geometry::three_dimensional {
 
     // region Methods:
 
-    void plot() const override;
+    void plot(const std::string& path = "", const bool interactive = true) const override;
 
     const std::vector<SquareBox>& elements() const;
 

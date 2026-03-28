@@ -2,7 +2,7 @@
 
 ### Introduction
 
-One of the few and key elements required when doing research on statistical physics is to have a good estimate (or at least a justifiable model) for the intermolecular potential energy between a pair of constituent particles, e.g. atoms or molecules. The choice of the *intermolecular potential* model describing the intermolecular forces is not something we should come up with hastily, since this **fundamental quantity** governs the thermodynamics of the system at hand. I.e., the same simulation with the same boundary and initial conditions will very likely result in quite different outcomes if we choose to model our system with a [Lennard-Jones](https://en.wikipedia.org/wiki/Lennard-Jones_potential) (LJ) or a [ten Wolde-Frenkel](https://science.sciencemag.org/content/277/5334/1975) (tWF) potential. For this reason, a myriad of potentials have been developed ever since the introduction of the widely-known **LJ(6-12) potential** in 1924 by [John Lennard-Jones](https://en.wikipedia.org/wiki/John_Lennard-Jones). However, most of them share common elements which can be encapsulated in a `base class` to be reutilised for the implementation of every particular one of them. 
+One of the few and key elements required when doing research on statistical physics is to have a good estimate (or at least a justifiable model) for the intermolecular potential energy between a pair of constituent particles, e.g. atoms or molecules. The choice of the *intermolecular potential* model describing the intermolecular forces is not something we should come up with hastily, since this **fundamental quantity** governs the thermodynamics of the system at hand. I.e., the same simulation with the same boundary and initial conditions will very likely result in quite different outcomes if we choose to model our system with a [Lennard-Jones](https://en.wikipedia.org/wiki/Lennard-Jones_potential) (LJ) or a [ten Wolde-Frenkel](https://science.sciencemag.org/content/277/5334/1975) (tWF) potential. For this reason, a myriad of potentials have been developed ever since the introduction of the widely-known **LJ(6-12) potential** in 1924 by [John Lennard-Jones](https://en.wikipedia.org/wiki/John_Lennard-Jones). However, most of them share common elements which can be encapsulated in a `base class` to be reutilised for the implementation of every particular one of them.
 
 The `classicalDFT` library comes with an implementation of such an abstract class which can be found in the namespace `dft_core::physics::potentials::intermolecular`, class `Potential`. Besides this abstract class, `classicalDFT` offers the implementation of the two intermolecular potentials mentioned above, namely LJ(6-12) and the tWF potential, `LennardJones` and `tenWoldeFrenkel` classes under the same namespace. However, the implementations offered here not only come with the basic functionality, but also are enriched with some convenient methods and properties which are required for thermodynamic perturbation theory (TPT) analysis. Particularly, any potential which derives from the abstract class `Potential` will automatically know how to split the potential contribution into two parts (as suggested by [Weeks-Chandler-Andersen TPT](http://www.sklogwiki.org/SklogWiki/index.php/Weeks-Chandler-Andersen_perturbation_theory)): a) hard-sphere (purely repulsive) contribution; and b) the attractive part. E.g., for the particular case of the LJ(6-12) potential:
 $$
@@ -217,8 +217,33 @@ int main(int argc, char **argv)
 }
 ```
 
-After compilation and running we will get the following results:
+After compilation and running the example produces the following plots in `exports/`:
 
-<img src="figures/potentials.png" alt="potentials" style="zoom:50%;" />
+## Running
 
-The figure's quality might seem poor because it has been taken from a screenshot. For a better resolution and quality, you can always use one of the export methods provided by `grace` (as is shown at the bottom of the above code block).
+```bash
+make run        # builds and runs inside Docker
+make run-local  # builds and runs locally
+```
+
+## Plots
+
+When built with `DFT_USE_MATPLOTLIB=ON` (default), plots are saved to `exports/`:
+
+| File | Content |
+|------|---------|
+| `potential_lj.png` | Lennard-Jones potential with minimum and hard-sphere diameter |
+| `potential_twf.png` | ten Wolde-Frenkel potential with minimum and hard-sphere diameter |
+| `potential_wrdf.png` | WRDF potential with minimum and hard-sphere diameter |
+| `potentials_comparison.png` | All three potentials overlaid |
+| `perturbation_lj.png` | LJ WCA decomposition into attractive and repulsive parts |
+| `perturbation_twf.png` | tWF WCA decomposition |
+| `perturbation_wrdf.png` | WRDF WCA decomposition |
+| `perturbation_decomposition.png` | All perturbation decompositions overlaid |
+
+![LJ potential](exports/potential_lj.png)
+![tWF potential](exports/potential_twf.png)
+![WRDF potential](exports/potential_wrdf.png)
+![Potentials comparison](exports/potentials_comparison.png)
+![LJ perturbation](exports/perturbation_lj.png)
+![Perturbation decomposition](exports/perturbation_decomposition.png)

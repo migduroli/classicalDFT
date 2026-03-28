@@ -36,6 +36,7 @@
 #include "classicaldft_bits/physics/fmt/weights.h"
 #include "classicaldft_bits/physics/fmt/functional.h"
 #include "classicaldft_bits/physics/fmt/species.h"
+#include "classicaldft_bits/physics/interaction/interaction.h"
 // endregion
 
 // region Geometry

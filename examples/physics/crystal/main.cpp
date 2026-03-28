@@ -1,11 +1,17 @@
 #include <classicaldft>
 
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
+
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
 
 using namespace dft_core::physics::crystal;
 
 int main() {
+  std::filesystem::create_directories("exports");
   std::cout << std::fixed << std::setprecision(6);
 
   // ── Build crystals with different structures and orientations ──────────
@@ -93,18 +99,14 @@ int main() {
   fcc.export_to(csv_file, ExportFormat::CSV);
   std::cout << "  Exported " << fcc.size() << " atoms to " << csv_file << " (CSV)\n";
 
-  // ── Grace plots ───────────────────────────────────────────────────────
+  // ── Plots ────────────────────────────────────────────────────────────
 
-#ifdef DFT_HAS_GRACE
-  namespace gp = dft_core::grace_plot;
+#ifdef DFT_HAS_MATPLOTLIB
+  namespace plt = matplotlibcpp;
+  plt::backend("Agg");
 
-  auto plot_lattice = [](const Lattice& lat, const std::string& title, gp::Color color, gp::Symbol symbol,
-                         const std::string& filename) {
-    auto g = gp::Grace();
-    g.set_title(title);
-    g.set_label("x / d\\snn\\N", gp::Axis::X);
-    g.set_label("y / d\\snn\\N", gp::Axis::Y);
-
+  auto plot_lattice = [](const Lattice& lat, const std::string& title,
+                         const std::string& marker_style, const std::string& filename) {
     const auto& pos = lat.positions();
     std::vector<double> xs(pos.n_rows), ys(pos.n_rows);
     for (arma::uword i = 0; i < pos.n_rows; ++i) {
@@ -112,50 +114,67 @@ int main() {
       ys[i] = pos(i, 1);
     }
 
-    auto ds = g.add_dataset(xs, ys);
-    g.set_line_type(gp::LineStyle::NO_LINE, ds);
-    g.set_symbol(symbol, ds);
-    g.set_symbol_color(color, ds);
-    g.set_symbol_fill(color, ds);
-    g.set_symbol_size(0.4, ds);
-    g.set_color(color, ds);
-
+    plt::figure_size(700, 700);
+    plt::named_plot("Atoms", xs, ys, marker_style);
     double pad = 0.3;
-    g.set_x_limits(-pad, lat.dimensions()(0) + pad);
-    g.set_y_limits(-pad, lat.dimensions()(1) + pad);
-    g.set_ticks(1.0, 1.0);
-    g.print_to_file(filename, gp::ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    double xmax = lat.dimensions()(0);
+    double ymax = lat.dimensions()(1);
+    double range = std::max(xmax, ymax) + 2 * pad;
+    plt::xlim(-pad, -pad + range);
+    plt::ylim(-pad, -pad + range);
+    plt::xlabel(R"($x / d_\mathrm{nn}$)");
+    plt::ylabel(R"($y / d_\mathrm{nn}$)");
+    plt::title(title);
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save(filename);
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute(filename) << std::endl;
   };
 
   {
     auto lat = Lattice(Structure::FCC, Orientation::_001, {4, 4, 4});
-    plot_lattice(lat, "FCC [001] (4\\S3\\N unit cells)", gp::Color::BLUE, gp::Symbol::CIRCLE,
-                "exports/fcc_001.png");
+    plot_lattice(lat, R"(FCC [001] ($4^3$ unit cells))", "bo", "exports/fcc_001.png");
   }
 
   {
     auto lat = Lattice(Structure::BCC, Orientation::_001, {4, 4, 4});
-    plot_lattice(lat, "BCC [001] (4\\S3\\N unit cells)", gp::Color::RED, gp::Symbol::SQUARE,
-                "exports/bcc_001.png");
+    plot_lattice(lat, R"(BCC [001] ($4^3$ unit cells))", "rs", "exports/bcc_001.png");
   }
 
   {
     auto lat = Lattice(Structure::HCP, Orientation::_001, {4, 4, 4});
-    plot_lattice(lat, "HCP [001] (4\\S3\\N unit cells)", gp::Color::DARKGREEN, gp::Symbol::DIAMOND,
-                "exports/hcp_001.png");
+    plot_lattice(lat, R"(HCP [001] ($4^3$ unit cells))", "gD", "exports/hcp_001.png");
   }
 
   {
     auto lat = Lattice(Structure::BCC, Orientation::_110, {4, 4, 4});
-    plot_lattice(lat, "BCC [110] (4\\S3\\N unit cells)", gp::Color::MAROON, gp::Symbol::TRIANGLE_UP,
-                "exports/bcc_110.png");
+    plot_lattice(lat, R"(BCC [110] ($4^3$ unit cells))", "m^", "exports/bcc_110.png");
+  }
+
+  {
+    auto lat = Lattice(Structure::FCC, Orientation::_110, {4, 4, 4});
+    plot_lattice(lat, R"(FCC [110] ($4^3$ unit cells))", "bo", "exports/fcc_110.png");
   }
 
   {
     auto lat = Lattice(Structure::FCC, Orientation::_111, {4, 4, 4});
-    plot_lattice(lat, "FCC [111] (4\\S3\\N unit cells)", gp::Color::VIOLET, gp::Symbol::STAR,
-                "exports/fcc_111.png");
+    plot_lattice(lat, R"(FCC [111] ($4^3$ unit cells))", "k*", "exports/fcc_111.png");
+  }
+
+  {
+    auto lat = Lattice(Structure::BCC, Orientation::_111, {4, 4, 4});
+    plot_lattice(lat, R"(BCC [111] ($4^3$ unit cells))", "r^", "exports/bcc_111.png");
+  }
+
+  {
+    auto lat = Lattice(Structure::HCP, Orientation::_010, {4, 4, 4});
+    plot_lattice(lat, R"(HCP [010] ($4^3$ unit cells))", "gD", "exports/hcp_010.png");
+  }
+
+  {
+    auto lat = Lattice(Structure::HCP, Orientation::_100, {4, 4, 4});
+    plot_lattice(lat, R"(HCP [100] ($4^3$ unit cells))", "gs", "exports/hcp_100.png");
   }
 #endif
 }

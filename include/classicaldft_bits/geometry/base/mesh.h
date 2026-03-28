@@ -4,6 +4,7 @@
 #include "element.h"
 #include "vertex.h"
 
+#include <string>
 #include <vector>
 
 namespace dft_core::geometry {
@@ -142,9 +143,10 @@ namespace dft_core::geometry {
     virtual double volume() const = 0;
 
     /**
-     * Method which will plot the mesh to visualise it
+     * Plot the mesh. If @p interactive is true the plot is shown interactively;
+     * otherwise it is saved to the given file path.
      */
-    virtual void plot() const = 0;
+    virtual void plot(const std::string& path = "", const bool interactive = true) const = 0;
 
     // endregion
 

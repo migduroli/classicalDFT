@@ -2,6 +2,13 @@
 
 #include "classicaldft_bits/geometry/3D/element.h"
 
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+
+#include <filesystem>
+#include <iostream>
+#endif
+
 #include <numeric>
 
 namespace dft_core::geometry::three_dimensional {
@@ -46,8 +53,50 @@ namespace dft_core::geometry::three_dimensional {
     this->initialise(dx);
   }
 
-  void SUQMesh::plot() const {
-    throw std::runtime_error("Not implemented yet!");
+  void SUQMesh::plot(const std::string& path, const bool interactive) const {
+#ifdef DFT_HAS_MATPLOTLIB
+    namespace plt = matplotlibcpp;
+    if (!interactive) {
+      plt::backend("Agg");
+    }
+
+    // Project 3D vertices onto XY plane (slice at z=0)
+    std::vector<double> xs, ys;
+    double z0 = origin_[2];
+    double tol = 1e-10;
+    for (const auto& v : vertices_raw_) {
+      if (std::abs(v.coordinates()[2] - z0) < tol) {
+        xs.push_back(v.coordinates()[0]);
+        ys.push_back(v.coordinates()[1]);
+      }
+    }
+
+    plt::figure_size(700, 700);
+    plt::named_plot("Vertices (z=0 slice)", xs, ys, "bs");
+    double pad_x = 0.1 * dimensions_[0];
+    double pad_y = 0.1 * dimensions_[1];
+    plt::xlim(origin_[0] - pad_x, dimensions_[0] + origin_[0] + pad_x);
+    plt::ylim(origin_[1] - pad_y, dimensions_[1] + origin_[1] + pad_y);
+    plt::xlabel(R"($x$)");
+    plt::ylabel(R"($y$)");
+    plt::title(
+        "3D mesh XY slice (" + std::to_string(shape_[0]) + "x" + std::to_string(shape_[1]) + "x" +
+        std::to_string(shape_[2]) + " vertices)"
+    );
+    plt::grid(true);
+    plt::tight_layout();
+
+    if (interactive) {
+      plt::show();
+    } else {
+      std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+      plt::save(path);
+      plt::close();
+      std::cout << "Plot saved: " << std::filesystem::absolute(path) << std::endl;
+    }
+#else
+    throw std::runtime_error("No plotting backend available: build with -DDFT_USE_MATPLOTLIB=ON");
+#endif
   }
 
   const std::vector<SquareBox>& SUQMesh::elements() const {

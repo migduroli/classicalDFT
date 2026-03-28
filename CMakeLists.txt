@@ -16,6 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(DFT_BUILD_TESTS    "Build unit tests"       ON)
 option(DFT_BUILD_EXAMPLES "Build example programs"  ON)
 option(DFT_USE_GRACE      "Enable xmgrace plotting" ON)
+option(DFT_USE_MATPLOTLIB "Enable matplotlib-cpp plotting" ON)
 option(DFT_CODE_COVERAGE  "Enable code coverage (gcov)" OFF)
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
@@ -59,6 +60,36 @@ if(DFT_BUILD_TESTS)
     FetchContent_MakeAvailable(googletest)
 endif()
 
+# matplotlib-cpp (header-only, fetched automatically)
+if(DFT_USE_MATPLOTLIB)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+    FetchContent_Declare(
+        matplotlib_cpp
+        GIT_REPOSITORY https://github.com/lava/matplotlib-cpp.git
+        GIT_TAG        master
+    )
+    # Download source only — skip add_subdirectory to avoid building
+    # upstream examples that fail with WITHOUT_NUMPY.
+    if(POLICY CMP0169)
+        cmake_policy(SET CMP0169 OLD)
+    endif()
+    FetchContent_GetProperties(matplotlib_cpp)
+    if(NOT matplotlib_cpp_POPULATED)
+        FetchContent_Populate(matplotlib_cpp)
+    endif()
+
+    # Header-only: create interface target manually (avoids building upstream examples)
+    add_library(matplotlib_cpp INTERFACE)
+    target_include_directories(matplotlib_cpp SYSTEM INTERFACE
+        $<BUILD_INTERFACE:${matplotlib_cpp_SOURCE_DIR}>
+    )
+    target_link_libraries(matplotlib_cpp INTERFACE Python3::Python)
+
+    # Disable numpy C-API to avoid int64_t/long-long template collision on ARM64
+    target_compile_definitions(matplotlib_cpp INTERFACE WITHOUT_NUMPY)
+endif()
+
 # ── Core library ─────────────────────────────────────────────────────────────
 
 set(DFT_LIB_SOURCES
@@ -82,6 +113,8 @@ set(DFT_LIB_SOURCES
     src/physics/fmt/weights.cpp
     src/physics/fmt/functional.cpp
     src/physics/fmt/species.cpp
+    # Interaction
+    src/physics/interaction/interaction.cpp
     # Geometry – base
     src/geometry/base/vertex.cpp
     src/geometry/base/element.cpp
@@ -127,6 +160,11 @@ if(DFT_USE_GRACE)
     target_compile_definitions(classicaldft PUBLIC DFT_HAS_GRACE)
 endif()
 
+if(DFT_USE_MATPLOTLIB)
+    target_link_libraries(classicaldft PUBLIC matplotlib_cpp)
+    target_compile_definitions(classicaldft PUBLIC DFT_HAS_MATPLOTLIB)
+endif()
+
 target_compile_options(classicaldft
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>
@@ -158,8 +196,9 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/physics/density)
     add_subdirectory(examples/physics/species)
     add_subdirectory(examples/physics/fmt)
+    add_subdirectory(examples/physics/interaction)
+    add_subdirectory(examples/physics/potentials/intermolecular)
     if(DFT_USE_GRACE)
-        add_subdirectory(examples/graphs)
-        add_subdirectory(examples/physics/potentials/intermolecular)
+        add_subdirectory(examples/graph)
     endif()
 endif()

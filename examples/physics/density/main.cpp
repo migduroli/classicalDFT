@@ -4,6 +4,10 @@
 #include <iostream>
 #include <numbers>
 
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
+
 using namespace dft_core::physics::density;
 using namespace dft_core::physics::species;
 
@@ -109,10 +113,11 @@ int main() {
   std::cout << "\nSave/load round-trip OK: "
             << (arma::approx_equal(rho.values(), rho2.values(), "absdiff", 1e-15) ? "yes" : "no") << std::endl;
 
-  // ── Grace plots ────────────────────────────────────────────────────────
+  // ── Plots ──────────────────────────────────────────────────────────────
 
-#ifdef DFT_HAS_GRACE
-  using namespace dft_core::grace_plot;
+#ifdef DFT_HAS_MATPLOTLIB
+  namespace plt = matplotlibcpp;
+  plt::backend("Agg");
 
   {
     // Plot 1: Density profile and external field along z-axis
@@ -123,25 +128,20 @@ int main() {
       vext_z[iz] = rho.external_field()(rho.flat_index(0, 0, iz));
     }
 
-    auto g = Grace();
-    g.set_title("Density and external field along z");
-    g.set_label("z", Axis::X);
-    g.set_label("\\xr\\f{}(z) / V\\sext\\N(z)", Axis::Y);
-
-    auto ds_rho = g.add_dataset(z_vals, rho_z);
-    g.set_color(Color::BLUE, ds_rho);
-    g.set_legend("\\xr\\f{}(z)", ds_rho);
-
-    auto ds_vext = g.add_dataset(z_vals, vext_z);
-    g.set_color(Color::RED, ds_vext);
-    g.set_line_type(LineStyle::DASHEDLINE_EN, ds_vext);
-    g.set_legend("V\\sext\\N(z)", ds_vext);
-
-    g.set_x_limits(0.0, Lz);
-    g.set_y_limits(-0.5, 11.0);
-    g.set_ticks(1.0, 2.0);
-    g.print_to_file("exports/density_profile.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($\rho(z)$)", z_vals, rho_z, "b-");
+    plt::named_plot(R"($V_\mathrm{ext}(z)$)", z_vals, vext_z, "r--");
+    plt::xlim(0.0, Lz);
+    plt::ylim(-0.5, 11.0);
+    plt::xlabel(R"($z$)");
+    plt::ylabel(R"($\rho(z)$ / $V_\mathrm{ext}(z)$)");
+    plt::title("Density and external field along z");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/density_profile.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/density_profile.png") << std::endl;
   }
 
   {
@@ -153,25 +153,19 @@ int main() {
       fft_amp[iz] = std::abs(fourier[iz]) / static_cast<double>(ntot);
     }
 
-    auto g = Grace();
-    g.set_title("FFT power spectrum (k\\sx\\N = k\\sy\\N = 0)");
-    g.set_label("k\\sz\\N mode index", Axis::X);
-    g.set_label("|F(k)| / N", Axis::Y);
-
-    auto ds = g.add_dataset(k_idx, fft_amp);
-    g.set_color(Color::RED, ds);
-    g.set_line_type(LineStyle::NO_LINE, ds);
-    g.set_symbol(Symbol::CIRCLE, ds);
-    g.set_symbol_color(Color::RED, ds);
-    g.set_symbol_fill(Color::RED, ds);
-    g.set_symbol_size(0.7, ds);
-    g.set_legend("Fourier amplitudes", ds);
-
-    g.set_x_limits(-0.5, static_cast<double>(nk));
-    g.set_y_limits(-0.02, rho0 + 0.1);
-    g.set_ticks(5.0, 0.2);
-    g.print_to_file("exports/fft_spectrum.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot("Fourier amplitudes", k_idx, fft_amp, "ro");
+    plt::xlim(-0.5, static_cast<double>(nk));
+    plt::ylim(-0.02, rho0 + 0.1);
+    plt::xlabel(R"($k_z$ mode index)");
+    plt::ylabel(R"($|F(k)| / N$)");
+    plt::title(R"(FFT power spectrum ($k_x = k_y = 0$))");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/fft_spectrum.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/fft_spectrum.png") << std::endl;
   }
 
   {
@@ -184,20 +178,19 @@ int main() {
       alias_vals[i] = std::sqrt(rho_vals[i] - Species::RHO_MIN);
     }
 
-    auto g = Grace();
-    g.set_title("Species alias coordinate x(\\xr\\f{})");
-    g.set_label("\\xr", Axis::X);
-    g.set_label("x = (\\xr \\f{}- \\xr\\f{}\\smin\\N)\\S1/2", Axis::Y);
-
-    auto ds = g.add_dataset(rho_vals, alias_vals);
-    g.set_color(Color::DARKGREEN, ds);
-    g.set_legend("x(\\xr\\f{})", ds);
-
-    g.set_x_limits(0.0, rho_max);
-    g.set_y_limits(0.0, std::sqrt(rho_max) + 0.1);
-    g.set_ticks(0.5, 0.2);
-    g.print_to_file("exports/alias_mapping.png", ExportFormat::PNG);
-    g.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($x(\rho)$)", rho_vals, alias_vals, "g-");
+    plt::xlim(0.0, rho_max);
+    plt::ylim(0.0, std::sqrt(rho_max) + 0.1);
+    plt::xlabel(R"($\rho$)");
+    plt::ylabel(R"($x = (\rho - \rho_\mathrm{min})^{1/2}$)");
+    plt::title(R"(Species alias coordinate $x(\rho)$)");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/alias_mapping.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/alias_mapping.png") << std::endl;
   }
 #endif
 

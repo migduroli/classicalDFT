@@ -4,6 +4,10 @@
 #include <iostream>
 #include <numbers>
 
+#ifdef DFT_HAS_MATPLOTLIB
+#include "matplotlibcpp.h"
+#endif
+
 using namespace dft_core::physics::density;
 using namespace dft_core::physics::species;
 
@@ -127,10 +131,11 @@ int main() {
   std::cout << "Force in x-space   max |f|: " << arma::max(arma::abs(alias_f)) << std::endl;
   std::cout << "Chain rule: dF/dx = 2x * dF/drho" << std::endl;
 
-  // ── Grace plots ────────────────────────────────────────────────────────
+  // ── Plots ──────────────────────────────────────────────────────────────
 
-#ifdef DFT_HAS_GRACE
-  using namespace dft_core::grace_plot;
+#ifdef DFT_HAS_MATPLOTLIB
+  namespace plt = matplotlibcpp;
+  plt::backend("Agg");
 
   {
     // Plot 1: Barometric density and external field along z
@@ -139,24 +144,19 @@ int main() {
       z_vals[iz] = dx * iz;
     }
 
-    auto gp = Grace();
-    gp.set_title("Barometric density profile");
-    gp.set_label("z", Axis::X);
-    gp.set_label("\\xr\\f{}(z) / V\\sext\\N(z)", Axis::Y);
-
-    auto ds_rho = gp.add_dataset(z_vals, barometric_z);
-    gp.set_color(Color::BLUE, ds_rho);
-    gp.set_legend("\\xr\\f{}(z) \\x\\c\\f{} exp(-gz)", ds_rho);
-
-    auto ds_vext = gp.add_dataset(z_vals, vext_z_saved);
-    gp.set_color(Color::RED, ds_vext);
-    gp.set_line_type(LineStyle::DASHEDLINE_EN, ds_vext);
-    gp.set_legend("V\\sext\\N = gz", ds_vext);
-
-    gp.set_x_limits(0.0, Lz);
-    gp.set_ticks(2.0, 1.0);
-    gp.print_to_file("exports/barometric_density.png", ExportFormat::PNG);
-    gp.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($\rho(z) \propto \exp(-gz)$)", z_vals, barometric_z, "b-");
+    plt::named_plot(R"($V_\mathrm{ext} = gz$)", z_vals, vext_z_saved, "r--");
+    plt::xlim(0.0, Lz);
+    plt::xlabel(R"($z$)");
+    plt::ylabel(R"($\rho(z)$ / $V_\mathrm{ext}(z)$)");
+    plt::title("Barometric density profile");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/barometric_density.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/barometric_density.png") << std::endl;
   }
 
   {
@@ -168,34 +168,28 @@ int main() {
       double r = Species::RHO_MIN + (rho_max - Species::RHO_MIN) * i / (npts - 1);
       rho_vec[i] = r;
       x_vec[i] = std::sqrt(r - Species::RHO_MIN);
-      // dx/drho = 1 / (2x): show scaled version 2 * dx/drho for visibility
       double xi = x_vec[i];
       dxdrho_vec[i] = (xi > 1e-6) ? 1.0 / (2.0 * xi) : 0.0;
     }
 
-    auto gp = Grace();
-    gp.set_title("Alias mapping x(\\xr\\f{}) and sensitivity");
-    gp.set_label("\\xr", Axis::X);
-    gp.set_label("x(\\xr\\f{})  /  dx/d\\xr", Axis::Y);
-
-    auto ds_x = gp.add_dataset(rho_vec, x_vec);
-    gp.set_color(Color::DARKGREEN, ds_x);
-    gp.set_legend("x = (\\xr\\f{} - \\xr\\f{}\\smin\\N)\\S1/2", ds_x);
-
-    auto ds_dx = gp.add_dataset(rho_vec, dxdrho_vec);
-    gp.set_color(Color::ORANGE, ds_dx);
-    gp.set_line_type(LineStyle::DASHEDLINE_EN, ds_dx);
-    gp.set_legend("dx/d\\xr\\f{} = 1/(2x)", ds_dx);
-
-    gp.set_x_limits(0.0, rho_max);
-    gp.set_y_limits(0.0, 3.0);
-    gp.set_ticks(0.25, 0.5);
-    gp.print_to_file("exports/alias_mapping.png", ExportFormat::PNG);
-    gp.redraw_and_wait(false, false);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($x = (\rho - \rho_\mathrm{min})^{1/2}$)", rho_vec, x_vec, "g-");
+    plt::named_plot(R"($dx/d\rho = 1/(2x)$)", rho_vec, dxdrho_vec, "m--");
+    plt::xlim(0.0, rho_max);
+    plt::ylim(0.0, 3.0);
+    plt::xlabel(R"($\rho$)");
+    plt::ylabel(R"($x(\rho)$ / $dx/d\rho$)");
+    plt::title(R"(Alias mapping $x(\rho)$ and sensitivity)");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/alias_mapping.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/alias_mapping.png") << std::endl;
   }
 
   {
-    // Plot 3: Force density (force / dV) in rho-space vs alias-space along z
+    // Plot 3: Force density in rho-space vs alias-space along z
     double dV = s.density().cell_volume();
     std::vector<double> z_vals(nz), frho_z(nz), fx_z(nz);
     for (long iz = 0; iz < nz; ++iz) {
@@ -205,23 +199,19 @@ int main() {
       fx_z[iz] = alias_f(uid) / dV;
     }
 
-    auto gp = Grace();
-    gp.set_title("Force density along z (ix=iy=0)");
-    gp.set_label("z", Axis::X);
-    gp.set_label("force / dV", Axis::Y);
-
-    auto ds_fr = gp.add_dataset(z_vals, frho_z);
-    gp.set_color(Color::BLUE, ds_fr);
-    gp.set_legend("\\xd\\f{}F/\\xd\\xr / dV", ds_fr);
-
-    auto ds_fx = gp.add_dataset(z_vals, fx_z);
-    gp.set_color(Color::MAGENTA, ds_fx);
-    gp.set_line_type(LineStyle::DASHEDLINE_EN, ds_fx);
-    gp.set_legend("\\xd\\f{}F/\\xd\\f{}x / dV", ds_fx);
-
-    gp.set_x_limits(0.0, Lz);
-    gp.print_to_file("exports/force_profiles.png", ExportFormat::PNG);
-    gp.redraw_and_wait(true, true);
+    plt::figure_size(800, 550);
+    plt::named_plot(R"($\delta F/\delta\rho\; / \;dV$)", z_vals, frho_z, "b-");
+    plt::named_plot(R"($\delta F/\delta x\; / \;dV$)", z_vals, fx_z, "m--");
+    plt::xlim(0.0, Lz);
+    plt::xlabel(R"($z$)");
+    plt::ylabel(R"(force / $dV$)");
+    plt::title("Force density along z (ix=iy=0)");
+    plt::legend();
+    plt::grid(true);
+    plt::tight_layout();
+    plt::save("exports/force_profiles.png");
+    plt::close();
+    std::cout << "Plot saved: " << std::filesystem::absolute("exports/force_profiles.png") << std::endl;
   }
 #endif
 
