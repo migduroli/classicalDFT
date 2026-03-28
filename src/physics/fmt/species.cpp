@@ -19,7 +19,7 @@ namespace dft_core::physics::fmt {
     // Bounded alias: rho = rho_min + density_range * y^2 / (1 + y^2)
     // Maximum density corresponds to eta = 0.9999 (safety margin below close packing).
     double rho_max = 0.9999 * 6.0 / (std::numbers::pi * diameter_ * diameter_ * diameter_);
-    density_range_ = rho_max - rho_min;
+    density_range_ = rho_max - RHO_MIN;
   }
 
   // ── Forward convolution ───────────────────────────────────────────────────
@@ -45,19 +45,19 @@ namespace dft_core::physics::fmt {
 
   Measures Species::measures_at(arma::uword pos) const {
     Measures m;
-    double R = 0.5 * diameter_;
-    double inv_4piR = 1.0 / (4.0 * std::numbers::pi * R);
-    double inv_4piR2 = inv_4piR / R;
+    double r = 0.5 * diameter_;
+    double inv_4pi_r = 1.0 / (4.0 * std::numbers::pi * r);
+    double inv_4pi_r2 = inv_4pi_r / r;
 
     m.eta = weights_.eta.field()(pos);
     m.n2 = weights_.scalar.field()(pos);
-    m.n1 = m.n2 * inv_4piR;
-    m.n0 = m.n2 * inv_4piR2;
+    m.n1 = m.n2 * inv_4pi_r;
+    m.n0 = m.n2 * inv_4pi_r2;
 
     for (int a = 0; a < 3; ++a) {
       m.v2(a) = weights_.vector[a].field()(pos);
     }
-    m.v1 = m.v2 * inv_4piR;
+    m.v1 = m.v2 * inv_4pi_r;
 
     for (int i = 0; i < 3; ++i)
       for (int j = i; j < 3; ++j) {
@@ -72,17 +72,17 @@ namespace dft_core::physics::fmt {
   // ── Derivative collapse ───────────────────────────────────────────────────
 
   void Species::set_derivatives(const Measures& dm, arma::uword pos, bool tensor) {
-    double R = 0.5 * diameter_;
-    double inv_4piR = 1.0 / (4.0 * std::numbers::pi * R);
-    double inv_4piR2 = inv_4piR / R;
+    double r = 0.5 * diameter_;
+    double inv_4pi_r = 1.0 / (4.0 * std::numbers::pi * r);
+    double inv_4pi_r2 = inv_4pi_r / r;
 
     weights_.eta.derivative()(pos) = dm.eta;
 
     // Chain rule: d/d(scalar) = dPhi/dn0 / (4piR^2) + dPhi/dn1 / (4piR) + dPhi/dn2
-    weights_.scalar.derivative()(pos) = dm.n0 * inv_4piR2 + dm.n1 * inv_4piR + dm.n2;
+    weights_.scalar.derivative()(pos) = dm.n0 * inv_4pi_r2 + dm.n1 * inv_4pi_r + dm.n2;
 
     // Chain rule: d/d(vector_a) = dPhi/dv1_a / (4piR) + dPhi/dv2_a
-    arma::rowvec3 dv = dm.v1 * inv_4piR + dm.v2;
+    arma::rowvec3 dv = dm.v1 * inv_4pi_r + dm.v2;
     for (int a = 0; a < 3; ++a) {
       weights_.vector[a].derivative()(pos) = dv(a);
     }
@@ -117,10 +117,10 @@ namespace dft_core::physics::fmt {
     }
 
     force_fft.backward();
-    double dV = density().cell_volume();
+    double d_v = density().cell_volume();
     auto real = force_fft.real();
     for (arma::uword i = 0; i < density().size(); ++i) {
-      add_to_force(i, real[i] * dV);
+      add_to_force(i, real[i] * d_v);
     }
   }
 
@@ -130,35 +130,35 @@ namespace dft_core::physics::fmt {
     bool tensor = functional.needs_tensor();
     convolve_density(tensor);
 
-    double F_ex = 0.0;
-    double dV = density().cell_volume();
-    arma::uword N = density().size();
+    double f_ex = 0.0;
+    double d_v = density().cell_volume();
+    arma::uword n = density().size();
 
-    for (arma::uword i = 0; i < N; ++i) {
+    for (arma::uword i = 0; i < n; ++i) {
       auto m = measures_at(i);
-      F_ex += functional.phi(m) * dV;
+      f_ex += functional.phi(m) * d_v;
     }
 
-    return F_ex;
+    return f_ex;
   }
 
   double Species::compute_forces(const Functional& functional) {
     bool tensor = functional.needs_tensor();
     convolve_density(tensor);
 
-    double F_ex = 0.0;
-    double dV = density().cell_volume();
-    arma::uword N = density().size();
+    double f_ex = 0.0;
+    double d_v = density().cell_volume();
+    arma::uword n = density().size();
 
-    for (arma::uword i = 0; i < N; ++i) {
+    for (arma::uword i = 0; i < n; ++i) {
       auto m = measures_at(i);
-      F_ex += functional.phi(m) * dV;
+      f_ex += functional.phi(m) * d_v;
       auto dm = functional.d_phi(m);
       set_derivatives(dm, i, tensor);
     }
 
     accumulate_forces(tensor);
-    return F_ex;
+    return f_ex;
   }
 
   // ── Bounded alias ─────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ namespace dft_core::physics::fmt {
     arma::vec& rho = density().values();
     for (arma::uword i = 0; i < rho.n_elem; ++i) {
       double y2 = x(i) * x(i);
-      rho(i) = rho_min + density_range_ * y2 / (1.0 + y2);
+      rho(i) = RHO_MIN + density_range_ * y2 / (1.0 + y2);
     }
   }
 
@@ -175,7 +175,7 @@ namespace dft_core::physics::fmt {
     const arma::vec& rho = density().values();
     arma::vec x(rho.n_elem);
     for (arma::uword i = 0; i < rho.n_elem; ++i) {
-      double delta = std::max(0.0, rho(i) - rho_min);
+      double delta = std::max(0.0, rho(i) - RHO_MIN);
       double denom = density_range_ - delta;
       if (denom <= 0.0)
         denom = 1e-30;

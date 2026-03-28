@@ -16,7 +16,7 @@ namespace dft_core::physics::density {
     shape_.resize(3);
     for (int d = 0; d < 3; ++d) {
       long n = static_cast<long>(std::round(box_size(d) / dx));
-      if (n <= 0 || std::abs(box_size(d) - n * dx) > 1e-10 * dx) {
+      if (n <= 0 || std::abs(box_size(d) - static_cast<double>(n) * dx) > 1e-10 * dx) {
         throw std::invalid_argument(
             "Density: box dimension " + std::to_string(box_size(d)) +
             " not commensurate with dx = " + std::to_string(dx)
@@ -71,8 +71,8 @@ namespace dft_core::physics::density {
   }
 
   double Density::external_field_energy() const {
-    double dV = cell_volume();
-    return arma::dot(rho_, external_field_) * dV;
+    double d_v = cell_volume();
+    return arma::dot(rho_, external_field_) * d_v;
   }
 
   arma::rowvec3 Density::center_of_mass() const {
@@ -87,9 +87,9 @@ namespace dft_core::physics::density {
       for (long iy = 0; iy < ny; ++iy) {
         for (long iz = 0; iz < nz; ++iz) {
           double rho_i = rho_(flat_index(ix, iy, iz));
-          com(0) += rho_i * (dx_ * ix);
-          com(1) += rho_i * (dx_ * iy);
-          com(2) += rho_i * (dx_ * iz);
+          com(0) += rho_i * (dx_ * static_cast<double>(ix));
+          com(1) += rho_i * (dx_ * static_cast<double>(iy));
+          com(2) += rho_i * (dx_ * static_cast<double>(iz));
           total += rho_i;
         }
       }

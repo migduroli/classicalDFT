@@ -34,29 +34,29 @@ namespace dft_core::physics::species {
 
   void Species::end_force_calculation() {
     if (fixed_mass_) {
-      double dV = density_.cell_volume();
+      double d_v = density_.cell_volume();
       double dot = arma::dot(force_, density_.values());
       chemical_potential_ = dot / *fixed_mass_;
-      force_ -= chemical_potential_ * dV;
+      force_ -= chemical_potential_ * d_v;
     }
   }
 
   // ── Convergence ─────────────────────────────────────────────────────────────
 
   double Species::convergence_monitor() const {
-    double dV = density_.cell_volume();
-    return arma::max(arma::abs(force_)) / dV;
+    double d_v = density_.cell_volume();
+    return arma::max(arma::abs(force_)) / d_v;  // NOLINT(clang-analyzer-core.CallAndMessage)
   }
 
   // ── Alias coordinates ───────────────────────────────────────────────────────
 
   void Species::set_density_from_alias(const arma::vec& x) {
-    arma::vec rho = rho_min + arma::square(x);
+    arma::vec rho = RHO_MIN + arma::square(x);
     density_.set(rho);
   }
 
   arma::vec Species::density_alias() const {
-    return arma::sqrt(arma::clamp(density_.values() - rho_min, 0.0, arma::datum::inf));
+    return arma::sqrt(arma::clamp(density_.values() - RHO_MIN, 0.0, arma::datum::inf));
   }
 
   arma::vec Species::alias_force(const arma::vec& x) const {
@@ -66,14 +66,14 @@ namespace dft_core::physics::species {
   // ── External field energy ───────────────────────────────────────────────────
 
   double Species::external_field_energy(bool accumulate_force) {
-    double dV = density_.cell_volume();
+    double d_v = density_.cell_volume();
     const arma::vec& rho = density_.values();
     const arma::vec& vext = density_.external_field();
 
-    double energy = arma::dot(rho, vext) * dV - chemical_potential_ * density_.number_of_atoms();
+    double energy = arma::dot(rho, vext) * d_v - chemical_potential_ * density_.number_of_atoms();
 
     if (accumulate_force) {
-      force_ += (vext - chemical_potential_) * dV;
+      force_ += (vext - chemical_potential_) * d_v;
     }
     return energy;
   }

@@ -225,9 +225,9 @@ namespace dft_core::physics::crystal {
       for (long iy = 0; iy < shape_[1]; ++iy) {
         for (long ix = 0; ix < shape_[0]; ++ix) {
           for (const auto& atom : uc.atoms) {
-            positions_(idx, 0) = atom[0] + ix * uc.dims[0];
-            positions_(idx, 1) = atom[1] + iy * uc.dims[1];
-            positions_(idx, 2) = atom[2] + iz * uc.dims[2];
+            positions_(idx, 0) = atom[0] + static_cast<double>(ix) * uc.dims[0];
+            positions_(idx, 1) = atom[1] + static_cast<double>(iy) * uc.dims[1];
+            positions_(idx, 2) = atom[2] + static_cast<double>(iz) * uc.dims[2];
             ++idx;
           }
         }

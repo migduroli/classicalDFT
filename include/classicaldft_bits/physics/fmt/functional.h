@@ -121,18 +121,18 @@ namespace dft_core::physics::fmt {
     }
 
     [[nodiscard]] double phi3(const Measures& m) const override {
-      constexpr double inv_24pi = 1.0 / (24.0 * std::numbers::pi);
-      return inv_24pi * (m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.v2_dot_v2);
+      constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+      return INV_24PI * (m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.v2_dot_v2);
     }
 
     [[nodiscard]] double d_phi3_d_n2(const Measures& m) const override {
-      constexpr double inv_8pi = 1.0 / (8.0 * std::numbers::pi);
-      return inv_8pi * (m.n2 * m.n2 - m.v2_dot_v2);
+      constexpr double INV_8PI = 1.0 / (8.0 * std::numbers::pi);
+      return INV_8PI * (m.n2 * m.n2 - m.v2_dot_v2);
     }
 
     [[nodiscard]] arma::rowvec3 d_phi3_d_v2(const Measures& m) const override {
-      constexpr double inv_4pi = 1.0 / (4.0 * std::numbers::pi);
-      return -inv_4pi * m.n2 * m.v2;
+      constexpr double INV_4PI = 1.0 / (4.0 * std::numbers::pi);
+      return -INV_4PI * m.n2 * m.v2;
     }
 
     [[nodiscard]] bool needs_tensor() const override { return false; }
@@ -193,8 +193,8 @@ namespace dft_core::physics::fmt {
         return 0.0;
       double xi = std::min(m.v2_dot_v2 / (m.n2 * m.n2), 1.0);
       double q = 1.0 - xi;
-      constexpr double inv_36pi = 1.0 / (36.0 * std::numbers::pi);
-      return inv_36pi * m.n2 * m.n2 * m.n2 * q * q * q;
+      constexpr double INV_36PI = 1.0 / (36.0 * std::numbers::pi);
+      return INV_36PI * m.n2 * m.n2 * m.n2 * q * q * q;
     }
 
     [[nodiscard]] double d_phi3_d_n2(const Measures& m) const override {
@@ -202,8 +202,8 @@ namespace dft_core::physics::fmt {
         return 0.0;
       double xi = std::min(m.v2_dot_v2 / (m.n2 * m.n2), 1.0);
       double q = 1.0 - xi;
-      constexpr double inv_36pi = 1.0 / (36.0 * std::numbers::pi);
-      return inv_36pi * 3.0 * m.n2 * m.n2 * q * q * (1.0 + xi);
+      constexpr double INV_36PI = 1.0 / (36.0 * std::numbers::pi);
+      return INV_36PI * 3.0 * m.n2 * m.n2 * q * q * (1.0 + xi);
     }
 
     [[nodiscard]] arma::rowvec3 d_phi3_d_v2(const Measures& m) const override {
@@ -211,8 +211,8 @@ namespace dft_core::physics::fmt {
         return arma::zeros<arma::rowvec>(3);
       double xi = std::min(m.v2_dot_v2 / (m.n2 * m.n2), 1.0);
       double q = 1.0 - xi;
-      constexpr double inv_36pi = 1.0 / (36.0 * std::numbers::pi);
-      return inv_36pi * (-6.0) * m.n2 * q * q * m.v2;
+      constexpr double INV_36PI = 1.0 / (36.0 * std::numbers::pi);
+      return INV_36PI * (-6.0) * m.n2 * q * q * m.v2;
     }
 
     [[nodiscard]] bool needs_tensor() const override { return false; }
@@ -231,23 +231,23 @@ namespace dft_core::physics::fmt {
      */
     struct TensorPhi3 {
       [[nodiscard]] double value(const Measures& m) const {
-        constexpr double inv_24pi = 1.0 / (24.0 * std::numbers::pi);
-        return inv_24pi * (0.5 * m.n2 * (m.n2 * m.n2 + m.trace_T2) - 1.5 * (m.n2 * m.v2_dot_v2 - m.v_T_v));
+        constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+        return INV_24PI * (0.5 * m.n2 * (m.n2 * m.n2 + m.trace_T2) - 1.5 * (m.n2 * m.v2_dot_v2 - m.v_T_v));
       }
 
       [[nodiscard]] double d_n2(const Measures& m) const {
-        constexpr double inv_24pi = 1.0 / (24.0 * std::numbers::pi);
-        return inv_24pi * (1.5 * m.n2 * m.n2 + 0.5 * m.trace_T2 - 1.5 * m.v2_dot_v2);
+        constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+        return INV_24PI * (1.5 * m.n2 * m.n2 + 0.5 * m.trace_T2 - 1.5 * m.v2_dot_v2);
       }
 
       [[nodiscard]] arma::rowvec3 d_v2(const Measures& m) const {
-        constexpr double inv_24pi = 1.0 / (24.0 * std::numbers::pi);
-        return inv_24pi * 3.0 * ((m.v2 * m.T) - m.n2 * m.v2);
+        constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+        return INV_24PI * 3.0 * ((m.v2 * m.T) - m.n2 * m.v2);
       }
 
       [[nodiscard]] double d_T(int i, int j, const Measures& m) const {
-        constexpr double inv_24pi = 1.0 / (24.0 * std::numbers::pi);
-        return inv_24pi * (m.n2 * m.T(i, j) + 1.5 * m.v2(i) * m.v2(j));
+        constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+        return INV_24PI * (m.n2 * m.T(i, j) + 1.5 * m.v2(i) * m.v2(j));
       }
     };
 
@@ -301,16 +301,16 @@ namespace dft_core::physics::fmt {
       return (d_f3(eta + h) - d_f3(eta - h)) / (2.0 * h);
     }
 
-    [[nodiscard]] double phi3(const Measures& m) const override { return es_.value(m); }
-    [[nodiscard]] double d_phi3_d_n2(const Measures& m) const override { return es_.d_n2(m); }
-    [[nodiscard]] arma::rowvec3 d_phi3_d_v2(const Measures& m) const override { return es_.d_v2(m); }
-    [[nodiscard]] double d_phi3_d_T(int i, int j, const Measures& m) const override { return es_.d_T(i, j, m); }
+    [[nodiscard]] double phi3(const Measures& m) const override { return ES.value(m); }
+    [[nodiscard]] double d_phi3_d_n2(const Measures& m) const override { return ES.d_n2(m); }
+    [[nodiscard]] arma::rowvec3 d_phi3_d_v2(const Measures& m) const override { return ES.d_v2(m); }
+    [[nodiscard]] double d_phi3_d_T(int i, int j, const Measures& m) const override { return ES.d_T(i, j, m); }
 
     [[nodiscard]] bool needs_tensor() const override { return true; }
     [[nodiscard]] std::string name() const override { return "WhiteBearI"; }
 
    private:
-    static constexpr detail::TensorPhi3 es_{};
+    static constexpr detail::TensorPhi3 ES{};
   };
 
   // ── White Bear Mark II (Hansen-Goos & Roth 2006) ──────────────────────────
@@ -368,16 +368,16 @@ namespace dft_core::physics::fmt {
       return (d_f3(eta + h) - d_f3(eta - h)) / (2.0 * h);
     }
 
-    [[nodiscard]] double phi3(const Measures& m) const override { return es_.value(m); }
-    [[nodiscard]] double d_phi3_d_n2(const Measures& m) const override { return es_.d_n2(m); }
-    [[nodiscard]] arma::rowvec3 d_phi3_d_v2(const Measures& m) const override { return es_.d_v2(m); }
-    [[nodiscard]] double d_phi3_d_T(int i, int j, const Measures& m) const override { return es_.d_T(i, j, m); }
+    [[nodiscard]] double phi3(const Measures& m) const override { return ES.value(m); }
+    [[nodiscard]] double d_phi3_d_n2(const Measures& m) const override { return ES.d_n2(m); }
+    [[nodiscard]] arma::rowvec3 d_phi3_d_v2(const Measures& m) const override { return ES.d_v2(m); }
+    [[nodiscard]] double d_phi3_d_T(int i, int j, const Measures& m) const override { return ES.d_T(i, j, m); }
 
     [[nodiscard]] bool needs_tensor() const override { return true; }
     [[nodiscard]] std::string name() const override { return "WhiteBearII"; }
 
    private:
-    static constexpr detail::TensorPhi3 es_{};
+    static constexpr detail::TensorPhi3 ES{};
   };
 
 }  // namespace dft_core::physics::fmt

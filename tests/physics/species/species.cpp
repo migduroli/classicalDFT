@@ -164,7 +164,7 @@ TEST(Species, AliasGuaranteesPositiveDensity) {
   s.set_density_from_alias(x);
 
   for (arma::uword i = 0; i < s.density().size(); ++i) {
-    EXPECT_GE(s.density().values()(i), Species::rho_min);
+    EXPECT_GE(s.density().values()(i), Species::RHO_MIN);
   }
 }
 

@@ -27,11 +27,11 @@ namespace dft_core::physics::fmt {
   class ConvolutionField {
    public:
     ConvolutionField() = default;
-    explicit ConvolutionField(std::vector<long> shape);
+    explicit ConvolutionField(const std::vector<long>& shape);
     ~ConvolutionField() = default;
 
-    ConvolutionField(ConvolutionField&&) noexcept = default;
-    ConvolutionField& operator=(ConvolutionField&&) noexcept = default;
+    ConvolutionField(ConvolutionField&&) noexcept = default;             // NOLINT(bugprone-exception-escape)
+    ConvolutionField& operator=(ConvolutionField&&) noexcept = default;  // NOLINT(bugprone-exception-escape)
 
     ConvolutionField(const ConvolutionField&) = delete;
     ConvolutionField& operator=(const ConvolutionField&) = delete;

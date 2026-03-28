@@ -4,7 +4,7 @@
 
 namespace dft_core::physics::fmt {
 
-  ConvolutionField::ConvolutionField(std::vector<long> shape)
+  ConvolutionField::ConvolutionField(const std::vector<long>& shape)
       : weight_(shape),
         scratch_(shape),
         field_(static_cast<arma::uword>(weight_.total()), arma::fill::zeros),

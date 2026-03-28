@@ -244,7 +244,7 @@ TEST(Enskog, SecondVirialCoefficientPYCompressibility) {
 TEST(Enskog, PolymorphicUse) {
   std::unique_ptr<HardSphereFluid> model = std::make_unique<CarnahanStarling>();
   EXPECT_GT(model->pressure(0.3), 1.0);
-  EXPECT_NO_THROW(model->chemical_potential(0.5));
+  EXPECT_NO_THROW((void)model->chemical_potential(0.5));
 }
 
 // ── PY Virial: first derivative numerical check ─────────────────────────────

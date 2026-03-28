@@ -154,7 +154,7 @@ Enforced by `.clang-tidy` `readability-identifier-naming`:
 | Global constant | `UPPER_SNAKE_CASE` | `DEFAULT_LENGTH_SCALE` |
 | Static constant | `UPPER_SNAKE_CASE` | `MAX_POTENTIAL_VALUE` |
 | Constexpr (file scope) | `UPPER_SNAKE_CASE` | `PI_OVER_6` |
-| Constexpr (class scope) | `lower_snake_case` | `rho_min`, `num_independent` |
+| Constexpr (class scope) | `UPPER_SNAKE_CASE` | `RHO_MIN`, `NUM_INDEPENDENT` |
 | Scoped enum values | `CamelCase` | `Direction::X`, `Route::Virial` |
 
 ### Naming principles
@@ -265,11 +265,11 @@ class MyClass {
 
 ### Class constants
 
-Use `static constexpr` at class scope (lowercase):
+Use `static constexpr` at class scope (UPPER_CASE, matching `.clang-tidy` `StaticConstantCase`):
 
 ```cpp
-static constexpr double rho_min = 1e-18;
-static constexpr int num_independent = 11;
+static constexpr double RHO_MIN = 1e-18;
+static constexpr int NUM_INDEPENDENT = 11;
 ```
 
 ### Inheritance

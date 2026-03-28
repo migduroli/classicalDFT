@@ -126,7 +126,7 @@ int main() {
   std::cout << "\n=== Bounded alias ===\n";
   double d = 1.0;
   double rho_max = 0.9999 * 6.0 / (std::numbers::pi * d * d * d);
-  std::cout << "rho_min = " << dft_core::physics::species::Species::rho_min << "\n";
+  std::cout << "rho_min = " << dft_core::physics::species::Species::RHO_MIN << "\n";
   std::cout << "rho_max = " << rho_max << " (eta_max = 0.9999)\n";
 
   arma::vec alias = sp.density_alias();
@@ -319,14 +319,14 @@ int main() {
     g.set_label("y (alias variable)", Axis::X);
     g.set_label("\\xr\\f{}(y) / \\xh\\f{}(y)", Axis::Y);
 
-    double c = rho_max - dft_core::physics::species::Species::rho_min;
+    double c = rho_max - dft_core::physics::species::Species::RHO_MIN;
     int M = 300;
     std::vector<double> y_vals(M), rho_vals(M), eta_vals(M), drho_dy(M);
     for (int i = 0; i < M; ++i) {
       double y = 0.01 + 5.0 * i / (M - 1);
       double y2 = y * y;
       y_vals[i] = y;
-      rho_vals[i] = dft_core::physics::species::Species::rho_min + c * y2 / (1.0 + y2);
+      rho_vals[i] = dft_core::physics::species::Species::RHO_MIN + c * y2 / (1.0 + y2);
       eta_vals[i] = packing_fraction(rho_vals[i]);
       double denom = (1.0 + y2) * (1.0 + y2);
       drho_dy[i] = c * 2.0 * y / denom;

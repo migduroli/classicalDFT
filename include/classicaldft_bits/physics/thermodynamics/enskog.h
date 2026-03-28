@@ -147,10 +147,10 @@ namespace dft_core::physics::thermodynamics {
     }
 
     [[nodiscard]] inline double sound_damping(double density, double chi) {
-      constexpr double cv = 1.5;
-      constexpr double cp = 2.5;
-      constexpr double gamma = cp / cv;
-      return (((gamma - 1.0) / cp) * thermal_conductivity(density, chi) + (4.0 / 3.0) * shear_viscosity(density, chi) +
+      constexpr double CV = 1.5;
+      constexpr double CP = 2.5;
+      constexpr double GAMMA = CP / CV;
+      return (((GAMMA - 1.0) / CP) * thermal_conductivity(density, chi) + (4.0 / 3.0) * shear_viscosity(density, chi) +
               bulk_viscosity(density, chi)) /
           density;
     }

@@ -116,18 +116,18 @@ namespace dft_core::physics::thermodynamics::eos {
     }
 
     [[nodiscard]] double d_excess_free_energy_per_particle(double density) const override {
-      constexpr double pi6 = std::numbers::pi / 6.0;
-      return pi6 * hs_.d_excess_free_energy(packing_fraction(density));
+      constexpr double PI6 = std::numbers::pi / 6.0;
+      return PI6 * hs_.d_excess_free_energy(packing_fraction(density));
     }
 
     [[nodiscard]] double d2_excess_free_energy_per_particle(double density) const override {
-      constexpr double pi6 = std::numbers::pi / 6.0;
-      return pi6 * pi6 * hs_.d2_excess_free_energy(packing_fraction(density));
+      constexpr double PI6 = std::numbers::pi / 6.0;
+      return PI6 * PI6 * hs_.d2_excess_free_energy(packing_fraction(density));
     }
 
     [[nodiscard]] double d3_excess_free_energy_per_particle(double density) const override {
-      constexpr double pi6 = std::numbers::pi / 6.0;
-      return pi6 * pi6 * pi6 * hs_.d3_excess_free_energy(packing_fraction(density));
+      constexpr double PI6 = std::numbers::pi / 6.0;
+      return PI6 * PI6 * PI6 * hs_.d3_excess_free_energy(packing_fraction(density));
     }
 
     [[nodiscard]] std::string name() const override { return "PercusYevick"; }
@@ -165,8 +165,8 @@ namespace dft_core::physics::thermodynamics::eos {
     [[nodiscard]] double b_coeff(int i) const;
     [[nodiscard]] double G_integral(double rho, int i) const;
 
-    static constexpr double gamma_ = 3.0;
-    static constexpr std::array<double, 32> x_ = {
+    static constexpr double GAMMA = 3.0;
+    static constexpr std::array<double, 32> X = {
         0.8623085097507421,   2.976218765822098,    -8.402230115796038,   0.1054136629203555,   -0.8564583828174598,
         1.582759470107601,    0.7639421948305453,   1.753173414312048,    2.798291772190376e3,  -4.8394220260857657e-2,
         0.9963265197721935,   -3.698000291272493e1, 2.084012299434647e1,  8.305402124717285e1,  -9.574799715203068e2,
@@ -196,8 +196,8 @@ namespace dft_core::physics::thermodynamics::eos {
     [[nodiscard]] std::string name() const override { return "LennardJonesMecke"; }
 
    private:
-    static constexpr double rho_c_ = 0.3107;
-    static constexpr double kT_c_ = 1.328;
+    static constexpr double RHO_C = 0.3107;
+    static constexpr double KT_C = 1.328;
 
     struct Term {
       double c;
@@ -207,7 +207,7 @@ namespace dft_core::physics::thermodynamics::eos {
       int q;
     };
 
-    static constexpr std::array<Term, 32> terms_ = {{
+    static constexpr std::array<Term, 32> TERMS = {{
         {0.33619760720e-05, -2, 9, 0, 0},    {-0.14707220591e+01, -1, 1, 0, 0},   {-0.11972121043e+00, -1, 2, 0, 0},
         {-0.11350363539e-04, -1, 9, 0, 0},   {-0.26778688896e-04, -0.5, 8, 0, 0}, {0.12755936511e-05, -0.5, 10, 0, 0},
         {0.40088615477e-02, 0.5, 1, 0, 0},   {0.52305580273e-05, 0.5, 7, 0, 0},   {-0.10214454556e-07, 1, 10, 0, 0},

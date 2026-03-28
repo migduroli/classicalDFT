@@ -42,9 +42,9 @@ namespace dft_core::physics::fmt {
     void compute_derived() {
       v1_dot_v2 = arma::dot(v1, v2);
       v2_dot_v2 = arma::dot(v2, v2);
-      arma::mat33 T2 = T * T;
-      trace_T2 = arma::trace(T2);
-      trace_T3 = arma::trace(T2 * T);
+      arma::mat33 t2 = T * T;
+      trace_T2 = arma::trace(t2);
+      trace_T3 = arma::trace(t2 * T);
       v_T_v = arma::as_scalar(v2 * T * v2.t());
     }
 
@@ -62,21 +62,21 @@ namespace dft_core::physics::fmt {
     [[nodiscard]] static Measures uniform(double density, double diameter) {
       Measures m;
       double d = diameter;
-      double R = 0.5 * d;
+      double r = 0.5 * d;
 
       m.eta = (std::numbers::pi / 6.0) * density * d * d * d;
       m.n2 = std::numbers::pi * density * d * d;
-      m.n1 = R * density;
+      m.n1 = r * density;
       m.n0 = density;
 
       m.v1.zeros();
       m.v2.zeros();
 
-      double T_diag = m.n2 / 3.0;
+      double t_diag = m.n2 / 3.0;
       m.T.zeros();
-      m.T(0, 0) = T_diag;
-      m.T(1, 1) = T_diag;
-      m.T(2, 2) = T_diag;
+      m.T(0, 0) = t_diag;
+      m.T(1, 1) = t_diag;
+      m.T(2, 2) = t_diag;
 
       m.compute_derived();
       return m;

@@ -22,7 +22,7 @@ namespace dft_core::physics::species {
    */
   class Species {
    public:
-    static constexpr double rho_min = 1e-18;
+    static constexpr double RHO_MIN = 1e-18;
 
     explicit Species(density::Density density, double chemical_potential = 0.0);
 

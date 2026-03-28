@@ -32,8 +32,8 @@ namespace dft_core::physics::density {
 
     Density(const Density&) = delete;
     Density& operator=(const Density&) = delete;
-    Density(Density&&) noexcept = default;
-    Density& operator=(Density&&) noexcept = default;
+    Density(Density&&) noexcept = default;             // NOLINT(bugprone-exception-escape)
+    Density& operator=(Density&&) noexcept = default;  // NOLINT(bugprone-exception-escape)
 
     // ── Grid access ─────────────────────────────────────────────────────────
 
@@ -46,6 +46,7 @@ namespace dft_core::physics::density {
      * @brief Row-major flat index: iz + Nz*(iy + Ny*ix).
      */
     [[nodiscard]] arma::uword flat_index(long ix, long iy, long iz) const noexcept {
+      // NOLINTNEXTLINE(bugprone-misplaced-widening-cast)
       return static_cast<arma::uword>(iz + shape_[2] * (iy + shape_[1] * ix));
     }
 
@@ -99,8 +100,8 @@ namespace dft_core::physics::density {
      */
     [[nodiscard]] double external_field_energy() const;
 
-    [[nodiscard]] double min() const noexcept { return arma::min(rho_); }
-    [[nodiscard]] double max() const noexcept { return arma::max(rho_); }
+    [[nodiscard]] double min() const noexcept { return arma::min(rho_); }  // NOLINT(bugprone-exception-escape)
+    [[nodiscard]] double max() const noexcept { return arma::max(rho_); }  // NOLINT(bugprone-exception-escape)
 
     /**
      * @brief Center of mass in physical coordinates.

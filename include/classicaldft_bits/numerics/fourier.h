@@ -36,27 +36,27 @@ namespace dft_core::numerics::fourier {
 
     // region Inspectors:
 
-    const std::vector<long>& shape() const;
+    [[nodiscard]] const std::vector<long>& shape() const;
 
     /**
      * Total number of real-space grid points: product of shape elements
      */
-    long total() const;
+    [[nodiscard]] long total() const;
 
     /**
      * Total number of complex Fourier coefficients: shape[0] * shape[1] * (shape[2]/2 + 1)
      */
-    long fourier_total() const;
+    [[nodiscard]] long fourier_total() const;
 
     // endregion
 
     // region Accessors:
 
     std::span<double> real();
-    std::span<const double> real() const;
+    [[nodiscard]] std::span<const double> real() const;
 
     std::span<std::complex<double>> fourier();
-    std::span<const std::complex<double>> fourier() const;
+    [[nodiscard]] std::span<const std::complex<double>> fourier() const;
 
     // endregion
 
@@ -94,12 +94,12 @@ namespace dft_core::numerics::fourier {
 
     std::span<double> input_a();
     std::span<double> input_b();
-    std::span<const double> result() const;
+    [[nodiscard]] std::span<const double> result() const;
 
     void execute();
 
-    const std::vector<long>& shape() const;
-    long total() const;
+    [[nodiscard]] const std::vector<long>& shape() const;
+    [[nodiscard]] long total() const;
 
    private:
     FourierTransform a_;

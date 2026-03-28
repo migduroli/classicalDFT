@@ -180,8 +180,8 @@ int main() {
     double rho_max = 2.0;
     std::vector<double> rho_vals(npts), alias_vals(npts);
     for (int i = 0; i < npts; ++i) {
-      rho_vals[i] = Species::rho_min + (rho_max - Species::rho_min) * i / (npts - 1);
-      alias_vals[i] = std::sqrt(rho_vals[i] - Species::rho_min);
+      rho_vals[i] = Species::RHO_MIN + (rho_max - Species::RHO_MIN) * i / (npts - 1);
+      alias_vals[i] = std::sqrt(rho_vals[i] - Species::RHO_MIN);
     }
 
     auto g = Grace();

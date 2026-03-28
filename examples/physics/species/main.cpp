@@ -17,7 +17,7 @@ int main() {
   // ── Alias coordinates ─────────────────────────────────────────────────
 
   std::cout << "=== Alias coordinates ===" << std::endl;
-  std::cout << "rho_min = " << Species::rho_min << std::endl;
+  std::cout << "rho_min = " << Species::RHO_MIN << std::endl;
   std::cout << "Mapping: rho = rho_min + x^2" << std::endl;
   std::cout << "Inverse: x = sqrt(rho - rho_min)" << std::endl;
 
@@ -105,7 +105,7 @@ int main() {
   s.zero_force();
 
   // Ideal gas contribution: dF/drho = log(rho)
-  arma::vec ideal_force = arma::log(arma::clamp(s.density().values(), Species::rho_min, arma::datum::inf));
+  arma::vec ideal_force = arma::log(arma::clamp(s.density().values(), Species::RHO_MIN, arma::datum::inf));
   ideal_force *= s.density().cell_volume();
   s.add_to_force(ideal_force);
 
@@ -165,9 +165,9 @@ int main() {
     double rho_max = 1.5;
     std::vector<double> rho_vec(npts), x_vec(npts), dxdrho_vec(npts);
     for (int i = 0; i < npts; ++i) {
-      double r = Species::rho_min + (rho_max - Species::rho_min) * i / (npts - 1);
+      double r = Species::RHO_MIN + (rho_max - Species::RHO_MIN) * i / (npts - 1);
       rho_vec[i] = r;
-      x_vec[i] = std::sqrt(r - Species::rho_min);
+      x_vec[i] = std::sqrt(r - Species::RHO_MIN);
       // dx/drho = 1 / (2x): show scaled version 2 * dx/drho for visibility
       double xi = x_vec[i];
       dxdrho_vec[i] = (xi > 1e-6) ? 1.0 / (2.0 * xi) : 0.0;

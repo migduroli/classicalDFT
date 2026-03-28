@@ -203,7 +203,7 @@ TEST(EquationOfState, D2ExcessFreeEnergyDensityFormula) {
 TEST(EquationOfState, PolymorphicUseViaBasePointer) {
   std::unique_ptr<EquationOfState> eos = std::make_unique<LennardJonesJZG>(1.0);
   EXPECT_EQ(eos->name(), "LennardJonesJZG");
-  EXPECT_NO_THROW(eos->free_energy_per_particle(0.3));
+  EXPECT_NO_THROW((void)eos->free_energy_per_particle(0.3));
 }
 
 // ── IdealGas: derived quantity coverage ─────────────────────────────────────

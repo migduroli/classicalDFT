@@ -24,10 +24,10 @@ namespace dft_core::physics::fmt {
   struct WeightSet {
     ConvolutionField eta;
     ConvolutionField scalar;
-    std::array<ConvolutionField, 3> vector;                   // [x=0, y=1, z=2]
-    std::array<std::array<ConvolutionField, 3>, 3> tensor__;  // symmetric; use tensor(i,j)
+    std::array<ConvolutionField, 3> vector;                       // [x=0, y=1, z=2]
+    std::array<std::array<ConvolutionField, 3>, 3> tensor_data_;  // symmetric; use tensor(i,j)
 
-    static constexpr int num_independent = 11;
+    static constexpr int NUM_INDEPENDENT = 11;
 
     /**
      * @brief Access the symmetric tensor component $(i, j)$.
@@ -35,10 +35,10 @@ namespace dft_core::physics::fmt {
      * Indices follow Cartesian convention: 0=x, 1=y, 2=z.
      * Since $T_{ij} = T_{ji}$, only the upper triangle is stored.
      */
-    [[nodiscard]] ConvolutionField& tensor(int i, int j) { return (i <= j) ? tensor__[i][j] : tensor__[j][i]; }
+    [[nodiscard]] ConvolutionField& tensor(int i, int j) { return (i <= j) ? tensor_data_[i][j] : tensor_data_[j][i]; }
 
     [[nodiscard]] const ConvolutionField& tensor(int i, int j) const {
-      return (i <= j) ? tensor__[i][j] : tensor__[j][i];
+      return (i <= j) ? tensor_data_[i][j] : tensor_data_[j][i];
     }
 
     /**
@@ -55,7 +55,7 @@ namespace dft_core::physics::fmt {
         fn(v);
       for (int i = 0; i < 3; ++i)
         for (int j = i; j < 3; ++j)
-          fn(tensor__[i][j]);
+          fn(tensor_data_[i][j]);
     }
 
     template <typename F>
@@ -66,7 +66,7 @@ namespace dft_core::physics::fmt {
         fn(v);
       for (int i = 0; i < 3; ++i)
         for (int j = i; j < 3; ++j)
-          fn(tensor__[i][j]);
+          fn(tensor_data_[i][j]);
     }
   };
 
@@ -92,10 +92,10 @@ namespace dft_core::physics::fmt {
     static void generate(double diameter, double dx, const std::vector<long>& shape, WeightSet& weights);
 
    private:
-    [[nodiscard]] static double volume_hat(double k, double R);
-    [[nodiscard]] static double surface_hat(double k, double R);
-    [[nodiscard]] static double vector_prefactor(double k, double R);
-    [[nodiscard]] static std::pair<double, double> tensor_coefficients(double k, double R);
+    [[nodiscard]] static double volume_hat(double k, double r);
+    [[nodiscard]] static double surface_hat(double k, double r);
+    [[nodiscard]] static double vector_prefactor(double k, double r);
+    [[nodiscard]] static std::pair<double, double> tensor_coefficients(double k, double r);
   };
 
 }  // namespace dft_core::physics::fmt
