@@ -34,8 +34,20 @@ pkg_check_modules(FFTW3 REQUIRED IMPORTED_TARGET fftw3)
 # nlohmann/json (config parser)
 find_package(nlohmann_json 3.11 REQUIRED)
 
-# FetchContent (for GoogleTest)
+# FetchContent (for GoogleTest, autodiff)
 include(FetchContent)
+
+# autodiff (header-only forward-mode automatic differentiation)
+FetchContent_Declare(
+    autodiff
+    GIT_REPOSITORY https://github.com/autodiff/autodiff.git
+    GIT_TAG        v1.1.2
+)
+set(AUTODIFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(AUTODIFF_BUILD_PYTHON OFF CACHE BOOL "" FORCE)
+set(AUTODIFF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(AUTODIFF_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(autodiff)
 
 # Grace (optional)
 if(DFT_USE_GRACE)
@@ -93,28 +105,31 @@ endif()
 # ── Core library ─────────────────────────────────────────────────────────────
 
 set(DFT_LIB_SOURCES
-    # Exceptions
-    src/exceptions/grace.cpp
-    src/exceptions/parameter.cpp
-    # IO
-    src/io/config.cpp
-    # Numerics
-    src/numerics/arithmetic.cpp
-    src/numerics/integration.cpp
-    src/numerics/fourier.cpp
-    src/numerics/spline.cpp
-    # Physics
-    src/physics/potentials/intermolecular/potential.cpp
-    src/physics/thermodynamics/eos.cpp
-    src/physics/crystal/lattice.cpp
-    src/physics/density/density.cpp
-    src/physics/species/species.cpp
-    src/physics/fmt/convolution.cpp
-    src/physics/fmt/weights.cpp
-    src/physics/fmt/functional.cpp
-    src/physics/fmt/species.cpp
-    # Interaction
-    src/physics/interaction/interaction.cpp
+    # Math
+    src/math/arithmetic.cpp
+    src/math/integration.cpp
+    src/math/fourier.cpp
+    src/math/spline.cpp
+    src/math/exceptions.cpp
+    # Config
+    src/config.cpp
+    # Potentials
+    src/potentials/potential.cpp
+    # Thermodynamics
+    src/thermodynamics/eos.cpp
+    # Crystal
+    src/crystal/lattice.cpp
+    # Density & Species
+    src/density.cpp
+    src/species.cpp
+    # Functional
+    src/functional/fmt/convolution.cpp
+    src/functional/fmt/weights.cpp
+    src/functional/fmt/functional.cpp
+    src/functional/fmt/species.cpp
+    src/functional/interaction.cpp
+    # Plotting
+    src/plotting/exceptions.cpp
     # Geometry – base
     src/geometry/base/vertex.cpp
     src/geometry/base/element.cpp
@@ -132,7 +147,7 @@ set(DFT_LIB_SOURCES
 add_library(classicaldft STATIC ${DFT_LIB_SOURCES})
 
 if(DFT_USE_GRACE)
-    target_sources(classicaldft PRIVATE src/graph/grace.cpp)
+    target_sources(classicaldft PRIVATE src/plotting/grace.cpp)
 endif()
 
 target_include_directories(classicaldft
@@ -148,6 +163,7 @@ target_link_libraries(classicaldft
         ${ARMADILLO_LIBRARIES}
         PkgConfig::FFTW3
         nlohmann_json::nlohmann_json
+        autodiff::autodiff
 )
 
 target_include_directories(classicaldft
@@ -168,6 +184,7 @@ endif()
 target_compile_options(classicaldft
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>
+        $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>
 )
 
 # ── Coverage ─────────────────────────────────────────────────────────────────
@@ -186,19 +203,19 @@ endif()
 if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/console)
     add_subdirectory(examples/config)
-    add_subdirectory(examples/numerics/integration)
-    add_subdirectory(examples/numerics/arithmetic)
-    add_subdirectory(examples/numerics/fourier)
-    add_subdirectory(examples/numerics/spline)
+    add_subdirectory(examples/math/integration)
+    add_subdirectory(examples/math/arithmetic)
+    add_subdirectory(examples/math/fourier)
+    add_subdirectory(examples/math/spline)
     add_subdirectory(examples/geometry)
-    add_subdirectory(examples/physics/thermodynamics)
-    add_subdirectory(examples/physics/crystal)
-    add_subdirectory(examples/physics/density)
-    add_subdirectory(examples/physics/species)
-    add_subdirectory(examples/physics/fmt)
-    add_subdirectory(examples/physics/interaction)
-    add_subdirectory(examples/physics/potentials/intermolecular)
+    add_subdirectory(examples/thermodynamics)
+    add_subdirectory(examples/crystal)
+    add_subdirectory(examples/density)
+    add_subdirectory(examples/species)
+    add_subdirectory(examples/functional/fmt)
+    add_subdirectory(examples/functional/interaction)
+    add_subdirectory(examples/potentials)
     if(DFT_USE_GRACE)
-        add_subdirectory(examples/graph)
+        add_subdirectory(examples/plotting)
     endif()
 endif()

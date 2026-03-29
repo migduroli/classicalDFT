@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/2D/element.h"
+#include "dft/geometry/2D/element.h"
 
 #include <gtest/gtest.h>
 
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 // ── Default constructor ─────────────────────────────────────────────────────
 

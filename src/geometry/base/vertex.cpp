@@ -1,6 +1,6 @@
-#include "classicaldft_bits/geometry/base/vertex.h"
+#include "dft/geometry/base/vertex.h"
 
-namespace dft_core::geometry {
+namespace dft::geometry {
 
   // region Cttors:
   Vertex::Vertex(const vec_type& x) : dimension_(static_cast<int>(x.size())), coordinates_(x) {}
@@ -65,4 +65,4 @@ namespace dft_core::geometry {
     return Vertex(std::move(x));
   }
   // endregion
-}  // namespace dft_core::geometry
+}  // namespace dft::geometry

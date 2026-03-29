@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `dft_core::geometry` namespace provides mesh primitives at three
+The `dft::geometry` namespace provides mesh primitives at three
 abstraction levels:
 
 | Class | Role |
@@ -33,7 +33,7 @@ Mesh (abstract)
 
 ```cpp
 #include <classicaldft>
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 // Vertices
 auto v1 = Vertex({0, 1, 2, 3});

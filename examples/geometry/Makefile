@@ -1,11 +1,7 @@
-.PHONY: run run-local save-local
+.PHONY: run run-local
 DOCKER_IMAGE := classicaldft-examples:dev
 ROOT := $(shell git rev-parse --show-toplevel)
 BUILD_DIR := $(ROOT)/build-local
-
-EXAMPLE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-EXPORTS_SRC := $(BUILD_DIR)/examples/geometry/exports
-EXPORTS_DST := $(EXAMPLE_DIR)exports
 
 run: ## Run this example in Docker (headless, plots saved to exports/)
 	@docker build -t $(DOCKER_IMAGE) -f $(ROOT)/examples/Dockerfile $(ROOT)
@@ -17,4 +13,4 @@ run-local: ## Build and run locally (interactive plots)
 		-DDFT_BUILD_EXAMPLES=ON \
 		-DDFT_USE_MATPLOTLIB=ON
 	@cmake --build $(BUILD_DIR) --parallel --target example_geometry
-	@cd $(BUILD_DIR)/examples/geometry && ./example_geometry
+	@$(BUILD_DIR)/examples/geometry/example_geometry

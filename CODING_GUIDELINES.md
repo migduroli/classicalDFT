@@ -109,28 +109,36 @@ No forward declarations. Include what you use.
 
 ## 6. Namespaces
 
-Root namespace: **`dft_core`**. Sub-namespaces mirror the directory structure.
+Root namespace: **`dft`**. Sub-namespaces mirror the directory structure.
+Physics sub-modules live directly under `dft` (no intermediate `physics` namespace).
 
 | Directory | Namespace |
 |-----------|-----------|
-| `physics/fmt/` | `dft_core::physics::fmt` |
-| `physics/density/` | `dft_core::physics::density` |
-| `physics/species/` | `dft_core::physics::species` |
-| `physics/thermodynamics/` | `dft_core::physics::thermodynamics` |
-| `numerics/fourier/` | `dft_core::numerics::fourier` |
-| `geometry/base/` | `dft_core::geometry` |
-| `graph/` | `dft_core::grace_plot` |
-| `io/console/` | `dft_core::io::console` |
-| `exceptions/` | `dft_core::exception` |
+| `physics/fmt/` | `dft::fmt` |
+| `physics/density/` | `dft::density` |
+| `physics/species/` | `dft::species` |
+| `physics/crystal/` | `dft::crystal` |
+| `physics/interaction/` | `dft::interaction` |
+| `physics/thermodynamics/` | `dft::thermodynamics` |
+| `physics/thermodynamics/eos` | `dft::thermodynamics::eos` |
+| `physics/potentials/intermolecular/` | `dft::potentials::intermolecular` |
+| `numerics/` | `dft::numerics` |
+| `numerics/fourier/` | `dft::numerics::fourier` |
+| `geometry/base/` | `dft::geometry` |
+| `geometry/2D/` | `dft::geometry::two_dimensional` |
+| `geometry/3D/` | `dft::geometry::three_dimensional` |
+| `graph/` | `dft::grace_plot` |
+| `io/` | `dft::config_parser`, `dft::io::console` |
+| `exceptions/` | `dft::exception` |
 
 Use C++17 collapsed syntax:
 
 ```cpp
-namespace dft_core::physics::fmt {
+namespace dft::fmt {
 
   // ... all code indented 2 spaces ...
 
-}  // namespace dft_core::physics::fmt
+}  // namespace dft::fmt
 ```
 
 Two-space gap before `//` in the closing comment.
@@ -150,7 +158,7 @@ Enforced by `.clang-tidy` `readability-identifier-naming`:
 | Function / method | `lower_snake_case` | `compute_forces()`, `set_density_from_alias()` |
 | Variable | `lower_snake_case` | `eta`, `rho0`, `diameter` |
 | Private / protected member | `lower_snake_case_` (trailing `_`) | `dx_`, `weights_`, `diameter_` |
-| Namespace | `lower_snake_case` | `dft_core`, `fmt`, `numerics` |
+| Namespace | `lower_snake_case` | `dft`, `fmt`, `numerics` |
 | Global constant | `UPPER_SNAKE_CASE` | `DEFAULT_LENGTH_SCALE` |
 | Static constant | `UPPER_SNAKE_CASE` | `MAX_POTENTIAL_VALUE` |
 | Constexpr (file scope) | `UPPER_SNAKE_CASE` | `PI_OVER_6` |
@@ -349,7 +357,7 @@ throw std::invalid_argument("Density: dx must be positive");
 throw std::out_of_range("Index " + std::to_string(i) + " out of range");
 ```
 
-- Custom exceptions (`dft_core::exception::*`) only for domain-specific failures
+- Custom exceptions (`dft::exception::*`) only for domain-specific failures
   (Grace communication, parameter validation).
 - Messages include the offending value when practical.
 
@@ -400,7 +408,7 @@ Single `tests/main.cpp` entry point. Test files are collected via
 #include <cmath>
 #include <gtest/gtest.h>
 
-using namespace dft_core::physics::fmt;
+using namespace dft::fmt;
 
 // ── Default construction ──────────────────────────────────────────────
 
@@ -480,7 +488,7 @@ target_link_libraries(example_<name> PRIVATE classicaldft)
 #include <iomanip>
 #include <iostream>
 
-using namespace dft_core::physics::fmt;
+using namespace dft::fmt;
 
 int main() {
   std::filesystem::create_directories("exports");
@@ -493,7 +501,7 @@ int main() {
 
   // ── Grace plots ──────────────────────────────────────────────────
 #ifdef DFT_HAS_GRACE
-  using namespace dft_core::grace_plot;
+  using namespace dft::grace_plot;
 
   {
     auto g = Grace();

@@ -10,6 +10,7 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     ca-certificates \
     libgsl-dev \
     libarmadillo-dev \
+    libeigen3-dev \
     libfftw3-dev \
     pkg-config \
     nlohmann-json3-dev \

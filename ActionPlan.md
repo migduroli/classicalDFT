@@ -6,7 +6,7 @@
 
 My last merged PR was **#30** (`9747248`, 25 April 2021), which completed the refactoring of `Lattice.h` into `geometry/mesh` with proper 2D/3D abstractions, full test coverage, and examples. At that point, the repository had a clean separation:
 
-- `dft_lib/` — my modern C++14 library (`dft_core` namespace, GTest coverage, examples, Doxygen-ready doc-strings)
+- `dft_lib/` — my modern C++14 library (`dft` namespace, GTest coverage, examples, Doxygen-ready doc-strings)
 - `legacy_lib/` — Jim's original code, untouched, serving as reference for future migration
 
 After my departure, Jim:
@@ -76,7 +76,7 @@ Key files that were **significantly modified** (not just moved):
 
 1. **C++20** (not C++14 or C++18). Use concepts, `std::span`, `std::format`, structured bindings, `constexpr` where possible, designated initialisers, `[[nodiscard]]`, three-way comparison.
 2. **No raw `new`/`delete`**. Exclusive use of `std::unique_ptr`, `std::shared_ptr`, value semantics.
-3. **Namespaces throughout**. Root namespace `dft_core`, sub-namespaces for each module.
+3. **Namespaces throughout**. Root namespace `dft`, sub-namespaces for each module.
 4. **Header/source mirror layout**. `include/dft_lib/<module>/<file>.h` with `src/<module>/<file>.cpp`.
 5. **100% GTest coverage**. Every public method, every edge case, every exception path.
 6. **CMake modern practices**. Target-based dependency management, `target_link_libraries`, `FetchContent` for GTest, proper install targets.
@@ -93,7 +93,7 @@ Key files that were **significantly modified** (not just moved):
 
 - **No abbreviations in public class names.** The user instantiates `auto plan = FourierTransform(shape)` or `auto s = CompensatedSum()`. Short aliases (`auto ft = ...`) are the client's choice; the class name itself must read like prose.
 - **Method names read as verbs or descriptors.** `find_hard_sphere_diameter()`, `compute_van_der_waals_integral()`, `derivative()`, `integrate()`. No abbreviated method names.
-- **Namespaces are hierarchical and explicit.** `dft_core::numerics::fourier::FourierTransform` rather than `dft_core::fft::FFTPlan`.
+- **Namespaces are hierarchical and explicit.** `dft::numerics::fourier::FourierTransform` rather than `dft::fft::FFTPlan`.
 - **Constants and enums use UPPER_SNAKE_CASE or PascalCase enum members** as appropriate.
 
 #### Modern C++ (C++20) for a Pythonic feel
@@ -348,7 +348,7 @@ classicalDFT/
 
 | Step | Task | Details |
 |---|---|---|
-| 1.1 | `utils/console.h` — move into `dft_core` namespace | Currently in bare `console::` namespace; wrap in `dft_core::utils::console` |
+| 1.1 | `utils/console.h` — move into `dft` namespace | Currently in bare `console::` namespace; wrap in `dft::utils::console` |
 | 1.2 | `utils/config_parser.h` — replace Boost.PropertyTree | Replace with `nlohmann/json` (JSON), `toml++` (TOML/INI), or keep Boost as optional. Add YAML support |
 | 1.3 | `utils/functions.h` — replace SFINAE with C++20 concepts | `template<std::floating_point T>` instead of `std::enable_if` |
 | 1.4 | `graph/grace.h` — add `[[nodiscard]]`, `std::string_view` parameters | Minor modernisation. Keep xmgrace dependency as optional |
@@ -440,7 +440,7 @@ classicalDFT/
 
 | Step | Task | Source | Status | Details |
 |---|---|---|---|---|
-| 4.1 | `physics/thermodynamics/enskog.h` | `Enskog.h` | **DONE** | Class hierarchy in `dft_core::physics::thermodynamics`. Abstract `HardSphereFluid` base with virtual `free_energy_density(eta)`, `derivative(eta, order)`, `pressure(eta)`, `chemical_potential(rho)`, `contact_value(eta)`. Concrete: `CarnahanStarling`, `PercusYevick` (with `Route` enum for virial/compressibility). Transport as free functions in `transport` namespace taking `(density, chi)`. All derivatives w.r.t. $\eta$. Header-only |
+| 4.1 | `physics/thermodynamics/enskog.h` | `Enskog.h` | **DONE** | Class hierarchy in `dft::thermodynamics`. Abstract `HardSphereFluid` base with virtual `free_energy_density(eta)`, `derivative(eta, order)`, `pressure(eta)`, `chemical_potential(rho)`, `contact_value(eta)`. Concrete: `CarnahanStarling`, `PercusYevick` (with `Route` enum for virial/compressibility). Transport as free functions in `transport` namespace taking `(density, chi)`. All derivatives w.r.t. $\eta$. Header-only |
 | 4.2 | Tests for `enskog.h` | — | **DONE** | 28 tests. Ideal gas limits ($\eta \to 0$), known values at $\eta = 0.49$, virial coefficients $B_2$ through $B_4$, thermodynamic identity $p = \rho \mu - f$, CS/PY-virial/PY-compressibility cross-validation |
 | 4.3 | `physics/thermodynamics/eos.h` + `eos.cpp` | `EOS.h` | **DONE** | Abstract `EquationOfState` base (stores $kT$). Concrete: `IdealGas`, `eos::PercusYevick` (composes `thermodynamics::PercusYevick` with $(\pi/6)\sigma^3$ density conversion), `LennardJonesJZG` (32-param fit), `LennardJonesMecke` (33-param fit). EOS works in density space; enskog classes work in $\eta$ space |
 | 4.4 | Tests for `eos.h` | — | **DONE** | 24 tests. Ideal gas analytically known values, PY-EOS recovers `thermodynamics::PercusYevick` via chain rule, LJ-JZG/Mecke reproduce published tables, thermodynamic identities |
@@ -470,11 +470,11 @@ classicalDFT/
 
 6. **No VTK, no Gaussian initialisation, no Boost serialisation.** VTK needs a separate utility (legacy had a memory leak). Gaussian init is a feature-branch experiment. Serialisation uses Armadillo's own `save()`/`load()` for binary I/O. All of these can be layered on later without changing the core API.
 
-7. **Compensated summation via existing `CompensatedSum`.** `dft_core::numerics::arithmetic::summation::CompensatedSum` is used for `number_of_atoms()` and any dot-product-style accumulations where numerical stability matters.
+7. **Compensated summation via existing `CompensatedSum`.** `dft::numerics::arithmetic::summation::CompensatedSum` is used for `number_of_atoms()` and any dot-product-style accumulations where numerical stability matters.
 
 #### Class: `Density`
 
-**Namespace:** `dft_core::physics::density`
+**Namespace:** `dft::density`
 
 **Composes:**
 
@@ -514,7 +514,7 @@ classicalDFT/
 
 #### Class: `Species`
 
-**Namespace:** `dft_core::physics::species`
+**Namespace:** `dft::species`
 
 **Composes:**
 
@@ -614,7 +614,7 @@ classicalDFT/
 
 #### Class: `FundamentalMeasures`
 
-**Namespace:** `dft_core::physics::fmt`
+**Namespace:** `dft::fmt`
 
 **File:** `include/classicaldft_bits/physics/fmt/fundamental_measures.h`
 
@@ -644,7 +644,7 @@ classicalDFT/
 
 #### Class: `WeightedDensity`
 
-**Namespace:** `dft_core::physics::fmt`
+**Namespace:** `dft::fmt`
 
 **File:** `include/classicaldft_bits/physics/fmt/weighted_density.h`
 
@@ -668,7 +668,7 @@ classicalDFT/
 
 #### Class: `FundamentalMeasureTheory` (abstract)
 
-**Namespace:** `dft_core::physics::fmt`
+**Namespace:** `dft::fmt`
 
 **File:** `include/classicaldft_bits/physics/fmt/fmt.h` + `src/physics/fmt/fmt.cpp`
 
@@ -730,7 +730,7 @@ classicalDFT/
 
 #### Class: `FMTSpecies`
 
-**Namespace:** `dft_core::physics::species`
+**Namespace:** `dft::species`
 
 **File:** `include/classicaldft_bits/physics/species/fmt_species.h` + `src/physics/species/fmt_species.cpp`
 
@@ -763,7 +763,7 @@ classicalDFT/
 
 #### Class: `WeightGenerator`
 
-**Namespace:** `dft_core::physics::fmt`
+**Namespace:** `dft::fmt`
 
 **File:** `include/classicaldft_bits/physics/fmt/weight_generator.h` + `src/physics/fmt/weight_generator.cpp`
 

@@ -1,12 +1,12 @@
-#include <classicaldft>
+#include "dft.h"
 
 int main() {
-  using namespace dft_core;
-  using namespace dft_core::io;
+  using namespace dft;
+  using namespace dft;
 
   //region Default Cttor:
 
-  auto config = config_parser::ConfigParser();
+  auto config = config::ConfigParser();
 
   auto x = config.get<std::string>("default.StringValue");
   auto y = config.get<double>("default.DoubleValue");
@@ -20,9 +20,9 @@ int main() {
 
   //region Specific Cttor: INI and JSON formats
 
-  std::vector<config_parser::FileType> types {
-      config_parser::FileType::INI,
-      config_parser::FileType::JSON,
+  std::vector<config::FileType> types {
+      config::FileType::INI,
+      config::FileType::JSON,
   };
 
   std::vector<std::string> files {
@@ -31,7 +31,7 @@ int main() {
   };
 
   for (size_t i = 0; i < types.size(); ++i) {
-    auto c_obj = config_parser::ConfigParser(files[i], types[i]);
+    auto c_obj = config::ConfigParser(files[i], types[i]);
 
     auto string_value = c_obj.get<std::string>("default.StringValue");
     auto double_value = c_obj.get<double>("default.DoubleValue");

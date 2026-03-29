@@ -1,2 +1,0 @@
-add_executable(example_crystal main.cpp)
-target_link_libraries(example_crystal PRIVATE classicaldft)

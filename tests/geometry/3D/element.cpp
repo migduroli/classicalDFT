@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/3D/element.h"
+#include "dft/geometry/3D/element.h"
 
 #include <gtest/gtest.h>
 
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 TEST(ThreeDimensionalSquareBox, DefaultConstructor) {
   auto e = three_dimensional::SquareBox();

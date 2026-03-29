@@ -1,9 +1,9 @@
-#include "classicaldft_bits/geometry/3D/mesh.h"
+#include "dft/geometry/3D/mesh.h"
 
 #include <gtest/gtest.h>
 #include <sstream>
 
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 // Test wrapper to access protected method
 class TestableSUQMesh3D : public three_dimensional::SUQMesh {

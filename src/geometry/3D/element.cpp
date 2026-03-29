@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/3D/element.h"
+#include "dft/geometry/3D/element.h"
 
-#include <classicaldft_bits/geometry/base/mesh.h>
+#include "dft/geometry/base/mesh.h"
 
-namespace dft_core::geometry::three_dimensional {
+namespace dft::geometry::three_dimensional {
 
   // region SquareBox:
 
@@ -61,4 +61,4 @@ namespace dft_core::geometry::three_dimensional {
 
   // endregion
 
-}  // namespace dft_core::geometry::three_dimensional
+}  // namespace dft::geometry::three_dimensional

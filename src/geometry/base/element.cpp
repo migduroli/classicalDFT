@@ -1,4 +1,4 @@
-#include "classicaldft_bits/geometry/base/element.h"
+#include "dft/geometry/base/element.h"
 
 #include <cmath>
 #include <iostream>
@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace dft_core::geometry {
+namespace dft::geometry {
 
   // region Cttors:
 
@@ -98,4 +98,4 @@ namespace dft_core::geometry {
   }
 
   // endregion
-}  // namespace dft_core::geometry
+}  // namespace dft::geometry

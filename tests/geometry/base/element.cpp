@@ -1,9 +1,9 @@
-#include "classicaldft_bits/geometry/base/element.h"
+#include "dft/geometry/base/element.h"
 
 #include <gtest/gtest.h>
 #include <sstream>
 
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 // ── Default constructor ─────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `config_parser::ConfigParser` class wraps Boost's `property_tree` to read
+The `config::ConfigParser` class wraps Boost's `property_tree` to read
 configuration parameters from external files. Four formats are supported:
 **INI**, **JSON**, **XML** and **INFO**.
 
@@ -26,10 +26,10 @@ Template files for each format are in [config_files/](config_files/).
 #include <classicaldft>
 
 int main() {
-  using namespace dft_core;
+  using namespace dft;
 
   // Default constructor reads config.ini
-  auto config = config_parser::ConfigParser();
+  auto config = config::ConfigParser();
 
   auto x = config.tree().get<std::string>("default.StringValue");
   auto y = config.tree().get<double>("default.DoubleValue");
@@ -38,7 +38,7 @@ int main() {
   console::info("This is 2*y: " + std::to_string(2 * y));
 
   // Explicit constructor with format selection
-  auto json_config = config_parser::ConfigParser("config.json", config_parser::FileType::JSON);
+  auto json_config = config::ConfigParser("config.json", config::FileType::JSON);
   auto val = json_config.tree().get<double>("default.DoubleValue");
   console::info("JSON DoubleValue: " + std::to_string(val));
 }

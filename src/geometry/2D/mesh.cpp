@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/2D/mesh.h"
+#include "dft/geometry/2D/mesh.h"
 
-#include "classicaldft_bits/geometry/2D/element.h"
+#include "dft/geometry/2D/element.h"
 #ifdef DFT_HAS_GRACE
-#include "classicaldft_bits/graph/grace.h"
+#include "dft/plotting/grace.h"
 #endif
 #ifdef DFT_HAS_MATPLOTLIB
 #include "matplotlibcpp.h"
@@ -13,7 +13,7 @@
 #include <numeric>
 #include <stdexcept>
 
-namespace dft_core::geometry::two_dimensional {
+namespace dft::geometry::two_dimensional {
 
   void SUQMesh::initialise(double dx) {
     // region Vertices init:
@@ -46,13 +46,16 @@ namespace dft_core::geometry::two_dimensional {
   }
 
   SUQMesh::SUQMesh(double dx, std::vector<double>& dimensions, std::vector<double>& origin)
-      : dft_core::geometry::SUQMesh(dx, dimensions, origin) {
+      : dft::geometry::SUQMesh(dx, dimensions, origin) {
     this->initialise(dx);
   }
 
   void SUQMesh::plot(const std::string& path, const bool interactive) const {
 #ifdef DFT_HAS_MATPLOTLIB
     namespace plt = matplotlibcpp;
+    if (!interactive && path.empty()) {
+      throw std::invalid_argument("plot: non-interactive mode requires a file path");
+    }
     if (!interactive) {
       plt::backend("Agg");
     }
@@ -75,16 +78,17 @@ namespace dft_core::geometry::two_dimensional {
     plt::grid(true);
     plt::tight_layout();
 
-    if (interactive) {
-      plt::show();
-    } else {
+    if (!path.empty()) {
       std::filesystem::create_directories(std::filesystem::path(path).parent_path());
       plt::save(path);
-      plt::close();
       std::cout << "Plot saved: " << std::filesystem::absolute(path) << std::endl;
     }
+    if (interactive) {
+      plt::show();
+    }
+    plt::close();
 #elif defined(DFT_HAS_GRACE)
-    auto g = dft_core::grace_plot::Grace();
+    auto g = dft::plotting::Grace();
     for (const auto& v : vertices_raw_) {
       g.add_point(v.coordinates()[0], v.coordinates()[1]);
     }
@@ -96,15 +100,16 @@ namespace dft_core::geometry::two_dimensional {
         {origin_[1] - dx[1], (dimensions_[1] + origin_[1]) + dx[1]}
     );
 
-    g.set_line_type(dft_core::grace_plot::LineStyle::NO_LINE, 0);
-    g.set_symbol(dft_core::grace_plot::Symbol::SQUARE, 0);
-    g.set_symbol_color(dft_core::grace_plot::Color::BLUE, 0);
-    g.set_symbol_fill(dft_core::grace_plot::Color::DARKGREEN, 0);
+    g.set_line_type(dft::plotting::LineStyle::NO_LINE, 0);
+    g.set_symbol(dft::plotting::Symbol::SQUARE, 0);
+    g.set_symbol_color(dft::plotting::Color::BLUE, 0);
+    g.set_symbol_fill(dft::plotting::Color::DARKGREEN, 0);
 
+    if (!path.empty()) {
+      g.print_to_file(path);
+    }
     if (interactive) {
       g.redraw_and_wait();
-    } else {
-      g.print_to_file(path);
     }
 #else
     throw std::runtime_error("No plotting backend available: build with -DDFT_USE_MATPLOTLIB=ON or -DDFT_USE_GRACE=ON");
@@ -119,4 +124,4 @@ namespace dft_core::geometry::two_dimensional {
     return elements().front().volume();
   }
 
-}  // namespace dft_core::geometry::two_dimensional
+}  // namespace dft::geometry::two_dimensional

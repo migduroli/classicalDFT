@@ -1,15 +1,16 @@
-#include <classicaldft_bits/geometry/base/mesh.h>
+#include "dft/geometry/base/mesh.h"
+
 #include <cmath>  // std::abs
 #include <numeric>
 
-namespace dft_core::geometry {
+namespace dft::geometry {
 
   // region Abstract Mesh:
 
-  const std::vector<long>& dft_core::geometry::Mesh::shape() const {
+  const std::vector<long>& dft::geometry::Mesh::shape() const {
     return shape_;
   }
-  const std::vector<double>& dft_core::geometry::Mesh::dimensions() const {
+  const std::vector<double>& dft::geometry::Mesh::dimensions() const {
     return dimensions_;
   }
   long Mesh::number_vertices() const {
@@ -125,11 +126,11 @@ namespace dft_core::geometry {
 
   const Vertex& SUQMesh::operator[](const std::vector<long>& idx) const {
     auto idxs = idx;
-    dft_core::geometry::Mesh::correct_negative_indexes(idxs, idx_max_);
-    dft_core::geometry::Mesh::check_correct_size_indexes(idxs, static_cast<int>(shape_.size()));
-    dft_core::geometry::Mesh::check_index_in_bounds(idxs, idx_max_);
+    dft::geometry::Mesh::correct_negative_indexes(idxs, idx_max_);
+    dft::geometry::Mesh::check_correct_size_indexes(idxs, static_cast<int>(shape_.size()));
+    dft::geometry::Mesh::check_index_in_bounds(idxs, idx_max_);
     return vertices_.at(static_cast<int>(cartesian_to_global_index(idxs, shape_)));
   }
 
   // endregion
-}  // namespace dft_core::geometry
+}  // namespace dft::geometry

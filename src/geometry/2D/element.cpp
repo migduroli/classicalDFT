@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/2D/element.h"
+#include "dft/geometry/2D/element.h"
 
-#include <classicaldft_bits/geometry/base/mesh.h>
+#include "dft/geometry/base/mesh.h"
 
-namespace dft_core::geometry::two_dimensional {
+namespace dft::geometry::two_dimensional {
 
   vertex_vec SquareBox::generate_vertices(double dx, const std::vector<double>& x0) {
     // bottom-up anti-clock-wise:
@@ -44,4 +44,4 @@ namespace dft_core::geometry::two_dimensional {
     }
   }
 
-}  // namespace dft_core::geometry::two_dimensional
+}  // namespace dft::geometry::two_dimensional

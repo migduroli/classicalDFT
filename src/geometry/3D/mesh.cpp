@@ -1,6 +1,6 @@
-#include "classicaldft_bits/geometry/3D/mesh.h"
+#include "dft/geometry/3D/mesh.h"
 
-#include "classicaldft_bits/geometry/3D/element.h"
+#include "dft/geometry/3D/element.h"
 
 #ifdef DFT_HAS_MATPLOTLIB
 #include "matplotlibcpp.h"
@@ -11,7 +11,7 @@
 
 #include <numeric>
 
-namespace dft_core::geometry::three_dimensional {
+namespace dft::geometry::three_dimensional {
 
   void SUQMesh::initialise(double dx) {
     // region Vertices init:
@@ -49,13 +49,16 @@ namespace dft_core::geometry::three_dimensional {
   }
 
   SUQMesh::SUQMesh(double dx, std::vector<double>& dimensions, std::vector<double>& origin)
-      : dft_core::geometry::SUQMesh(dx, dimensions, origin) {
+      : dft::geometry::SUQMesh(dx, dimensions, origin) {
     this->initialise(dx);
   }
 
   void SUQMesh::plot(const std::string& path, const bool interactive) const {
 #ifdef DFT_HAS_MATPLOTLIB
     namespace plt = matplotlibcpp;
+    if (!interactive && path.empty()) {
+      throw std::invalid_argument("plot: non-interactive mode requires a file path");
+    }
     if (!interactive) {
       plt::backend("Agg");
     }
@@ -86,14 +89,15 @@ namespace dft_core::geometry::three_dimensional {
     plt::grid(true);
     plt::tight_layout();
 
-    if (interactive) {
-      plt::show();
-    } else {
+    if (!path.empty()) {
       std::filesystem::create_directories(std::filesystem::path(path).parent_path());
       plt::save(path);
-      plt::close();
       std::cout << "Plot saved: " << std::filesystem::absolute(path) << std::endl;
     }
+    if (interactive) {
+      plt::show();
+    }
+    plt::close();
 #else
     throw std::runtime_error("No plotting backend available: build with -DDFT_USE_MATPLOTLIB=ON");
 #endif
@@ -107,4 +111,4 @@ namespace dft_core::geometry::three_dimensional {
     return elements().front().volume();
   }
 
-}  // namespace dft_core::geometry::three_dimensional
+}  // namespace dft::geometry::three_dimensional

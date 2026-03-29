@@ -15,7 +15,7 @@ install_deps_macos() {
 
   message "info" "Installing dependencies via Homebrew"
 
-  local packages=(cmake gsl armadillo fftw nlohmann-json grace python3)
+  local packages=(cmake gsl armadillo fftw nlohmann-json eigen grace python3)
   for pkg in "${packages[@]}"; do
     if brew list --formula "$pkg" &>/dev/null; then
       message "success" "$pkg already installed"
@@ -49,6 +49,7 @@ install_deps_linux() {
     pkg-config \
     libgsl-dev \
     libarmadillo-dev \
+    libeigen3-dev \
     libfftw3-dev \
     nlohmann-json3-dev \
     grace \

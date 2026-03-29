@@ -1,14 +1,17 @@
 #include <cmath>
 #include <armadillo>
-#include <classicaldft>
+#include "dft.h"
 #include <filesystem>
 #include <cstring>
 
 int main(int argc, char **argv)
 {
+#ifdef EXAMPLE_SOURCE_DIR
+  std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
+#endif
   std::filesystem::create_directories("exports");
-  using namespace dft_core::geometry;
-  using namespace dft_core::io;
+  using namespace dft::geometry;
+  using namespace dft;
 
   // region Vertex: Initializer cttor
   console::info("Vertex | Constructor");

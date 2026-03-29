@@ -12,6 +12,7 @@ log.*
 **/dummy
 **/*.o
 **/*.d
+**/exports
 
 # Coverage
 coverage/

@@ -1,2 +1,0 @@
-add_executable(example_thermodynamics main.cpp)
-target_link_libraries(example_thermodynamics PRIVATE classicaldft)

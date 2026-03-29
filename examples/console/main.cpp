@@ -1,8 +1,8 @@
-#include <classicaldft>
+#include "dft.h"
 
 int main(int argc, char **argv)
 {
-  using namespace dft_core::io;
+  using namespace dft;
   console::info("Hello world");
   console::warning("This is a warning");
   console::error("This is an error!!");

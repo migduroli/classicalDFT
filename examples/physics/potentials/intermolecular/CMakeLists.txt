@@ -1,2 +1,0 @@
-add_executable(example_potentials main.cpp)
-target_link_libraries(example_potentials PRIVATE classicaldft)

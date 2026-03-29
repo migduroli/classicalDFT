@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/2D/uniform_mesh.h"
+#include "dft/geometry/2D/uniform_mesh.h"
 
 #include <gtest/gtest.h>
 
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 // ── 2D UniformMesh construction ─────────────────────────────────────────────
 

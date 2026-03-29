@@ -1,8 +1,8 @@
-#include "classicaldft_bits/geometry/3D/uniform_mesh.h"
+#include "dft/geometry/3D/uniform_mesh.h"
 
 #include <cmath>
 
-namespace dft_core::geometry::three_dimensional {
+namespace dft::geometry::three_dimensional {
 
   UniformMesh::UniformMesh(double dx, std::vector<double>& dimensions, std::vector<double>& origin)
       : SUQMesh(dx, dimensions, origin), dx_(dx) {}
@@ -22,4 +22,4 @@ namespace dft_core::geometry::three_dimensional {
     return Vertex(std::move(coords));
   }
 
-}  // namespace dft_core::geometry::three_dimensional
+}  // namespace dft::geometry::three_dimensional

@@ -1,9 +1,9 @@
-#include "classicaldft_bits/geometry/base/vertex.h"
+#include "dft/geometry/base/vertex.h"
 
 #include <gtest/gtest.h>
 #include <sstream>
 
-using namespace dft_core::geometry;
+using namespace dft::geometry;
 
 // ── Constructors ────────────────────────────────────────────────────────────
 
