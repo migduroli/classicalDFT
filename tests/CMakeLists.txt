@@ -1,4 +1,15 @@
-file(GLOB_RECURSE TEST_SOURCES LIST_DIRECTORIES false *.cpp)
+set(TEST_SOURCES
+    main.cpp
+    cdft/physics/potentials_test.cpp
+    cdft/physics/eos_test.cpp
+    cdft/physics/crystal_test.cpp
+    cdft/numerics/fourier_test.cpp
+    cdft/numerics/math_test.cpp
+    cdft/numerics/spline_test.cpp
+    cdft/functional/fmt_test.cpp
+    cdft/functional/density_test.cpp
+    cdft/config_test.cpp
+)
 
 add_executable(classicaldft_tests ${TEST_SOURCES})
 

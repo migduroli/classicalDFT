@@ -1,0 +1,73 @@
+#ifndef CLASSICALDFT_H
+#define CLASSICALDFT_H
+
+// region Graph
+#ifdef DFT_HAS_GRACE
+#include "classicaldft_bits/graph/grace.h"
+#endif
+// endregion
+
+// region Exception
+#include "classicaldft_bits/exception/grace.h"
+#include "classicaldft_bits/exception/parameter.h"
+// endregion
+
+// region IO
+#include "classicaldft_bits/io/config.h"
+#include "classicaldft_bits/io/console.h"
+// endregion
+
+// region Numerics
+#include "classicaldft_bits/numerics/arithmetic.h"
+#include "classicaldft_bits/numerics/fourier.h"
+#include "classicaldft_bits/numerics/integration.h"
+#include "classicaldft_bits/numerics/spline.h"
+// endregion
+
+// region Potential
+#include "classicaldft_bits/potential/potential.h"
+// endregion
+
+// region Thermodynamics
+#include "classicaldft_bits/thermodynamics/enskog.h"
+#include "classicaldft_bits/thermodynamics/eos.h"
+// endregion
+
+// region Crystal
+#include "classicaldft_bits/crystal/lattice.h"
+// endregion
+
+// region Density
+#include "classicaldft_bits/density/density.h"
+// endregion
+
+// region Functional
+#include "classicaldft_bits/functional/data_structures.h"
+#include "classicaldft_bits/functional/fmt/data_structures.h"
+#include "classicaldft_bits/functional/fmt/weighted_density.h"
+#include "classicaldft_bits/functional/fmt/weights.h"
+#include "classicaldft_bits/functional/fmt/functional.h"
+#include "classicaldft_bits/functional/fmt/species.h"
+#include "classicaldft_bits/functional/mean_field/interaction.h"
+// endregion
+
+// region Geometry
+#include "classicaldft_bits/geometry/base/element.h"
+#include "classicaldft_bits/geometry/base/mesh.h"
+#include "classicaldft_bits/geometry/base/vertex.h"
+
+// region 2D
+#include "classicaldft_bits/geometry/2D/element.h"
+#include "classicaldft_bits/geometry/2D/mesh.h"
+#include "classicaldft_bits/geometry/2D/uniform_mesh.h"
+// endregion
+
+// region 3D
+#include "classicaldft_bits/geometry/3D/element.h"
+#include "classicaldft_bits/geometry/3D/mesh.h"
+#include "classicaldft_bits/geometry/3D/uniform_mesh.h"
+// endregion
+
+// endregion
+
+#endif  // CLASSICALDFT_H
