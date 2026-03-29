@@ -9,6 +9,7 @@
 // Math
 #include "dft/math/arithmetic.h"
 #include "dft/math/fourier.h"
+#include "dft/math/hessian.h"
 #include "dft/math/integration.h"
 #include "dft/math/spline.h"
 
@@ -37,6 +38,9 @@
 #include "dft/functional/fmt/species.h"
 #include "dft/functional/fmt/weights.h"
 #include "dft/functional/interaction.h"
+
+// Solver
+#include "dft/solver.h"
 
 // Geometry
 #include "dft/geometry/2D/element.h"

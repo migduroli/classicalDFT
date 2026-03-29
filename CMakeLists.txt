@@ -128,6 +128,8 @@ set(DFT_LIB_SOURCES
     src/functional/fmt/functional.cpp
     src/functional/fmt/species.cpp
     src/functional/interaction.cpp
+    # Solver
+    src/solver.cpp
     # Plotting
     src/plotting/exceptions.cpp
     # Geometry – base
@@ -215,6 +217,7 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/functional/fmt)
     add_subdirectory(examples/functional/interaction)
     add_subdirectory(examples/potentials)
+    add_subdirectory(examples/solver)
     if(DFT_USE_GRACE)
         add_subdirectory(examples/plotting)
     endif()

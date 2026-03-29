@@ -25,34 +25,65 @@ project. All new code, refactored code, examples, and tests must follow it.
 
 ```
 include/
-  classicaldft                          # umbrella header (no extension)
-  classicaldft_bits/
-    <module>/
-      <submodule>/
-        <file>.h
+  dft.h                                 # umbrella header
+  dft/
+    config.h                            # configuration file parser
+    console.h                           # terminal formatting utilities
+    density.h                           # density profile
+    species.h                           # species base class
+    crystal/
+      lattice.h                         # BCC/FCC/HCP crystal lattice builder
+      types.h                           # crystal enums and types
+    functional/
+      interaction.h                     # mean-field interaction
+      fmt/
+        convolution.h                   # convolution field
+        functional.h                    # FMT base + models
+        measures.h                      # fundamental measures struct
+        species.h                       # FMT species
+        weights.h                       # weight generation
+    geometry/
+      base/                             # vertex, element, mesh abstractions
+      2D/                               # 2D element, mesh, uniform mesh
+      3D/                               # 3D element, mesh, uniform mesh
+    math/
+      arithmetic.h                      # compensated summation
+      autodiff.h                        # autodiff adapter
+      exceptions.h                      # parameter exceptions
+      fourier.h                         # FFTW3 C++ wrapper
+      integration.h                     # numerical integration
+      spline.h                          # cubic spline (GSL)
+    plotting/
+      exceptions.h                      # grace exceptions
+      grace.h                           # xmgrace plotting
+    potentials/
+      potential.h                       # intermolecular potentials
+      types.h                           # potential enums and types
+    thermodynamics/
+      enskog.h                          # hard-sphere thermodynamics
+      eos.h                             # equations of state
 src/
-  <module>/
-    <submodule>/
-      <file>.cpp
+  <mirrors include/dft/ with .cpp files>
 tests/
   main.cpp                              # single test runner
-  <module>/
-    <submodule>/
-      <file>.cpp                        # one test file per header
+  <mirrors include/dft/ with .cpp test files>
 examples/
   <module>/
-    <submodule>/
-      main.cpp
-      CMakeLists.txt
-      README.md
-      exports/                          # Grace plot output
+    main.cpp
+    CMakeLists.txt
+    Makefile
+    README.md
+    exports/                            # plot output
 ```
 
-Modules: `exceptions`, `geometry`, `graph`, `io`, `numerics`, `physics`.
-Physics sub-modules: `crystal`, `density`, `fmt`, `potentials/intermolecular`,
-`species`, `thermodynamics`.
+Top-level modules: `crystal`, `functional`, `geometry`, `math`, `plotting`,
+`potentials`, `thermodynamics`. Root-level headers: `config.h`, `console.h`,
+`density.h`, `species.h`.
 
-Source tree and test tree mirror the header tree exactly.
+Source tree, test tree, and example tree mirror the header tree exactly.
+No intermediate grouping directories (`physics/`, `io/`, `exceptions/`,
+`numerics/`, `graph/`). The directory name provides context; file names
+must not repeat it.
 
 ---
 
@@ -70,15 +101,24 @@ Source tree and test tree mirror the header tree exactly.
 
 Traditional `#ifndef` / `#define` / `#endif`. No `#pragma once`.
 
-Guard name: `CLASSICALDFT_` + path from `classicaldft_bits/` in `UPPER_SNAKE_CASE` + `_H`.
+Guard name: `DFT_` + path from `dft/` in `UPPER_SNAKE_CASE` + `_H`.
 
 ```cpp
-#ifndef CLASSICALDFT_PHYSICS_FMT_MEASURES_H
-#define CLASSICALDFT_PHYSICS_FMT_MEASURES_H
+#ifndef DFT_FUNCTIONAL_FMT_MEASURES_H
+#define DFT_FUNCTIONAL_FMT_MEASURES_H
 
 // ... contents ...
 
-#endif  // CLASSICALDFT_PHYSICS_FMT_MEASURES_H
+#endif  // DFT_FUNCTIONAL_FMT_MEASURES_H
+```
+
+Root-level headers use just `DFT_` + filename:
+
+```cpp
+#ifndef DFT_DENSITY_H
+#define DFT_DENSITY_H
+// ...
+#endif  // DFT_DENSITY_H
 ```
 
 ---
@@ -88,15 +128,15 @@ Guard name: `CLASSICALDFT_` + path from `classicaldft_bits/` in `UPPER_SNAKE_CAS
 Follows the Google C++ style guide, enforced by `.clang-format`:
 
 1. **Corresponding header** (in the `.cpp` file only)
-2. **Project headers** (`"classicaldft_bits/..."`)
+2. **Project headers** (`"dft/..."`)
 3. **System / standard library headers** (`<...>`, alphabetised)
 
 Blank line between each group. Example:
 
 ```cpp
-#include "classicaldft_bits/physics/density/density.h"
+#include "dft/density.h"
 
-#include "classicaldft_bits/numerics/arithmetic.h"
+#include "dft/math/arithmetic.h"
 
 #include <algorithm>
 #include <cmath>
@@ -110,35 +150,30 @@ No forward declarations. Include what you use.
 ## 6. Namespaces
 
 Root namespace: **`dft`**. Sub-namespaces mirror the directory structure.
-Physics sub-modules live directly under `dft` (no intermediate `physics` namespace).
 
 | Directory | Namespace |
 |-----------|-----------|
-| `physics/fmt/` | `dft::fmt` |
-| `physics/density/` | `dft::density` |
-| `physics/species/` | `dft::species` |
-| `physics/crystal/` | `dft::crystal` |
-| `physics/interaction/` | `dft::interaction` |
-| `physics/thermodynamics/` | `dft::thermodynamics` |
-| `physics/thermodynamics/eos` | `dft::thermodynamics::eos` |
-| `physics/potentials/intermolecular/` | `dft::potentials::intermolecular` |
-| `numerics/` | `dft::numerics` |
-| `numerics/fourier/` | `dft::numerics::fourier` |
+| `dft/` (root headers) | `dft::density`, `dft::species`, `dft::config`, `dft::console` |
+| `functional/fmt/` | `dft::functional::fmt` |
+| `functional/` | `dft::functional::interaction` |
+| `crystal/` | `dft::crystal` |
 | `geometry/base/` | `dft::geometry` |
 | `geometry/2D/` | `dft::geometry::two_dimensional` |
 | `geometry/3D/` | `dft::geometry::three_dimensional` |
-| `graph/` | `dft::grace_plot` |
-| `io/` | `dft::config_parser`, `dft::io::console` |
-| `exceptions/` | `dft::exception` |
+| `math/` | `dft::math`, `dft::math::arithmetic`, `dft::math::fourier`, `dft::math::integration`, `dft::math::spline` |
+| `plotting/` | `dft::plotting`, `dft::plotting::command`, `dft::plotting::option` |
+| `potentials/` | `dft::potentials` |
+| `thermodynamics/` | `dft::thermodynamics`, `dft::thermodynamics::eos` |
+| `math/exceptions.h`, `plotting/exceptions.h` | `dft::exception` |
 
 Use C++17 collapsed syntax:
 
 ```cpp
-namespace dft::fmt {
+namespace dft::functional::fmt {
 
   // ... all code indented 2 spaces ...
 
-}  // namespace dft::fmt
+}  // namespace dft::functional::fmt
 ```
 
 Two-space gap before `//` in the closing comment.
@@ -403,12 +438,12 @@ Single `tests/main.cpp` entry point. Test files are collected via
 ### Test file structure
 
 ```cpp
-#include "classicaldft_bits/physics/fmt/measures.h"   // tested header first
+#include "dft/functional/fmt/measures.h"   // tested header first
 
 #include <cmath>
 #include <gtest/gtest.h>
 
-using namespace dft::fmt;
+using namespace dft::functional::fmt;
 
 // ── Default construction ──────────────────────────────────────────────
 
@@ -466,11 +501,12 @@ static double numerical_derivative(std::function<double(double)> f, double x, do
 ### File structure
 
 ```
-examples/<module>/<submodule>/
+examples/<module>/
   main.cpp
   CMakeLists.txt
+  Makefile
   README.md
-  exports/          # created at runtime for Grace output
+  exports/          # created at runtime for plot output
 ```
 
 ### CMakeLists.txt (minimal)
@@ -483,12 +519,12 @@ target_link_libraries(example_<name> PRIVATE classicaldft)
 ### main.cpp structure
 
 ```cpp
-#include <classicaldft>
+#include "dft.h"
 
 #include <iomanip>
 #include <iostream>
 
-using namespace dft::fmt;
+using namespace dft::functional::fmt;
 
 int main() {
   std::filesystem::create_directories("exports");
@@ -501,7 +537,7 @@ int main() {
 
   // ── Grace plots ──────────────────────────────────────────────────
 #ifdef DFT_HAS_GRACE
-  using namespace dft::grace_plot;
+  using namespace dft::plotting;
 
   {
     auto g = Grace();
