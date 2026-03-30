@@ -1,62 +1,63 @@
 # Droplet nucleation
 
-Demonstrates liquid droplet formation and the planar liquid-vapor interface
-using mean-field DFT with a Lennard-Jones potential.
+Demonstrates classical nucleation theory from first principles using
+mean-field DFT with a Lennard-Jones fluid: locating the critical nucleus,
+and showing DDFT dynamics of sub-critical (dissolution) and super-critical
+(growth) droplets.
 
 ## What it does
 
-**Demo 1 — Planar interface:** Constructs a liquid slab in a 3D periodic box
-($6\sigma \times 6\sigma \times 12\sigma$) at $T^* = 0.80$ with the chemical
-potential set to coexistence. FIRE2 relaxes the initial tanh profile towards
-the self-consistent interface shape.
+1. **Nucleation barrier scan.** At $T^* = 1.0$ and supersaturation
+   $\Delta\mu = 0.30$, evaluates the grand potential $\Omega[\rho_R]$ for
+   tanh-profile droplets of varying radius $R$. The maximum of
+   $\Delta\Omega(R) = \Omega[\rho_R] - \Omega[\rho_v]$ locates the critical
+   nucleus at $R^* \approx 2\sigma$ with a barrier $\approx 1.5\,k_BT$.
 
-**Demo 2 — Sub-critical droplet:** Seeds a spherical liquid droplet (radius
-$\approx 1.5\sigma$) inside a slightly supersaturated vapor ($\mu = \mu_{\text{coex}} + 0.01$)
-in an $8\sigma$ cubic box. Because $R < R_{\text{critical}}$, the FIRE2
-minimiser dissolves the droplet into uniform vapor, confirming that the
-system sits below the nucleation barrier.
+2. **Dissolution dynamics.** Initialises a sub-critical droplet ($R = R^* -
+   0.5\sigma$) and evolves it with the DDFT integrator (split-operator
+   scheme). Snapshots show the radial density profile collapsing towards
+   uniform vapor.
+
+3. **Growth dynamics (small overshoot).** Initialises a super-critical
+   droplet ($R = R^* + 0.5\sigma$). The DDFT evolution shows the droplet
+   expanding as the system rolls downhill past the barrier.
+
+4. **Growth dynamics (large overshoot).** Same as above with $R = R^* +
+   1.0\sigma$, showing faster growth from a larger initial droplet.
 
 ## Physics
 
-At temperatures below the critical point, a Lennard-Jones fluid exhibits
-liquid-vapor coexistence. The coexistence densities are found via
-`Solver::find_coexistence()`.
+At $\mu > \mu_{\text{coex}}$, the liquid phase is thermodynamically favoured.
+Forming a droplet of radius $R$ involves a volume free-energy gain
+$\propto -R^3$ and a surface energy cost $\propto R^2$. Their competition
+produces a free-energy barrier with a maximum at the critical radius
+$R^*$. Droplets with $R < R^*$ dissolve; droplets with $R > R^*$ grow.
 
-In demo 1, setting $\mu = \mu_{\text{coex}}$ makes the liquid and vapor
-phases equally stable. The planar interface is a stationary point of the
-grand potential functional. FIRE2 relaxes the interface shape while the slab
-position remains fixed by symmetry.
+The DDFT equation
 
-In demo 2, the chemical potential is raised slightly above coexistence
-(supersaturation). Droplets smaller than the critical nucleation radius
-$R_{\text{critical}}$ are unstable: the surface energy cost exceeds the
-volume free-energy gain. The minimiser correctly finds the uniform vapor as
-the lower-energy state, and the difference
-$\Delta\Omega = \Omega[\rho_{\text{final}}] - \Omega[\rho_v \cdot V]$
-quantifies the free-energy cost of the initial seed.
+$$\frac{\partial \rho}{\partial t} = D\,\nabla \cdot \left[\rho\,\nabla \frac{\delta \beta F}{\delta \rho}\right]$$
+
+drives the density down the grand-potential landscape.
 
 ## Key API usage
 
 ```cpp
-// Build solver with FMT + LJ interaction
-Solver solver;
-auto sp = std::make_unique<functional::fmt::Species>(std::move(dens), diameter);
-auto& sp_ref = *sp;
-solver.add_species(std::move(sp));
-solver.add_interaction(
-    std::make_unique<functional::interaction::Interaction>(sp_ref, sp_ref, lj, kT));
-solver.set_fmt(std::make_unique<functional::fmt::FMT>(functional::fmt::WhiteBearII{}));
+// Evaluate grand potential for a given droplet radius.
+init_droplet(solver, rho_v, rho_l, R, interface_width);
+double omega = solver.compute_free_energy_and_forces();
 
-// Find coexistence and set chemical potential
-double rho_v, rho_l;
-solver.find_coexistence(1.1, 0.005, rho_v, rho_l, 1e-8);
-solver.species(0).set_chemical_potential(solver.chemical_potential(rho_v) + delta_mu);
-
-// Initialise droplet (tanh profile) and minimise
-init_droplet(solver, rho_v, rho_l, r_droplet, interface_width);
-dynamics::Fire2Config config{.dt = 1e-3, .dt_max = 0.01, .force_limit = 5e-3};
-dynamics::Fire2Minimizer fire(solver, config);
-fire.run(500);
+// Run DDFT dynamics and capture snapshots.
+dynamics::IntegratorConfig iconf{
+    .scheme = dynamics::IntegrationScheme::SplitOperator,
+    .dt = 5e-4,
+    .diffusion_coefficient = 1.0,
+    .force_limit = 1e-12,
+};
+dynamics::Integrator integrator(solver, iconf);
+for (int s = 0; s < n_snaps; ++s) {
+  (void)integrator.resume(steps_per_snap);
+  // ... extract radial profile snapshot ...
+}
 ```
 
 ## Running
@@ -70,6 +71,7 @@ make run          # build and run in Docker
 
 | Plot | File | Description |
 |------|------|-------------|
-| Planar interface | `exports/planar_interface.png` | Density profile $\rho(z)$ of a liquid slab |
-| Droplet profile | `exports/droplet_profile.png` | Radial $\rho(r)$: initial seed vs minimised (dissolved) |
-| Convergence | `exports/droplet_convergence.png` | FIRE2 energy vs step for the droplet demo |
+| Nucleation barrier | `exports/nucleation_barrier.png` | $\Delta\Omega(R)$ curve with $R^*$ marked |
+| Dissolution | `exports/dissolution.png` | Sub-critical droplet dissolving (blue snapshots) |
+| Growth (small) | `exports/growth.png` | Super-critical droplet expanding, $R_0 = R^* + 0.5\sigma$ (red snapshots) |
+| Growth (large) | `exports/growth_large.png` | Larger super-critical droplet, $R_0 = R^* + 1.0\sigma$ (orange snapshots) |
