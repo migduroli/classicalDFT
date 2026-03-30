@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -156,24 +157,28 @@ static CoexData sweep_coexistence(
   return cd;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
 
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = config::ConfigParser(config_path);
+
   // ── Parameters ────────────────────────────────────────────────────────
 
-  constexpr double sigma = 1.0;
-  constexpr double epsilon = 1.0;
-  constexpr double r_cutoff = 2.5;
-  constexpr double diameter = sigma;
-  constexpr double dx = 0.5;
-  arma::rowvec3 box = {6.0, 6.0, 6.0};
+  double sigma = cfg.get<double>("potential.sigma");
+  double epsilon = cfg.get<double>("potential.epsilon");
+  double r_cutoff = cfg.get<double>("potential.r_cutoff");
+  double diameter = sigma;
+  double dx = cfg.get<double>("grid.dx");
+  double box_length = cfg.get<double>("grid.box_length");
+  arma::rowvec3 box = {box_length, box_length, box_length};
 
-  constexpr double max_dens = 1.1;
-  constexpr double step = 0.005;
-  constexpr double tol = 1e-8;
+  double max_dens = cfg.get<double>("coexistence.max_density");
+  double step = cfg.get<double>("coexistence.step");
+  double tol = cfg.get<double>("coexistence.tolerance");
 
   potentials::LennardJones lj(sigma, epsilon, r_cutoff);
 
@@ -185,10 +190,17 @@ int main() {
 
   // ── 1. Pressure isotherms (White Bear II) ─────────────────────────────
 
-  std::vector<double> isotherm_temps = {0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30};
-  constexpr int n_rho = 300;
-  constexpr double rho_min = 0.005;
-  constexpr double rho_max_iso = 0.85;
+  // Parse comma-separated temperature list
+  std::string temp_str = cfg.get<std::string>("isotherms.temperatures");
+  std::vector<double> isotherm_temps;
+  {
+    std::stringstream ss(temp_str);
+    std::string tok;
+    while (std::getline(ss, tok, ',')) isotherm_temps.push_back(std::stod(tok));
+  }
+  int n_rho = static_cast<int>(cfg.get<double>("isotherms.n_rho"));
+  double rho_min = cfg.get<double>("isotherms.rho_min");
+  double rho_max_iso = cfg.get<double>("isotherms.rho_max");
 
   std::vector<std::vector<double>> iso_rho(isotherm_temps.size());
   std::vector<std::vector<double>> iso_p(isotherm_temps.size());
@@ -224,7 +236,8 @@ int main() {
   std::vector<CoexData> all_coex;
   for (auto& m : models) {
     auto cd = sweep_coexistence(dx, box, diameter, lj, m,
-                                0.50, 1.50, 0.02, 0.005,
+                                cfg.get<double>("sweep.T_lo"), cfg.get<double>("sweep.T_hi"),
+                                cfg.get<double>("sweep.dT_coarse"), cfg.get<double>("sweep.dT_fine"),
                                 max_dens, step, tol);
 
     std::cout << cd.name << ": " << cd.T.size() << " coexistence points";

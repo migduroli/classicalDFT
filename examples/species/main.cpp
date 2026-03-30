@@ -11,15 +11,19 @@
 using namespace dft::density;
 using namespace dft::species;
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
 
-  double dx = 0.1;
-  arma::rowvec3 box = {10.0, 10.0, 10.0};
-  double rho0 = 0.5;
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
+
+  double dx = cfg.get<double>("grid.dx");
+  arma::rowvec3 box = {cfg.get<double>("grid.box_x"), cfg.get<double>("grid.box_y"),
+                       cfg.get<double>("grid.box_z")};
+  double rho0 = cfg.get<double>("species.rho0");
 
   // ── Alias coordinates ─────────────────────────────────────────────────
 
@@ -28,7 +32,7 @@ int main() {
   std::cout << "Mapping: rho = rho_min + x^2" << std::endl;
   std::cout << "Inverse: x = sqrt(rho - rho_min)" << std::endl;
 
-  Species s(Density(dx, box), /*mu=*/-2.5);
+  Species s(Density(dx, box), /*mu=*/cfg.get<double>("species.mu"));
   s.density().values().fill(rho0);
 
   arma::vec alias = s.density_alias();
@@ -40,16 +44,14 @@ int main() {
 
   std::cout << "\n=== External field ===" << std::endl;
 
-  long nx = s.density().shape()[0];
-  long ny = s.density().shape()[1];
-  long nz = s.density().shape()[2];
+  const auto& shape = s.density().shape();
   double Lz = box(2);
 
   // Linear gravitational potential along z
-  double g_field = 1.0;
-  for (long ix = 0; ix < nx; ++ix) {
-    for (long iy = 0; iy < ny; ++iy) {
-      for (long iz = 0; iz < nz; ++iz) {
+  double g_field = cfg.get<double>("species.g_field");
+  for (long ix = 0; ix < shape[0]; ++ix) {
+    for (long iy = 0; iy < shape[1]; ++iy) {
+      for (long iz = 0; iz < shape[2]; ++iz) {
         double z = dx * iz;
         s.density().external_field()(s.density().flat_index(ix, iy, iz)) = g_field * z;
       }
@@ -57,12 +59,12 @@ int main() {
   }
 
   // Barometric density: rho(z) ~ exp(-g * z / kT), normalised to N_target atoms
-  double n_target = 200.0;
+  double n_target = cfg.get<double>("species.n_target");
   double norm = 0.0;
   arma::vec barometric(s.density().size());
-  for (long ix = 0; ix < nx; ++ix) {
-    for (long iy = 0; iy < ny; ++iy) {
-      for (long iz = 0; iz < nz; ++iz) {
+  for (long ix = 0; ix < shape[0]; ++ix) {
+    for (long iy = 0; iy < shape[1]; ++iy) {
+      for (long iz = 0; iz < shape[2]; ++iz) {
         double z = dx * iz;
         auto idx = s.density().flat_index(ix, iy, iz);
         barometric(idx) = std::exp(-g_field * z);
@@ -93,6 +95,7 @@ int main() {
   std::cout << "After begin_force_calculation: N = " << s.density().number_of_atoms() << std::endl;
 
   // Save barometric slice for plotting (before switching to uniform for forces)
+  long nz = shape[2];
   std::vector<double> barometric_z(nz), vext_z_saved(nz);
   for (long iz = 0; iz < nz; ++iz) {
     auto uid = s.density().flat_index(0, 0, iz);

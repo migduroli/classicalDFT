@@ -15,11 +15,14 @@ using namespace dft::functional::fmt;
 using namespace dft::density;
 using namespace dft::thermodynamics;
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
+
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
 
   // ── 1. Bulk free energy: FMT models vs known EOS ─────────────────────
 
@@ -37,7 +40,7 @@ int main() {
   HardSphereModel pyc_model = PercusYevickCompressibility{};
   HardSphereModel pyv_model = PercusYevickVirial{};
 
-  const int N = 200;
+  const int N = static_cast<int>(cfg.get<double>("density.n_eta"));
   std::vector<double> eta_vec(N), f_ros(N), f_rslt(N), f_wb1(N), f_wb2(N);
   std::vector<double> f_cs(N), f_pyc(N), f_pyv(N);
 
@@ -93,9 +96,10 @@ int main() {
 
   std::cout << "\n=== FMT species on 3D grid ===\n\n";
 
-  double dx = 0.1;
-  arma::rowvec3 box = {1.6, 1.6, 1.6};
-  double rho0 = 0.5;
+  double dx = cfg.get<double>("grid.dx");
+  double box_length = cfg.get<double>("grid.box_length");
+  arma::rowvec3 box = {box_length, box_length, box_length};
+  double rho0 = cfg.get<double>("density.rho0");
   double eta0 = packing_fraction(rho0);
 
   Density dens(dx, box);

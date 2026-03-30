@@ -12,12 +12,15 @@
 
 using namespace dft;
 
-int main()
+int main(int argc, char* argv[])
 {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
+
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
 
   auto to_vec = [](const arma::vec& v) {
     return arma::conv_to<std::vector<double>>::from(v);
@@ -25,10 +28,10 @@ int main()
 
   using namespace dft::potentials;
 
-  const int N = 200;
-  auto x_arma = arma::linspace(0.75, 1.8, N);
+  const int N = static_cast<int>(cfg.get<double>("potential.n_points"));
+  auto x_arma = arma::linspace(cfg.get<double>("potential.r_min"), cfg.get<double>("potential.r_max"), N);
   auto x = to_vec(x_arma);
-  double kT = 1.0;
+  double kT = cfg.get<double>("potential.kT");
 
   auto lj = LennardJones();
   auto twf = tenWoldeFrenkel();

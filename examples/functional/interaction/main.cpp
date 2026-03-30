@@ -16,22 +16,29 @@ using namespace dft::species;
 using namespace dft::density;
 using namespace dft::potentials;
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
   std::cout << std::fixed << std::setprecision(6);
 
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
+
   // ── Common parameters ─────────────────────────────────────────────────
 
-  double sigma = 1.0;
-  double epsilon = 1.0;
-  double r_cutoff = 2.5;
-  double dx = 0.25;
-  double kT_ref = 1.0;
-  double rho0 = 0.5;
-  arma::rowvec3 box = {5.0, 5.0, 5.0};
+  double sigma = cfg.get<double>("potential.sigma");
+  double epsilon = cfg.get<double>("potential.epsilon");
+  double r_cutoff = cfg.get<double>("potential.r_cutoff");
+  double dx = cfg.get<double>("grid.dx");
+  double kT_ref = cfg.get<double>("thermodynamics.kT");
+  double rho0 = cfg.get<double>("thermodynamics.rho0");
+  double box_length = cfg.get<double>("grid.box_length");
+  arma::rowvec3 box = {box_length, box_length, box_length};
+  int n_r = static_cast<int>(cfg.get<double>("thermodynamics.n_r"));
+  int n_temps = static_cast<int>(cfg.get<double>("thermodynamics.n_temps"));
+  int n_rho = static_cast<int>(cfg.get<double>("thermodynamics.n_rho"));
 
   LennardJones lj(sigma, epsilon, r_cutoff);
 
@@ -43,7 +50,6 @@ int main() {
 
   std::cout << "\n=== Attractive tail: WCA vs BH splitting ===\n\n";
 
-  int n_r = 200;
   std::vector<double> r_vec(n_r), watt_wca(n_r), watt_bh(n_r), v_full(n_r);
 
   LennardJones lj_wca(sigma, epsilon, r_cutoff);
@@ -76,7 +82,6 @@ int main() {
 
   std::cout << "\n=== Van der Waals parameter: a(kT) ===\n\n";
 
-  int n_temps = 50;
   std::vector<double> kT_vec(n_temps), a_vdw_vec(n_temps);
 
   std::cout << std::setw(10) << "kT"
@@ -177,7 +182,6 @@ int main() {
   Interaction inter_ref(sp_ref, sp_ref, lj, kT_ref);
   double a_ref = inter_ref.vdw_parameter();
 
-  int n_rho = 100;
   std::vector<double> rho_vec(n_rho), f_bulk_vec(n_rho), mu_bulk_vec(n_rho);
 
   std::cout << std::setw(10) << "rho"

@@ -12,11 +12,14 @@
 
 using namespace dft::thermodynamics;
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
+
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
 
   // ── Hard-sphere thermodynamics ──────────────────────────────────────────
 
@@ -41,7 +44,8 @@ int main() {
   std::vector<double> eta_values;
   std::vector<double> p_cs, p_pyv, p_pyc, chi_cs;
 
-  for (double eta = 0.05; eta <= 0.49; eta += 0.05) {
+  for (double eta = cfg.get<double>("hard_sphere.eta_min"); eta <= cfg.get<double>("hard_sphere.eta_max");
+       eta += cfg.get<double>("hard_sphere.eta_step")) {
     eta_values.push_back(eta);
     p_cs.push_back(hs_pressure(cs_model, eta));
     p_pyv.push_back(hs_pressure(pyv_model, eta));
@@ -83,7 +87,8 @@ int main() {
   std::vector<double> rho_values;
   std::vector<double> shear_v, bulk_v, thermal_v, damping_v;
 
-  for (double density = 0.1; density <= 0.8; density += 0.1) {
+  for (double density = cfg.get<double>("transport.rho_min"); density <= cfg.get<double>("transport.rho_max");
+       density += cfg.get<double>("transport.rho_step")) {
     double chi = contact_value(packing_fraction(density));
     rho_values.push_back(density);
     shear_v.push_back(transport::shear_viscosity(density, chi));
@@ -103,7 +108,7 @@ int main() {
 
   std::cout << "\n=== Equations of state ===\n\n";
 
-  double kT = 1.3;
+  double kT = cfg.get<double>("thermodynamics.kT");
   eos::EosModel ideal = eos::IdealGas(kT);
   eos::EosModel py_eos = eos::PercusYevick(kT);
   eos::EosModel jzg = eos::LennardJonesJZG(kT);
@@ -122,7 +127,8 @@ int main() {
   std::vector<double> eos_rho;
   std::vector<double> p_ideal, p_py, p_jzg, p_jzg_cut, p_mecke;
 
-  for (double density = 0.05; density <= 0.85; density += 0.1) {
+  for (double density = cfg.get<double>("eos.rho_min"); density <= cfg.get<double>("eos.rho_max");
+       density += cfg.get<double>("eos.rho_step")) {
     eos_rho.push_back(density);
     p_ideal.push_back(eos::eos_pressure(ideal, density));
     p_py.push_back(eos::eos_pressure(py_eos, density));

@@ -10,12 +10,15 @@
 
 using namespace dft::crystal;
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
   std::cout << std::fixed << std::setprecision(6);
+
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
 
   // ── Build crystals with different structures and orientations ──────────
 
@@ -59,7 +62,10 @@ int main() {
 
   std::cout << "\n=== Replicated FCC [001] (4x4x4) ===\n\n";
 
-  auto fcc = Lattice(Structure::FCC, Orientation::_001, {4, 4, 4});
+  auto fcc = Lattice(Structure::FCC, Orientation::_001,
+                     {static_cast<int>(cfg.get<double>("lattice.replicas_x")),
+                      static_cast<int>(cfg.get<double>("lattice.replicas_y")),
+                      static_cast<int>(cfg.get<double>("lattice.replicas_z"))});
   std::cout << "  Atoms:      " << fcc.size() << "\n";
   std::cout << "  Dimensions: ("
             << fcc.dimensions()(0) << ", "
@@ -72,7 +78,7 @@ int main() {
 
   auto bcc = Lattice(Structure::BCC, Orientation::_001, {2, 2, 2});
 
-  double dnn = 3.405;  // Argon nearest-neighbor distance in Angstrom
+  double dnn = cfg.get<double>("lattice.dnn");  // Nearest-neighbor distance
   arma::mat scaled = bcc.positions(dnn);
   std::cout << "  Uniform scale (dnn = " << dnn << " A):\n";
   for (arma::uword i = 0; i < std::min(bcc.size(), arma::uword(4)); ++i) {
@@ -82,7 +88,8 @@ int main() {
               << scaled(i, 2) << ")\n";
   }
 
-  arma::rowvec3 box = {10.0, 12.0, 14.0};
+  arma::rowvec3 box = {cfg.get<double>("scaling.box_x"), cfg.get<double>("scaling.box_y"),
+                       cfg.get<double>("scaling.box_z")};
   arma::mat aniso = bcc.positions(box);
   std::cout << "\n  Anisotropic scale (box = " << box(0) << " x " << box(1) << " x " << box(2) << "):\n";
   for (arma::uword i = 0; i < std::min(bcc.size(), arma::uword(4)); ++i) {

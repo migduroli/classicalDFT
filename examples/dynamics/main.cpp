@@ -46,20 +46,17 @@ static Solver make_perturbed_solver(double dx, double length, double rho0, doubl
 
 /// Extract the 1D density profile (x-direction) from a solver.
 static std::vector<double> extract_profile(const Solver& solver) {
-  const auto& rho = solver.density(0).values();
-  long nx = solver.density(0).shape()[0];
-  long ny = solver.density(0).shape()[1];
-  long nz = solver.density(0).shape()[2];
-  std::vector<double> profile(static_cast<size_t>(nx));
-  for (long ix = 0; ix < nx; ++ix) {
-    // Average over y and z (should be trivial for 1D-like grids)
+  const auto& dens = solver.density(0);
+  const auto& shape = dens.shape();
+  std::vector<double> profile(static_cast<size_t>(shape[0]));
+  for (long ix = 0; ix < shape[0]; ++ix) {
     double sum = 0.0;
-    for (long iy = 0; iy < ny; ++iy) {
-      for (long iz = 0; iz < nz; ++iz) {
-        sum += rho(static_cast<arma::uword>(ix * ny * nz + iy * nz + iz));
+    for (long iy = 0; iy < shape[1]; ++iy) {
+      for (long iz = 0; iz < shape[2]; ++iz) {
+        sum += dens.values()(dens.flat_index(ix, iy, iz));
       }
     }
-    profile[static_cast<size_t>(ix)] = sum / static_cast<double>(ny * nz);
+    profile[static_cast<size_t>(ix)] = sum / static_cast<double>(shape[1] * shape[2]);
   }
   return profile;
 }
@@ -77,22 +74,27 @@ static std::vector<double> extract_x_grid(const Solver& solver) {
 
 // ── Demo 1: FIRE2 minimisation ───────────────────────────────────────────
 
-static void demo_fire2() {
+static void demo_fire2(const config::ConfigParser& cfg) {
   std::cout << "\n══════════════════════════════════════════════════════════════\n"
             << "  FIRE2 minimisation: ideal gas relaxation to equilibrium\n"
             << "══════════════════════════════════════════════════════════════\n\n";
 
-  double dx = 0.5;
-  double length = 20.0;
-  double rho_initial = 0.3;
-  double rho_target = 0.7;
+  double dx = cfg.get<double>("grid.dx");
+  double length = cfg.get<double>("fire2.length");
+  double rho_initial = cfg.get<double>("fire2.rho_initial");
+  double rho_target = cfg.get<double>("fire2.rho_target");
+  int max_steps = static_cast<int>(cfg.get<double>("fire2.max_steps"));
 
   auto solver = make_1d_solver(dx, length, rho_initial);
   solver.species(0).set_chemical_potential(std::log(rho_target));
 
-  dynamics::Fire2Config config{
-      .dt = 1e-3, .dt_max = 0.1, .force_limit = 1e-8, .min_density = 1e-30};
-  dynamics::Fire2Minimizer fire(solver, config);
+  dynamics::Fire2Config fconf{
+      .dt = cfg.get<double>("fire2.dt"),
+      .dt_max = cfg.get<double>("fire2.dt_max"),
+      .force_limit = cfg.get<double>("fire2.force_limit"),
+      .min_density = cfg.get<double>("fire2.min_density"),
+  };
+  dynamics::Fire2Minimizer fire(solver, fconf);
 
   // Track convergence
   std::vector<double> steps, energies, forces;
@@ -105,7 +107,7 @@ static void demo_fire2() {
     return true;
   });
 
-  bool converged = fire.run(500);
+  bool converged = fire.run(max_steps);
 
   // Print convergence table
   std::cout << std::setw(8) << "Step" << std::setw(16) << "Energy" << std::setw(16) << "Max force\n";
@@ -151,15 +153,15 @@ static void demo_fire2() {
 
 // ── Demo 2: Split-operator density dynamics ──────────────────────────────
 
-static void demo_split_operator() {
+static void demo_split_operator(const config::ConfigParser& cfg) {
   std::cout << "\n══════════════════════════════════════════════════════════════\n"
             << "  Split-operator integrator: density relaxation dynamics\n"
             << "══════════════════════════════════════════════════════════════\n\n";
 
-  double dx = 0.5;
-  double length = 10.0;
-  double rho0 = 0.5;
-  double amplitude = 0.2;
+  double dx = cfg.get<double>("grid.dx");
+  double length = cfg.get<double>("split_operator.length");
+  double rho0 = cfg.get<double>("split_operator.rho0");
+  double amplitude = cfg.get<double>("split_operator.amplitude");
 
   auto solver = make_perturbed_solver(dx, length, rho0, amplitude);
   solver.species(0).set_chemical_potential(std::log(rho0));
@@ -167,15 +169,14 @@ static void demo_split_operator() {
   auto x = extract_x_grid(solver);
   auto rho_initial = extract_profile(solver);
 
-  dynamics::IntegratorConfig config{
+  dynamics::IntegratorConfig iconf{
       .scheme = dynamics::IntegrationScheme::SplitOperator,
-      .dt = 5e-3,
-      .diffusion_coefficient = 1.0,
-      .force_limit = 1e-12,
+      .dt = cfg.get<double>("split_operator.dt"),
+      .diffusion_coefficient = cfg.get<double>("split_operator.diffusion_coefficient"),
+      .force_limit = cfg.get<double>("split_operator.force_limit"),
   };
-  dynamics::Integrator integrator(solver, config);
+  dynamics::Integrator integrator(solver, iconf);
 
-  // Capture snapshots at various times: t = 0, 2, 4, 6, 8, 10
   struct Snapshot {
     double time;
     std::vector<double> profile;
@@ -183,14 +184,14 @@ static void demo_split_operator() {
   std::vector<Snapshot> snapshots;
   snapshots.push_back({0.0, rho_initial});
 
-  double total_time = 10.0;
-  int n_snapshots = 10;
+  double total_time = cfg.get<double>("split_operator.total_time");
+  int n_snapshots = static_cast<int>(cfg.get<double>("split_operator.n_snapshots"));
   double snapshot_interval = total_time / n_snapshots;
-  int steps_per_snapshot = static_cast<int>(snapshot_interval / config.dt);
+  int steps_per_snapshot = static_cast<int>(snapshot_interval / iconf.dt);
 
   for (int snap = 0; snap < n_snapshots; ++snap) {
     (void)integrator.resume(steps_per_snapshot);
-    double time = static_cast<double>((snap + 1) * steps_per_snapshot) * config.dt;
+    double time = static_cast<double>((snap + 1) * steps_per_snapshot) * iconf.dt;
     snapshots.push_back({time, extract_profile(solver)});
   }
 
@@ -228,15 +229,15 @@ static void demo_split_operator() {
 
 // ── Demo 3: Crank-Nicholson density dynamics ─────────────────────────────
 
-static void demo_crank_nicholson() {
+static void demo_crank_nicholson(const config::ConfigParser& cfg) {
   std::cout << "\n══════════════════════════════════════════════════════════════\n"
             << "  Crank-Nicholson integrator: density relaxation dynamics\n"
             << "══════════════════════════════════════════════════════════════\n\n";
 
-  double dx = 0.5;
-  double length = 10.0;
-  double rho0 = 0.5;
-  double amplitude = 0.2;
+  double dx = cfg.get<double>("grid.dx");
+  double length = cfg.get<double>("crank_nicholson.length");
+  double rho0 = cfg.get<double>("crank_nicholson.rho0");
+  double amplitude = cfg.get<double>("crank_nicholson.amplitude");
 
   auto solver = make_perturbed_solver(dx, length, rho0, amplitude);
   solver.species(0).set_chemical_potential(std::log(rho0));
@@ -244,15 +245,15 @@ static void demo_crank_nicholson() {
   auto x = extract_x_grid(solver);
   auto rho_initial = extract_profile(solver);
 
-  dynamics::IntegratorConfig config{
+  dynamics::IntegratorConfig iconf{
       .scheme = dynamics::IntegrationScheme::CrankNicholson,
-      .dt = 2.5e-2,
-      .diffusion_coefficient = 1.0,
-      .force_limit = 1e-12,
-      .crank_nicholson_iterations = 5,
-      .cn_tolerance = 1e-10,
+      .dt = cfg.get<double>("crank_nicholson.dt"),
+      .diffusion_coefficient = cfg.get<double>("crank_nicholson.diffusion_coefficient"),
+      .force_limit = cfg.get<double>("crank_nicholson.force_limit"),
+      .crank_nicholson_iterations = static_cast<int>(cfg.get<double>("crank_nicholson.cn_iterations")),
+      .cn_tolerance = cfg.get<double>("crank_nicholson.cn_tolerance"),
   };
-  dynamics::Integrator integrator(solver, config);
+  dynamics::Integrator integrator(solver, iconf);
 
   struct Snapshot {
     double time;
@@ -261,14 +262,14 @@ static void demo_crank_nicholson() {
   std::vector<Snapshot> snapshots;
   snapshots.push_back({0.0, rho_initial});
 
-  double total_time = 10.0;
-  int n_snapshots = 10;
+  double total_time = cfg.get<double>("crank_nicholson.total_time");
+  int n_snapshots = static_cast<int>(cfg.get<double>("crank_nicholson.n_snapshots"));
   double snapshot_interval = total_time / n_snapshots;
-  int steps_per_snapshot = static_cast<int>(snapshot_interval / config.dt);
+  int steps_per_snapshot = static_cast<int>(snapshot_interval / iconf.dt);
 
   for (int snap = 0; snap < n_snapshots; ++snap) {
     (void)integrator.resume(steps_per_snapshot);
-    double time = static_cast<double>((snap + 1) * steps_per_snapshot) * config.dt;
+    double time = static_cast<double>((snap + 1) * steps_per_snapshot) * iconf.dt;
     snapshots.push_back({time, extract_profile(solver)});
   }
 
@@ -286,7 +287,7 @@ static void demo_crank_nicholson() {
               << var << "\n";
   }
 
-  std::cout << "\nCrank-Nicholson allows larger timestep (dt = " << config.dt << ") compared to\n"
+  std::cout << "\nCrank-Nicholson allows larger timestep (dt = " << iconf.dt << ") compared to\n"
             << "split-operator, while maintaining stability and second-order accuracy.\n";
 
 #ifdef DFT_HAS_MATPLOTLIB
@@ -309,36 +310,36 @@ static void demo_crank_nicholson() {
 
 // ── Demo 4: Comparing both schemes ──────────────────────────────────────
 
-static void demo_comparison() {
+static void demo_comparison(const config::ConfigParser& cfg) {
   std::cout << "\n══════════════════════════════════════════════════════════════\n"
             << "  Comparison: split-operator vs Crank-Nicholson\n"
             << "══════════════════════════════════════════════════════════════\n\n";
 
-  double dx = 0.5;
-  double length = 10.0;
-  double rho0 = 0.5;
-  double amplitude = 0.2;
-  double total_time = 10.0;
+  double dx = cfg.get<double>("grid.dx");
+  double length = cfg.get<double>("comparison.length");
+  double rho0 = cfg.get<double>("comparison.rho0");
+  double amplitude = cfg.get<double>("comparison.amplitude");
+  double total_time = cfg.get<double>("comparison.total_time");
 
   // Run split-operator
   auto solver_so = make_perturbed_solver(dx, length, rho0, amplitude);
   solver_so.species(0).set_chemical_potential(std::log(rho0));
 
-  dynamics::IntegratorConfig config_so{
+  dynamics::IntegratorConfig iconf_so{
       .scheme = dynamics::IntegrationScheme::SplitOperator,
-      .dt = 5e-3,
-      .diffusion_coefficient = 1.0,
-      .force_limit = 1e-12,
+      .dt = cfg.get<double>("split_operator.dt"),
+      .diffusion_coefficient = cfg.get<double>("split_operator.diffusion_coefficient"),
+      .force_limit = cfg.get<double>("split_operator.force_limit"),
   };
-  dynamics::Integrator integrator_so(solver_so, config_so);
+  dynamics::Integrator integrator_so(solver_so, iconf_so);
 
-  int so_total_steps = static_cast<int>(total_time / config_so.dt);
+  int so_total_steps = static_cast<int>(total_time / iconf_so.dt);
   int so_sample_every = so_total_steps / 40;
   std::vector<double> so_steps, so_variance;
   for (int step = 0; step <= so_total_steps; step += so_sample_every) {
     if (step > 0) (void)integrator_so.resume(so_sample_every);
     double var = arma::var(solver_so.density(0).values());
-    so_steps.push_back(static_cast<double>(step) * config_so.dt);
+    so_steps.push_back(static_cast<double>(step) * iconf_so.dt);
     so_variance.push_back(var);
   }
 
@@ -346,30 +347,30 @@ static void demo_comparison() {
   auto solver_cn = make_perturbed_solver(dx, length, rho0, amplitude);
   solver_cn.species(0).set_chemical_potential(std::log(rho0));
 
-  dynamics::IntegratorConfig config_cn{
+  dynamics::IntegratorConfig iconf_cn{
       .scheme = dynamics::IntegrationScheme::CrankNicholson,
-      .dt = 2.5e-2,
-      .diffusion_coefficient = 1.0,
-      .force_limit = 1e-12,
-      .crank_nicholson_iterations = 5,
-      .cn_tolerance = 1e-10,
+      .dt = cfg.get<double>("crank_nicholson.dt"),
+      .diffusion_coefficient = cfg.get<double>("crank_nicholson.diffusion_coefficient"),
+      .force_limit = cfg.get<double>("crank_nicholson.force_limit"),
+      .crank_nicholson_iterations = static_cast<int>(cfg.get<double>("crank_nicholson.cn_iterations")),
+      .cn_tolerance = cfg.get<double>("crank_nicholson.cn_tolerance"),
   };
-  dynamics::Integrator integrator_cn(solver_cn, config_cn);
+  dynamics::Integrator integrator_cn(solver_cn, iconf_cn);
 
-  int cn_total_steps = static_cast<int>(total_time / config_cn.dt);
+  int cn_total_steps = static_cast<int>(total_time / iconf_cn.dt);
   int cn_sample_every = std::max(cn_total_steps / 40, 1);
   std::vector<double> cn_steps, cn_variance;
   for (int step = 0; step <= cn_total_steps; step += cn_sample_every) {
     if (step > 0) (void)integrator_cn.resume(cn_sample_every);
     double var = arma::var(solver_cn.density(0).values());
-    cn_steps.push_back(static_cast<double>(step) * config_cn.dt);
+    cn_steps.push_back(static_cast<double>(step) * iconf_cn.dt);
     cn_variance.push_back(var);
   }
 
   // Print comparison
-  std::cout << "Split-operator (dt = " << config_so.dt << "): " << so_total_steps << " steps\n"
+  std::cout << "Split-operator (dt = " << iconf_so.dt << "): " << so_total_steps << " steps\n"
             << "  Final variance: " << std::scientific << so_variance.back() << "\n\n"
-            << "Crank-Nicholson (dt = " << config_cn.dt << "): " << cn_total_steps << " steps\n"
+            << "Crank-Nicholson (dt = " << iconf_cn.dt << "): " << cn_total_steps << " steps\n"
             << "  Final variance: " << std::scientific << cn_variance.back() << "\n\n"
             << "Both schemes reach comparable results. Crank-Nicholson uses 5x\n"
             << "fewer steps by tolerating a larger timestep.\n";
@@ -391,16 +392,19 @@ static void demo_comparison() {
 
 // ── Main ─────────────────────────────────────────────────────────────────
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
 
-  demo_fire2();
-  demo_split_operator();
-  demo_crank_nicholson();
-  demo_comparison();
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = config::ConfigParser(config_path);
+
+  demo_fire2(cfg);
+  demo_split_operator(cfg);
+  demo_crank_nicholson(cfg);
+  demo_comparison(cfg);
 
   std::cout << "\nAll dynamics demos completed.\n";
   return 0;

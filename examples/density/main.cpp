@@ -11,36 +11,38 @@
 using namespace dft::density;
 using namespace dft::species;
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef EXAMPLE_SOURCE_DIR
   std::filesystem::current_path(EXAMPLE_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
 
+  std::string config_path = (argc > 1) ? argv[1] : "config.ini";
+  auto cfg = dft::config::ConfigParser(config_path);
+
   // ── Density on a periodic grid ──────────────────────────────────────────
 
-  double dx = 0.1;
-  arma::rowvec3 box = {5.0, 5.0, 5.0};
+  double dx = cfg.get<double>("grid.dx");
+  arma::rowvec3 box = {cfg.get<double>("grid.box_x"), cfg.get<double>("grid.box_y"),
+                       cfg.get<double>("grid.box_z")};
   Density rho(dx, box);
 
-  long nx = rho.shape()[0];
-  long ny = rho.shape()[1];
-  long nz = rho.shape()[2];
+  const auto& shape = rho.shape();
 
   std::cout << "=== Density ===" << std::endl;
-  std::cout << "Grid shape: " << nx << " x " << ny << " x " << nz << std::endl;
+  std::cout << "Grid shape: " << shape[0] << " x " << shape[1] << " x " << shape[2] << std::endl;
   std::cout << "Total points: " << rho.size() << std::endl;
   std::cout << "Spacing: " << rho.dx() << std::endl;
   std::cout << "Cell volume: " << rho.cell_volume() << std::endl;
 
   // Sinusoidal density profile: uniform in x,y; oscillates in z
-  double rho0 = 0.8;
-  double amplitude = 0.3;
+  double rho0 = cfg.get<double>("density.rho0");
+  double amplitude = cfg.get<double>("density.amplitude");
   double Lz = box(2);
 
-  for (long ix = 0; ix < nx; ++ix) {
-    for (long iy = 0; iy < ny; ++iy) {
-      for (long iz = 0; iz < nz; ++iz) {
+  for (long ix = 0; ix < shape[0]; ++ix) {
+    for (long iy = 0; iy < shape[1]; ++iy) {
+      for (long iz = 0; iz < shape[2]; ++iz) {
         double z = dx * iz;
         double val = rho0 + amplitude * std::sin(2.0 * std::numbers::pi * z / Lz);
         rho.set(rho.flat_index(ix, iy, iz), val);
@@ -58,12 +60,14 @@ int main() {
   // ── External field ──────────────────────────────────────────────────────
 
   // Simple hard-wall potential at boundaries
-  for (long ix = 0; ix < nx; ++ix) {
-    for (long iy = 0; iy < ny; ++iy) {
-      for (long iz = 0; iz < nz; ++iz) {
+  double wall_potential = cfg.get<double>("density.wall_potential");
+  double wall_thickness = cfg.get<double>("density.wall_thickness");
+  for (long ix = 0; ix < shape[0]; ++ix) {
+    for (long iy = 0; iy < shape[1]; ++iy) {
+      for (long iz = 0; iz < shape[2]; ++iz) {
         double z = dx * iz;
         double vext = 0.0;
-        if (z < 0.5 || z > Lz - 0.5) vext = 10.0;
+        if (z < wall_thickness || z > Lz - wall_thickness) vext = wall_potential;
         rho.external_field()(rho.flat_index(ix, iy, iz)) = vext;
       }
     }
@@ -76,6 +80,7 @@ int main() {
   rho.forward_fft();
   auto fourier = rho.fft().fourier();
   long ntot = rho.size();
+  long nz = shape[2];
 
   std::cout << "\nFFT DC / N = " << std::abs(fourier[0]) / ntot << " (expected " << rho0 << ")" << std::endl;
   std::cout << "|F(kz=1)| / N = " << std::abs(fourier[1]) / ntot << " (expected " << amplitude / 2.0 << ")"
@@ -83,7 +88,7 @@ int main() {
 
   // ── Species ────────────────────────────────────────────────────────────
 
-  Species s(Density(dx, box), /*mu=*/1.0);
+  Species s(Density(dx, box), /*mu=*/cfg.get<double>("species.mu"));
   s.density().values().fill(rho0);
 
   std::cout << "\n=== Species ===" << std::endl;
@@ -94,7 +99,7 @@ int main() {
   double diff = arma::max(arma::abs(s.density().values() - rho0));
   std::cout << "Alias round-trip max error: " << diff << std::endl;
 
-  double target = 50.0;
+  double target = cfg.get<double>("species.fixed_mass");
   s.set_fixed_mass(target);
   s.begin_force_calculation();
   std::cout << "\nFixed-mass rescaling (target = " << target << "):" << std::endl;
