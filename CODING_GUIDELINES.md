@@ -3,6 +3,8 @@
 This document is the single source of truth for every coding convention in this
 project. All new code, refactored code, examples, and tests must follow it.
 
+See `RENOVATION.md` for the complete architectural plan.
+
 ---
 
 ## 1. Language standard and tooling
@@ -16,7 +18,7 @@ project. All new code, refactored code, examples, and tests must follow it.
 | Linear algebra | Armadillo (`arma::vec`, `arma::rowvec3`, `arma::mat33`) |
 | FFT | FFTW3 |
 | Plotting | matplotlib-cpp (primary, `DFT_HAS_MATPLOTLIB`), Grace (`DFT_HAS_GRACE`, optional fallback) |
-| Testing | GoogleTest 1.14 (fetched via `FetchContent`) |
+| Testing | Catch2 v3 (fetched via `FetchContent`) |
 | Build | CMake 3.20+, single static library `classicaldft` |
 
 ---
@@ -25,75 +27,92 @@ project. All new code, refactored code, examples, and tests must follow it.
 
 ```
 include/
-  dft.h                                 # umbrella header
+  dft.hpp                                  # umbrella header
   dft/
-    config.h                            # configuration file parser
-    console.h                           # terminal formatting utilities
-    density.h                           # density profile
-    species.h                           # species base class
-    crystal/
-      lattice.h                         # BCC/FCC/HCP crystal lattice builder
-      types.h                           # crystal enums and types
-    functional/
-      interaction.h                     # mean-field interaction
-      fmt/
-        convolution.h                   # convolution field
-        functional.h                    # FMT base + models
-        measures.h                      # fundamental measures struct
-        species.h                       # FMT species
-        weights.h                       # weight generation
-    geometry/
-      base/                             # vertex, element, mesh abstractions
-      2D/                               # 2D element, mesh, uniform mesh
-      3D/                               # 3D element, mesh, uniform mesh
+    init.hpp                               # convenience state factories
+    console.hpp                            # terminal formatting utilities
+    exceptions.hpp                         # general + math exceptions
+    core/
+      grid.hpp                             # lightweight DFT grid struct
+      density.hpp                          # density data struct
+      species.hpp                          # Species identity + SpeciesState
+      state.hpp                            # State aggregate
     math/
-      arithmetic.h                      # compensated summation
-      autodiff.h                        # autodiff adapter
-      exceptions.h                      # parameter exceptions
-      fourier.h                         # FFTW3 C++ wrapper
-      integration.h                     # numerical integration
-      spline.h                          # cubic spline (GSL)
+      fourier.hpp                          # FFTW3 RAII wrapper
+      convolution.hpp                      # FFT-based convolution
+      arithmetic.hpp                       # compensated summation
+      spline.hpp                           # cubic spline (GSL)
+      integration.hpp                      # numerical integration
+      autodiff.hpp                         # autodiff adapter
+      hessian.hpp                          # Hessian operator
+    physics/
+      potentials.hpp                       # variant-based potentials
+      interactions.hpp                     # Interaction spec struct
+      model.hpp                            # Model aggregate
+      enskog.hpp                           # hard-sphere thermodynamics
+      eos.hpp                              # equations of state
+      fmt/
+        models.hpp                         # FMT model structs + free fns
+        measures.hpp                       # fundamental measures struct
+        weights.hpp                        # weight generation
+    functionals/
+      ideal_gas.hpp                        # ideal gas contribution
+      hard_sphere.hpp                      # FMT hard sphere contribution
+      mean_field.hpp                       # mean-field interaction contribution
+      external_field.hpp                   # external field contribution
+      functionals.hpp                      # orchestrator + Result struct
+      bulk/
+        thermodynamics.hpp                 # pressure, chemical potential, etc.
+        phase_diagram.hpp                  # continuation-based coexistence/spinodal
+    algorithms/
+      alias.hpp                            # variant-based alias transforms
+      fire.hpp                             # FIRE2 minimizer
+      split_operator.hpp                   # DDFT split-operator integration
+      crank_nicholson.hpp                  # DDFT Crank-Nicholson integration
+      solvers/
+        newton.hpp                         # generic Newton-Raphson
+        jacobian.hpp                       # numerical Jacobian
+        continuation.hpp                   # pseudo-arclength continuation
+    geometry/
+      vertex.hpp                           # value-type vertex
+      element.hpp                          # variant-based elements (2D/3D)
+      mesh.hpp                             # variant-based meshes (2D/3D)
+    crystal/
+      lattice.hpp                          # BCC/FCC/HCP crystal lattice builder
+      types.hpp                            # crystal enums and types
+    config/
+      parser.hpp                           # configuration file parser
     plotting/
-      exceptions.h                      # grace exceptions
-      grace.h                           # xmgrace plotting
-    potentials/
-      potential.h                       # intermolecular potentials
-      types.h                           # potential enums and types
-    thermodynamics/
-      enskog.h                          # hard-sphere thermodynamics
-      eos.h                             # equations of state
+      exceptions.hpp                       # Grace exceptions
+      grace.hpp                            # xmgrace plotting
 src/
-  <mirrors include/dft/ with .cpp files>
+  <mirrors include/dft/ — only for non-inline implementations>
 tests/
-  main.cpp                              # single test runner
-  <mirrors include/dft/ with .cpp test files>
+  <mirrors include/dft/ — one test file per module>
 examples/
   <module>/
     main.cpp
     CMakeLists.txt
     Makefile
     README.md
-    exports/                            # plot output
+    exports/                               # plot output
 ```
 
-Top-level modules: `crystal`, `functional`, `geometry`, `math`, `plotting`,
-`potentials`, `thermodynamics`. Root-level headers: `config.h`, `console.h`,
-`density.h`, `species.h`.
+Top-level modules: `core`, `math`, `physics`, `functionals`, `algorithms`,
+`geometry`, `crystal`, `config`, `plotting`.
 
-Source tree, test tree, and example tree mirror the header tree exactly.
-No intermediate grouping directories (`physics/`, `io/`, `exceptions/`,
-`numerics/`, `graph/`). The directory name provides context; file names
-must not repeat it.
+Source tree, test tree, and example tree mirror the header tree.
+File names must not repeat the directory name.
 
 ---
 
 ## 3. File naming
 
-- All file names are **`lower_snake_case`**: `measures.h`, `convolution.cpp`.
-- One class (or one tightly coupled group) per file.
-- Header extension: `.h`. Source extension: `.cpp`.
-- File name matches the primary class name in snake_case:
-  `ConvolutionField` → `convolution.h`, `WhiteBearII` → `functional.h` (shared).
+- All file names are **`lower_snake_case`**: `measures.hpp`, `convolution.cpp`.
+- One struct (or one tightly coupled group) per file.
+- Header extension: `.hpp`. Source extension: `.cpp`.
+- File name matches the primary type name in snake_case:
+  `FmtWeightSet` → `weights.hpp`, `WhiteBearII` → `models.hpp` (shared).
 
 ---
 
@@ -101,24 +120,24 @@ must not repeat it.
 
 Traditional `#ifndef` / `#define` / `#endif`. No `#pragma once`.
 
-Guard name: `DFT_` + path from `dft/` in `UPPER_SNAKE_CASE` + `_H`.
+Guard name: `DFT_` + path from `dft/` in `UPPER_SNAKE_CASE` + `_HPP`.
 
 ```cpp
-#ifndef DFT_FUNCTIONAL_FMT_MEASURES_H
-#define DFT_FUNCTIONAL_FMT_MEASURES_H
+#ifndef DFT_PHYSICS_FMT_MEASURES_HPP
+#define DFT_PHYSICS_FMT_MEASURES_HPP
 
 // ... contents ...
 
-#endif  // DFT_FUNCTIONAL_FMT_MEASURES_H
+#endif  // DFT_PHYSICS_FMT_MEASURES_HPP
 ```
 
 Root-level headers use just `DFT_` + filename:
 
 ```cpp
-#ifndef DFT_DENSITY_H
-#define DFT_DENSITY_H
+#ifndef DFT_INIT_HPP
+#define DFT_INIT_HPP
 // ...
-#endif  // DFT_DENSITY_H
+#endif  // DFT_INIT_HPP
 ```
 
 ---
@@ -134,9 +153,9 @@ Follows the Google C++ style guide, enforced by `.clang-format`:
 Blank line between each group. Example:
 
 ```cpp
-#include "dft/density.h"
+#include "dft/core/density.hpp"
 
-#include "dft/math/arithmetic.h"
+#include "dft/math/arithmetic.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -153,27 +172,32 @@ Root namespace: **`dft`**. Sub-namespaces mirror the directory structure.
 
 | Directory | Namespace |
 |-----------|-----------|
-| `dft/` (root headers) | `dft::density`, `dft::species`, `dft::config`, `dft::console` |
-| `functional/fmt/` | `dft::functional::fmt` |
-| `functional/` | `dft::functional::interaction` |
+| `core/` | `dft::core` |
+| `math/` | `dft::math` |
+| `physics/` | `dft::physics` |
+| `physics/potentials.hpp` | `dft::physics::potentials` |
+| `physics/fmt/` | `dft::physics::fmt` |
+| `functionals/` | `dft::functionals` |
+| `functionals/bulk/` | `dft::functionals::bulk` |
+| `algorithms/` | `dft::algorithms` |
+| `algorithms/solvers/` | `dft::algorithms::solvers` |
+| `algorithms/solvers/continuation.hpp` | `dft::algorithms::continuation` |
+| `geometry/` | `dft::geometry` |
 | `crystal/` | `dft::crystal` |
-| `geometry/base/` | `dft::geometry` |
-| `geometry/2D/` | `dft::geometry::two_dimensional` |
-| `geometry/3D/` | `dft::geometry::three_dimensional` |
-| `math/` | `dft::math`, `dft::math::arithmetic`, `dft::math::fourier`, `dft::math::integration`, `dft::math::spline` |
-| `plotting/` | `dft::plotting`, `dft::plotting::command`, `dft::plotting::option` |
-| `potentials/` | `dft::potentials` |
-| `thermodynamics/` | `dft::thermodynamics`, `dft::thermodynamics::eos` |
-| `math/exceptions.h`, `plotting/exceptions.h` | `dft::exception` |
+| `config/` | `dft::config` |
+| `plotting/` | `dft::plotting` |
+| `init.hpp` | `dft::init` |
+| `console.hpp` | `dft::console` |
+| `exceptions.hpp` | `dft::exception` |
 
 Use C++17 collapsed syntax:
 
 ```cpp
-namespace dft::functional::fmt {
+namespace dft::physics::fmt {
 
   // ... all code indented 2 spaces ...
 
-}  // namespace dft::functional::fmt
+}  // namespace dft::physics::fmt
 ```
 
 Two-space gap before `//` in the closing comment.
@@ -189,161 +213,216 @@ Enforced by `.clang-tidy` `readability-identifier-naming`:
 
 | Entity | Case | Example |
 |--------|------|---------|
-| Class / struct | `CamelCase` | `Density`, `WhiteBearI`, `ConvolutionField` |
-| Function / method | `lower_snake_case` | `compute_forces()`, `set_density_from_alias()` |
+| Struct | `CamelCase` | `Density`, `WhiteBearI`, `FireConfig` |
+| Free function | `lower_snake_case` | `free_energy()`, `forces()` |
 | Variable | `lower_snake_case` | `eta`, `rho0`, `diameter` |
-| Private / protected member | `lower_snake_case_` (trailing `_`) | `dx_`, `weights_`, `diameter_` |
-| Namespace | `lower_snake_case` | `dft`, `fmt`, `numerics` |
+| Struct member | `lower_snake_case` (public, no trailing `_`) | `dx`, `weights`, `diameter` |
+| Namespace | `lower_snake_case` | `dft`, `fmt`, `solvers` |
 | Global constant | `UPPER_SNAKE_CASE` | `DEFAULT_LENGTH_SCALE` |
 | Static constant | `UPPER_SNAKE_CASE` | `MAX_POTENTIAL_VALUE` |
 | Constexpr (file scope) | `UPPER_SNAKE_CASE` | `PI_OVER_6` |
-| Constexpr (class scope) | `UPPER_SNAKE_CASE` | `RHO_MIN`, `NUM_INDEPENDENT` |
 | Scoped enum values | `CamelCase` | `Direction::X`, `Route::Virial` |
+| Concept | `CamelCase` | `VectorFunction`, `JacobianFunction` |
 
 ### Naming principles
 
 - No abbreviations unless universally understood in the domain:
   `eta`, `rho`, `mu`, `dx`, `fft`. Spell out everything else:
-  `diameter` not `hsd`, `density_range_` not `alias_c_`.
-- Method names describe **what**, not **how**: `compute_free_energy()` not
-  `calculate_free_energy_and_forces()`.
-- Getters are bare nouns: `density()`, `force()`, `values()`, `shape()`.
+  `diameter` not `hsd`, `density` not `dens`.
+- Function names are verbs or physics quantity nouns: `free_energy()`,
+  `pressure()`, `forces()`, `fire()`, `trace()`.
+- No abbreviation-heavy compound names.
 - Derivative methods use `d_` / `d2_` prefix: `d_f1()`, `d2_f1()`.
-- Bulk (homogeneous) quantities: `bulk_free_energy_density()`,
-  `bulk_excess_chemical_potential()`.
+- `make_` prefix ONLY for validated factory functions: `make_grid()`,
+  `make_fmt_workspace()`.
 
 ---
 
 ## 8. API design
 
-### Method prefixes
+### Banned prefixes
 
-| Prefix | Semantics | Example |
-|--------|-----------|---------|
-| `compute_` | Perform a calculation, return result | `compute_free_energy()` |
-| `set_` | Mutator | `set_chemical_potential()` |
-| `clear_` | Remove optional state | `clear_fixed_mass()` |
-| `add_to_` | Accumulate into existing buffer | `add_to_force()` |
-| `zero_` | Zero out a buffer | `zero_force()` |
-| `begin_` / `end_` | Bracket a multi-step protocol | `begin_force_calculation()` |
-| (bare noun) | Inspector / getter | `density()`, `values()` |
-| `d_` / `d2_` | Mathematical derivative | `d_phi3_d_n2()` |
-| `bulk_` | Homogeneous (spatially uniform) limit | `bulk_free_energy_density()` |
+These prefixes are **forbidden** in the public API:
 
-### Getter conventions
+| Banned prefix | Replacement |
+|---------------|-------------|
+| `compute_` | Direct verb or noun: `free_energy()`, `forces()` |
+| `get_` | Public field access: `state.temperature` |
+| `set_` | Public field assignment: `state.temperature = 1.0` |
+| `apply_` | Direct verb: `forces()`, `constrain_mass()` |
+| `create_` on data | Designated initialiser: `Grid{.dx = 0.1, ...}` |
+| `begin_` / `end_` | Not needed (no multi-step protocols) |
+| `add_to_` / `zero_` | Not needed (no mutable buffers) |
+| `bulk_` prefix on functions | Use `functionals::bulk::` namespace instead |
 
-Return heavy objects by `const&`. Return scalars by value.
+### Data is public, logic is free functions
+
+All data lives in `struct` with public members. No getters, no setters, no
+`private:` section for data. If a value is just data, it is publicly
+accessible.
+
+Logic lives in free functions that receive data by `const&` and return results
+by value. Functions never mutate their arguments.
 
 ```cpp
-[[nodiscard]] const arma::vec& values() const noexcept;
-[[nodiscard]] double dx() const noexcept;
+// Data
+struct Grid {
+  double dx;
+  std::array<double, 3> box_size;
+  std::array<long, 3> shape;
+};
+
+// Logic
+[[nodiscard]] auto atom_count(const Grid&, const Density&) -> double;
 ```
 
-Provide dual `const` / non-`const` overloads when mutable access is needed:
+### Value semantics (no mutation)
+
+Functions return new values. Algorithm functions take `State` by value (they
+own a local working copy) and return the final state. RVO and `std::move`
+eliminate copies.
 
 ```cpp
-[[nodiscard]] const arma::vec& values() const noexcept { return rho_; }
-[[nodiscard]] arma::vec& values() noexcept { return rho_; }
+// Good: takes State by value, returns Solution
+[[nodiscard]] auto fire(const Model&, State, const FireConfig&) -> Solution;
+
+// Bad: mutates argument in place
+void minimize(State&, const Model&);
+```
+
+### Designated initialisers for all struct construction
+
+```cpp
+physics::Model model{
+    .grid = core::make_grid(0.1, {10.0, 10.0, 10.0}),
+    .species = {core::Species{.name = "Argon", .hard_sphere_diameter = 1.0}},
+    .interactions = {},
+    .fmt = physics::fmt::Rosenfeld{},
+};
+```
+
+### `std::variant` over inheritance
+
+No `virtual` keyword anywhere in the core library. Runtime polymorphism is
+handled via `std::variant` + `std::visit`:
+
+```cpp
+using Potential = std::variant<LennardJones, TenWoldeFrenkel, WangRamirezDobnikarFrenkel>;
+
+[[nodiscard]] auto energy(const Potential& pot, double r) -> double {
+  return std::visit([r](const auto& p) { return energy_impl(p, r); }, pot);
+}
+```
+
+### C++20 concepts for generic solvers
+
+Use C++20 concepts for constraining template parameters in the generic solver
+layer:
+
+```cpp
+template <typename F>
+concept VectorFunction = requires(F f, const arma::vec& x) {
+  { f(x) } -> std::convertible_to<arma::vec>;
+};
+
+template <VectorFunction Func>
+[[nodiscard]] auto newton(arma::vec x, Func&& f, const NewtonConfig&) -> SolverResult;
 ```
 
 ### Attributes
 
 - **`[[nodiscard]]`** on every function that returns a value.
-- **`noexcept`** on simple getters that cannot throw.
+- **`noexcept`** on trivial `constexpr` member functions.
 
-### Static factory methods
+### `std::optional` for fallible operations
+
+Return `std::optional` when a computation may not produce a result:
 
 ```cpp
-[[nodiscard]] static Measures uniform(double density, double diameter);
+[[nodiscard]] auto coexistence(const Model&, double T, double rho_v, double rho_l)
+    -> std::optional<PhasePoint>;
+```
+
+### Callbacks
+
+Use `std::function` for user-provided callbacks:
+
+```cpp
+using StepCallback = std::function<bool(long step, double energy, double max_force)>;
 ```
 
 ### Single responsibility
 
-Each public method does **one thing**. Never bundle two logical operations
-(e.g. "compute free energy AND accumulate forces") into one method. Split them:
-
-```cpp
-double compute_free_energy(const Functional& model);
-double compute_forces(const Functional& model);
-```
+Each function does **one thing**. Never bundle two logical operations into one
+function. If a function name contains "and", split it.
 
 ---
 
-## 9. Class design
+## 9. Type design
 
-### `struct` vs `class`
+### `struct` only (no `class` for data)
 
-- `struct`: plain-data aggregates with no invariants (`Measures`, `WeightSet`).
-- `class`: anything with invariants, RAII, virtual methods, or encapsulation.
-
-### Member ordering
+Every data type is a `struct` with all members public. No invariants enforced
+in the type itself. Validation happens at system boundaries via factory
+functions (e.g. `make_grid()`) or at API entry points.
 
 ```cpp
-class MyClass {
+// Good
+struct Density {
+  arma::vec values;
+  arma::vec external_field;
+};
+
+// Bad
+class Density {
  public:
-  // ── Construction ──────────────────────────────────────────────────
-  MyClass(args);
-  ~MyClass();
-
-  // Rule of 5
-  MyClass(const MyClass&) = delete;
-  MyClass& operator=(const MyClass&) = delete;
-  MyClass(MyClass&&) noexcept = default;
-  MyClass& operator=(MyClass&&) noexcept = default;
-
-  // ── Inspectors ────────────────────────────────────────────────────
   [[nodiscard]] const arma::vec& values() const noexcept;
-
-  // ── Mutators ──────────────────────────────────────────────────────
-  void set(const arma::vec& v);
-
-  // ── Methods ───────────────────────────────────────────────────────
-  double compute_something() const;
-
  private:
-  arma::vec rho_;
-  double dx_;
+  arma::vec values_;
 };
 ```
 
-### Class constants
+### No `class` keyword in the core library
 
-Use `static constexpr` at class scope (UPPER_CASE, matching `.clang-tidy` `StaticConstantCase`):
+The `class` keyword is only permitted for:
+- RAII wrappers around C resources (`FourierTransform`, `CubicSpline`, `Grace`)
+- Types that genuinely own a non-copyable resource (file handle, pipe, FFT plan)
 
-```cpp
-static constexpr double RHO_MIN = 1e-18;
-static constexpr int NUM_INDEPENDENT = 11;
-```
-
-### Inheritance
-
-- Mark concrete leaf classes **`final`**.
-- Virtual destructors: `virtual ~Base() = default;` in abstract bases.
-- Prefer Non-Virtual Interface (NVI): public non-virtual methods that call
-  private/protected virtual hooks.
+### Struct member ordering
 
 ```cpp
-class Functional {
- public:
-  [[nodiscard]] double phi(const Measures& m) const;          // non-virtual (algorithm)
-  [[nodiscard]] virtual double f1(double eta) const = 0;      // virtual (model-specific)
-};
-
-class Rosenfeld final : public Functional {
- public:
-  [[nodiscard]] double f1(double eta) const override;
+struct FireConfig {
+  double dt{1e-3};
+  double dt_max{1e-2};
+  double dt_min{1e-8};
+  double alpha_start{0.1};
+  double f_inc{1.1};
+  double f_dec{0.5};
+  double f_alf{0.99};
+  int n_delay{5};
+  int max_uphill_steps{20};
+  double force_tolerance{0.1};
+  double min_density{1e-30};
+  long max_steps{0};
 };
 ```
 
-### Unused parameters
+- Default member initialisers where sensible.
+- No trailing underscore on struct members (they are public).
+- Group related members together.
+- No constructors unless validation is needed; use designated initialisers.
 
-Suppress warnings with explicit `(void)` cast:
+### Constants in structs
+
+Use `static constexpr` at struct scope for domain constants:
 
 ```cpp
-[[nodiscard]] virtual double d_phi3_d_T(int i, int j, const Measures& m) const {
-  (void)i; (void)j; (void)m;
-  return 0.0;
-}
+struct Measures {
+  static constexpr int NUM_INDEPENDENT = 11;
+  double n0{0.0};
+  double n1{0.0};
+  // ...
+};
 ```
 
 ---
@@ -354,8 +433,8 @@ Suppress warnings with explicit `(void)` cast:
 |------|---------|
 | `arma::vec` | 1D arrays: density field, forces, FFT data |
 | `arma::rowvec3` | 3D spatial vectors: box size, position |
-| `arma::mat33` | 3×3 tensors |
-| `arma::mat` | N×3 position arrays (lattice) |
+| `arma::mat33` | 3x3 tensors |
+| `arma::mat` | N x 3 position arrays (lattice), Jacobian matrices |
 | `arma::uword` | All index types |
 | `arma::cx_vec` | Complex FFT output |
 
@@ -363,18 +442,15 @@ API boundaries accept `const arma::vec&` or `const arma::rowvec3&`. Internal
 computation uses Armadillo functions directly: `arma::dot()`, `arma::trace()`,
 `arma::norm()`, `arma::clamp()`, `arma::log()`.
 
-Do **not** use flat `std::vector<double>` or raw `double*` at public APIs.
-Do **not** use flat index enums for tensor components; use proper Armadillo
-structures or accessor methods:
+Do **not** use `std::vector<double>` or raw `double*` at public APIs.
+Do **not** use flat index enums for tensor components; use Armadillo structures:
 
 ```cpp
-// Bad: enum Component { VectorX=2, VectorY=3, TensorXX=5 ... };
-// Good:
-struct WeightSet {
-  arma::vec eta;
-  arma::vec scalar;
-  arma::vec vector[3];
-  [[nodiscard]] arma::vec& tensor(int i, int j);
+struct FmtWeightSet {
+  FourierTransform eta;
+  FourierTransform scalar;
+  std::array<FourierTransform, 3> vector;
+  std::array<std::array<FourierTransform, 3>, 3> tensor;
 };
 ```
 
@@ -382,19 +458,21 @@ struct WeightSet {
 
 ## 11. Error handling
 
-- Validate only at **system boundaries**: constructors, public setters,
-  public entry points.
-- Internal helper functions do **not** throw.
+- Validate only at **system boundaries**: factory functions (`make_grid()`),
+  public API entry points (`fire()`, `total()`).
+- Internal pure functions do **not** throw.
 - Use standard exceptions:
 
 ```cpp
-throw std::invalid_argument("Density: dx must be positive");
-throw std::out_of_range("Index " + std::to_string(i) + " out of range");
+throw std::invalid_argument("make_grid: dx must be positive, got " + std::to_string(dx));
+throw std::out_of_range("species index " + std::to_string(i) + " out of range");
 ```
 
 - Custom exceptions (`dft::exception::*`) only for domain-specific failures
   (Grace communication, parameter validation).
 - Messages include the offending value when practical.
+- Return `std::optional` for operations that can legitimately fail (e.g.
+  root-finding that does not converge).
 
 ---
 
@@ -424,59 +502,61 @@ Use Unicode box-drawing characters to fill to ~80 columns:
 // ── Section title ──────────────────────────────────────────────────────
 ```
 
-Each logical section of a class, test file, or example gets a separator.
+Each logical section of a file gets a separator.
 
 ---
 
 ## 13. Test conventions
 
-### Runner
+### Framework
 
-Single `tests/main.cpp` entry point. Test files are collected via
-`file(GLOB_RECURSE)` in CMake (requires reconfigure for new files).
+Catch2 v3, fetched via `FetchContent`. Link `Catch2::Catch2WithMain`. No
+custom `main.cpp` needed.
 
 ### Test file structure
 
 ```cpp
-#include "dft/functional/fmt/measures.h"   // tested header first
+#include "dft/physics/fmt/measures.hpp"   // tested header first
 
 #include <cmath>
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-using namespace dft::functional::fmt;
+using namespace dft::physics::fmt;
 
 // ── Default construction ──────────────────────────────────────────────
 
-TEST(Measures, DefaultConstructionAllZero) {
+TEST_CASE("Measures default construction is all zero", "[measures]") {
   Measures m;
-  EXPECT_DOUBLE_EQ(m.n0, 0.0);
+  CHECK(m.n0 == 0.0);
 }
 
 // ── Uniform factory ───────────────────────────────────────────────────
 
-TEST(Measures, UniformEtaIsConsistent) {
+TEST_CASE("Measures uniform eta is consistent", "[measures]") {
   auto m = Measures::uniform(0.5, 1.0);
-  EXPECT_NEAR(m.eta, 0.2618, 1e-4);
+  CHECK(m.eta == Catch::Approx(0.2618).margin(1e-4));
 }
 ```
 
 ### Naming
 
-- `TEST(TestSuite, TestName)` — no fixtures (`TEST_F`) unless strictly needed.
-- **TestSuite**: class or concept name in `CamelCase` (`Measures`, `Functional`,
-  `ConvolutionField`).
-- **TestName**: descriptive `CamelCase` phrase describing the assertion
-  (`DefaultConstructionAllZero`, `WhiteBearIMatchesCarnahanStarling`).
+- `TEST_CASE("descriptive phrase", "[tag1][tag2]")`.
+- The descriptive phrase is a lowercase sentence. No suite prefixes.
+- Tags are the module or concept being tested: `[grid]`, `[fmt]`,
+  `[potentials]`, `[fire]`.
+- Use `SECTION("...")` to group related checks within a test case.
 
 ### Assertion selection
 
-| Assertion | When to use | Tolerance |
-|-----------|-------------|-----------|
-| `EXPECT_DOUBLE_EQ` | Exact FP equality (bit-identical) | — |
-| `EXPECT_NEAR(a, b, tol)` | Approximate FP comparison | Context-dependent |
-| `EXPECT_TRUE` / `EXPECT_FALSE` | Boolean | — |
-| `EXPECT_EQ` | Integer, enum, string | — |
-| `EXPECT_THROW(expr, type)` | Exception expected | — |
+| Catch2 macro | When to use |
+|--------------|-------------|
+| `CHECK(a == b)` | General equality (non-fatal) |
+| `REQUIRE(a == b)` | Equality where failure should abort |
+| `CHECK(a == Catch::Approx(b))` | Approximate FP equality |
+| `CHECK(a == Catch::Approx(b).margin(tol))` | FP with explicit tolerance |
+| `CHECK(x)` / `REQUIRE(x)` | Boolean |
+| `REQUIRE_THROWS_AS(expr, type)` | Exception expected |
 
 Tolerance guidelines:
 - `1e-14`: analytical identities, algebraic simplifications.
@@ -484,12 +564,28 @@ Tolerance guidelines:
 - `1e-8`: chemical potential, integrated quantities.
 - `1e-5` to `1e-6`: numerical derivatives, grid convergence.
 
+### Parameterised tests
+
+Use `GENERATE` with structured bindings:
+
+```cpp
+TEST_CASE("Potential energy at known distances", "[potentials]") {
+  auto [r, expected] = GENERATE(table<double, double>({
+      {1.0, -1.0},
+      {1.5, -0.5},
+      {2.0, -0.1},
+  }));
+
+  CHECK(energy(lj, r) == Catch::Approx(expected).margin(1e-10));
+}
+```
+
 ### Helper functions
 
 File-scoped `static` free functions, placed before the tests that use them:
 
 ```cpp
-static double numerical_derivative(std::function<double(double)> f, double x, double h = 1e-6) {
+static double numerical_derivative(auto f, double x, double h = 1e-6) {
   return (f(x + h) - f(x - h)) / (2.0 * h);
 }
 ```
@@ -519,21 +615,28 @@ target_link_libraries(example_<name> PRIVATE classicaldft)
 ### main.cpp structure
 
 ```cpp
-#include "dft.h"
+#include "dft/dft.hpp"
 
 #include <iomanip>
 #include <iostream>
 
-using namespace dft::functional::fmt;
+using namespace dft;
 
 int main() {
   std::filesystem::create_directories("exports");
 
-  // ── Section 1 ────────────────────────────────────────────────────
-  // Console output with std::setw, std::fixed, std::setprecision
+  // ── Define model ─────────────────────────────────────────────────
+  physics::Model model{
+      .grid = core::make_grid(0.1, {10.0, 10.0, 10.0}),
+      .species = {core::Species{.name = "Argon", .hard_sphere_diameter = 1.0}},
+  };
 
-  // ── Section 2 ────────────────────────────────────────────────────
-  // More computation ...
+  // ── Initial state ────────────────────────────────────────────────
+  auto state = init::homogeneous(model, 0.5);
+
+  // ── Evaluate ─────────────────────────────────────────────────────
+  auto result = functionals::total(model, state);
+  std::cout << "Free energy: " << result.total_free_energy << "\n";
 
   // ── Grace plots ──────────────────────────────────────────────────
 #ifdef DFT_HAS_GRACE
@@ -574,7 +677,7 @@ int main() {
 - Library sources listed **explicitly** (no `GLOB`) for the static library.
 - Test sources use `file(GLOB_RECURSE)`.
 - External dependencies: `find_package` for system libraries, `FetchContent`
-  for GoogleTest.
+  for Catch2.
 - Compile definition `DFT_HAS_GRACE` propagated as `PUBLIC` when Grace is found.
 - Warnings applied via generator expression (GNU/Clang/AppleClang only).
 - Export `compile_commands.json` (`CMAKE_EXPORT_COMPILE_COMMANDS ON`).
@@ -583,42 +686,48 @@ int main() {
 
 ## 16. Design principles
 
+### Data/logic separation
+
+Data and logic are strictly separated. Data is `struct`. Logic is free
+functions. No methods on data types (except trivial `constexpr` helpers like
+`cell_volume()`).
+
+### Value semantics
+
+All data is passed by value or `const&`. Functions return new values; they
+never mutate inputs. Algorithm functions take `State` by value and return
+`Solution`.
+
 ### Single responsibility
 
-Every class, method, and file has exactly one reason to change. Do not bundle
-unrelated operations. If a method name contains "and", split it.
+Every function and file has one reason to change. If a function name contains
+"and", split it.
 
-### Open/closed
+### No inheritance in the core library
 
-Extend behaviour through inheritance (new `Functional` subclass) or composition,
-not by modifying existing classes.
+No `virtual`, no abstract base classes, no NVI pattern. Polymorphism is via
+`std::variant` + `std::visit` (compile-time exhaustiveness, cache-friendly).
 
-### Liskov substitution
+RAII wrappers for C resources (`FourierTransform`, `CubicSpline`, `Grace`)
+are the only exception.
 
-Every `Functional` subclass is interchangeable. They share the same public
-interface and differ only in the virtual hooks (`f1`, `f2`, `f3`, `phi3`).
+### Open/closed via variants
 
-### Interface segregation
-
-Keep interfaces minimal. A `Species` does not expose the full `Density` API,
-only the operations relevant to species behaviour.
-
-### Dependency inversion
-
-High-level algorithms (`fmt::Species::compute_free_energy`) depend on abstract
-interfaces (`Functional&`), not on concrete models.
+Add new potential types, FMT models, or mesh types by adding a new struct
+and extending the `std::variant`. No existing code needs to change except the
+variant typedef and the `std::visit` dispatchers.
 
 ### No premature abstraction
 
-Do not create helpers, utilities, or wrapper classes for one-time operations.
+Do not create helpers, utilities, or wrapper types for one-time operations.
 Do not add layers "for future use".
 
 ### No dead code
 
-No commented-out code, no unused includes, no methods that are never called.
+No commented-out code, no unused includes, no functions that are never called.
 
 ### Const correctness
 
-- Mark every method that does not mutate state as `const`.
 - Pass large objects by `const&`.
 - Use `const` local variables when the value does not change.
+- Mark all pure functions `[[nodiscard]]`.
