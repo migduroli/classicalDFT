@@ -42,6 +42,11 @@
 // Solver
 #include "dft/solver.h"
 
+// Dynamics
+#include "dft/dynamics/fire2.h"
+#include "dft/dynamics/integrator.h"
+#include "dft/dynamics/minimizer.h"
+
 // Geometry
 #include "dft/geometry/2D/element.h"
 #include "dft/geometry/2D/mesh.h"

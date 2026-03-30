@@ -30,3 +30,6 @@ compile_commands.json
 
 # macOS
 .DS_Store
+
+# Test/example plot output
+exports/

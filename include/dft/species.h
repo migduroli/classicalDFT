@@ -36,6 +36,7 @@ namespace dft::species {
     // ── Force management ────────────────────────────────────────────────────
 
     [[nodiscard]] const arma::vec& force() const noexcept { return force_; }
+    [[nodiscard]] arma::vec& force() noexcept { return force_; }
 
     void zero_force() noexcept { force_.zeros(); }
 

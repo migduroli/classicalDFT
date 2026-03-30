@@ -130,6 +130,10 @@ set(DFT_LIB_SOURCES
     src/functional/interaction.cpp
     # Solver
     src/solver.cpp
+    # Dynamics
+    src/dynamics/minimizer.cpp
+    src/dynamics/fire2.cpp
+    src/dynamics/integrator.cpp
     # Plotting
     src/plotting/exceptions.cpp
     # Geometry – base
@@ -218,6 +222,8 @@ if(DFT_BUILD_EXAMPLES)
     add_subdirectory(examples/functional/interaction)
     add_subdirectory(examples/potentials)
     add_subdirectory(examples/solver)
+    add_subdirectory(examples/dynamics)
+    add_subdirectory(examples/droplet)
     if(DFT_USE_GRACE)
         add_subdirectory(examples/plotting)
     endif()

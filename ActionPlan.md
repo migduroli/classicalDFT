@@ -908,10 +908,9 @@ Static utility. All public methods are `[[nodiscard]] static`.
 | 10.4 | Replace Grace with optional modern plotting | Consider adding a thin gnuplot or matplotlib-cpp backend as alternative to xmgrace |
 | 10.5 | Write comprehensive README.md | Installation, build, usage, examples, API overview |
 | 10.6 | Write Doxygen configuration | Generate API docs from doc-strings |
-| 10.7 | Write mathematical documentation | LaTeX notes for FMT, DDFT, potentials (extend existing `documentation/latex-notes/`) |
-| 10.8 | Final test coverage audit | Ensure every public method has tests. Target: 100% line coverage on physics code |
-| 10.9 | Performance benchmarks | Compare with legacy library on standard problems (droplet, coexistence) |
-| 10.10 | Tag `v2.0.0` | |
+| 10.7 | Write mathematical documentation | Markdown notes for FMT, DDFT, potentials (based and extending existing `documentation/latex-notes/` but in markdown README style) |
+| 10.8 | Performance benchmarks | Compare with legacy library on standard problems (droplet, coexistence) |
+| 10.9 | Tag `v2.0.0` | |
 
 **Estimated scope:** 2-3 days.
 

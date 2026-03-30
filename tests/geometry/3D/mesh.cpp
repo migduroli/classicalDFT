@@ -1,5 +1,6 @@
 #include "dft/geometry/3D/mesh.h"
 
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <sstream>
 
@@ -75,14 +76,17 @@ TEST(ThreeDimensionalMesh, PlotWithMatplotlib) {
   auto origin = std::vector<double>{0, 0, 0};
   auto dimensions = std::vector<double>{1, 1, 1};
   auto m = three_dimensional::SUQMesh(1.0, dimensions, origin);
-  EXPECT_NO_THROW(m.plot("exports/test_mesh_3d.png", false));
+  auto path = std::filesystem::temp_directory_path() / "test_mesh_3d.png";
+  EXPECT_NO_THROW(m.plot(path.string(), false));
+  std::filesystem::remove(path);
 }
 #else
 TEST(ThreeDimensionalMesh, PlotWithoutBackendThrows) {
   auto origin = std::vector<double>{0, 0, 0};
   auto dimensions = std::vector<double>{1, 1, 1};
   auto m = three_dimensional::SUQMesh(1.0, dimensions, origin);
-  EXPECT_THROW(m.plot("exports/test_mesh_3d.png", false), std::runtime_error);
+  auto path = std::filesystem::temp_directory_path() / "test_mesh_3d.png";
+  EXPECT_THROW(m.plot(path.string(), false), std::runtime_error);
 }
 #endif
 

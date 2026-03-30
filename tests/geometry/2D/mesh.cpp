@@ -1,5 +1,6 @@
 #include "dft/geometry/2D/mesh.h"
 
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <sstream>
 
@@ -139,13 +140,16 @@ TEST(TwoDimensionalMesh, PlotWithMatplotlib) {
   auto origin = std::vector<double>{0, 0};
   auto dimensions = std::vector<double>{1, 1};
   auto m = two_dimensional::SUQMesh(0.5, dimensions, origin);
-  EXPECT_NO_THROW(m.plot("exports/test_mesh_2d.png", false));
+  auto path = std::filesystem::temp_directory_path() / "test_mesh_2d.png";
+  EXPECT_NO_THROW(m.plot(path.string(), false));
+  std::filesystem::remove(path);
 }
 #elif !defined(DFT_HAS_GRACE)
 TEST(TwoDimensionalMesh, PlotWithoutBackendThrows) {
   auto origin = std::vector<double>{0, 0};
   auto dimensions = std::vector<double>{1, 1};
   auto m = two_dimensional::SUQMesh(0.5, dimensions, origin);
-  EXPECT_THROW(m.plot("exports/test_mesh_2d.png", false), std::runtime_error);
+  auto path = std::filesystem::temp_directory_path() / "test_mesh_2d.png";
+  EXPECT_THROW(m.plot(path.string(), false), std::runtime_error);
 }
 #endif

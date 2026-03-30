@@ -1,5 +1,6 @@
 #include "dft.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -38,6 +39,8 @@ struct CoexData {
   std::string name;
   std::vector<double> T, rho_v, rho_l;
   std::vector<double> T_sp, rho_s1, rho_s2;
+  double Tc = 0.0;
+  double rho_c = 0.0;
 };
 
 /// Sweep coexistence + spinodal for a given FMT model.
@@ -110,6 +113,44 @@ static CoexData sweep_coexistence(
     } catch (const std::exception&) {
       break;
     }
+  }
+
+  // Sort spinodal data by temperature (coarse + fine passes may interleave).
+  if (cd.T_sp.size() >= 2) {
+    std::vector<size_t> order(cd.T_sp.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+      return cd.T_sp[a] < cd.T_sp[b];
+    });
+    std::vector<double> t_s, r1_s, r2_s;
+    double prev = -1.0;
+    for (size_t i : order) {
+      if (cd.T_sp[i] != prev) {
+        t_s.push_back(cd.T_sp[i]);
+        r1_s.push_back(cd.rho_s1[i]);
+        r2_s.push_back(cd.rho_s2[i]);
+        prev = cd.T_sp[i];
+      }
+    }
+    cd.T_sp = std::move(t_s);
+    cd.rho_s1 = std::move(r1_s);
+    cd.rho_s2 = std::move(r2_s);
+  }
+
+  // Estimate critical point from spinodal: where rho_s1 and rho_s2 converge.
+  if (cd.T_sp.size() >= 2) {
+    // Find the spinodal point with the smallest gap
+    size_t i_min = 0;
+    double gap_min = cd.rho_s2[0] - cd.rho_s1[0];
+    for (size_t i = 1; i < cd.T_sp.size(); ++i) {
+      double gap = cd.rho_s2[i] - cd.rho_s1[i];
+      if (gap < gap_min) {
+        gap_min = gap;
+        i_min = i;
+      }
+    }
+    cd.Tc = cd.T_sp[i_min];
+    cd.rho_c = 0.5 * (cd.rho_s1[i_min] + cd.rho_s2[i_min]);
   }
 
   return cd;
@@ -187,10 +228,8 @@ int main() {
                                 max_dens, step, tol);
 
     std::cout << cd.name << ": " << cd.T.size() << " coexistence points";
-    if (!cd.T.empty()) {
-      double Tc = cd.T.back();
-      double rho_c = 0.5 * (cd.rho_v.back() + cd.rho_l.back());
-      std::cout << ", T_c ~ " << Tc << ", rho_c ~ " << rho_c;
+    if (cd.Tc > 0) {
+      std::cout << ", T_c ~ " << cd.Tc << ", rho_c ~ " << cd.rho_c;
     }
     std::cout << "\n";
 
@@ -256,11 +295,11 @@ int main() {
       plt::named_plot(cd.name, cd.rho_v, cd.T, style);
       plt::plot(cd.rho_l, cd.T, style);
 
-      // Critical point marker
-      double Tc = cd.T.back();
-      double rho_c = 0.5 * (cd.rho_v.back() + cd.rho_l.back());
-      std::string marker = style.substr(0, 1) + "o";
-      plt::plot({rho_c}, {Tc}, marker);
+      // Critical point marker from spinodal convergence
+      if (cd.Tc > 0) {
+        std::string marker = style.substr(0, 1) + "o";
+        plt::plot({cd.rho_c}, {cd.Tc}, marker);
+      }
     }
 
     plt::xlabel(R"($\rho \sigma^3$)");
@@ -274,25 +313,62 @@ int main() {
     std::cout << "Plot: " << std::filesystem::absolute("exports/coexistence.png") << "\n";
   }
 
-  // Plot 3: spinodal + binodal for White Bear II only (detailed)
+  // Plot 3: spinodal + binodal for White Bear II only (detailed, with splines)
   {
     plt::figure_size(900, 650);
     const auto& cd = all_coex.back();
 
+    // Helper: generate spline-interpolated curve from (T, rho) data.
+    // Returns (rho_dense, T_dense) for smooth plotting.
+    auto spline_curve = [](const std::vector<double>& t_data,
+                           const std::vector<double>& rho_data, int n_pts) {
+      std::pair<std::vector<double>, std::vector<double>> result;
+      if (t_data.size() < 4) {
+        result = {rho_data, t_data};
+        return result;
+      }
+      math::spline::CubicSpline spl(t_data, rho_data);
+      double t_lo = t_data.front();
+      double t_hi = t_data.back();
+      auto& [rho_out, t_out] = result;
+      for (int i = 0; i <= n_pts; ++i) {
+        double t = t_lo + (t_hi - t_lo) * i / n_pts;
+        t_out.push_back(t);
+        rho_out.push_back(spl(t));
+      }
+      return result;
+    };
+
+    constexpr int n_spline = 200;
+
     if (!cd.T.empty()) {
-      plt::named_plot("Binodal (vapor)", cd.rho_v, cd.T, "k-");
-      plt::named_plot("Binodal (liquid)", cd.rho_l, cd.T, "k-");
+      // Raw data points
+      plt::plot(cd.rho_v, cd.T, {{"color", "black"}, {"marker", "o"}, {"linestyle", "none"}, {"markersize", "3"}});
+      plt::plot(cd.rho_l, cd.T, {{"color", "black"}, {"marker", "o"}, {"linestyle", "none"}, {"markersize", "3"}});
+
+      // Spline-interpolated curves
+      auto [rho_v_s, t_v_s] = spline_curve(cd.T, cd.rho_v, n_spline);
+      auto [rho_l_s, t_l_s] = spline_curve(cd.T, cd.rho_l, n_spline);
+      plt::named_plot("Binodal (vapor)", rho_v_s, t_v_s, "k-");
+      plt::named_plot("Binodal (liquid)", rho_l_s, t_l_s, "k-");
     }
 
     if (!cd.T_sp.empty()) {
-      plt::named_plot("Spinodal (low)", cd.rho_s1, cd.T_sp, "r--");
-      plt::named_plot("Spinodal (high)", cd.rho_s2, cd.T_sp, "r--");
+      // Raw data points
+      plt::plot(cd.rho_s1, cd.T_sp,
+                {{"color", "red"}, {"marker", "s"}, {"linestyle", "none"}, {"markersize", "3"}});
+      plt::plot(cd.rho_s2, cd.T_sp,
+                {{"color", "red"}, {"marker", "s"}, {"linestyle", "none"}, {"markersize", "3"}});
+
+      // Spline-interpolated curves
+      auto [rho_s1_s, t_s1_s] = spline_curve(cd.T_sp, cd.rho_s1, n_spline);
+      auto [rho_s2_s, t_s2_s] = spline_curve(cd.T_sp, cd.rho_s2, n_spline);
+      plt::named_plot("Spinodal (low)", rho_s1_s, t_s1_s, "r--");
+      plt::named_plot("Spinodal (high)", rho_s2_s, t_s2_s, "r--");
     }
 
-    if (!cd.T.empty()) {
-      double Tc = cd.T.back();
-      double rho_c = 0.5 * (cd.rho_v.back() + cd.rho_l.back());
-      plt::plot({rho_c}, {Tc}, "ko");
+    if (cd.Tc > 0) {
+      plt::plot({cd.rho_c}, {cd.Tc}, "ko");
     }
 
     plt::xlabel(R"($\rho \sigma^3$)");
