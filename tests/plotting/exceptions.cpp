@@ -1,35 +1,38 @@
-#include "dft/plotting/exceptions.h"
+#include "dft/plotting/exceptions.hpp"
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
+#include <string>
 
-TEST(grace_exceptions, grace_exception_cttor_test) {
-  std::string msg = "new exception";
-  auto exception = dft::exception::GraceException(msg);
-  EXPECT_THROW(throw exception, dft::exception::GraceException);
-  ASSERT_STREQ(exception.error_message().c_str(), msg.c_str());
-  ASSERT_STREQ(exception.what(), msg.c_str());
+using namespace dft::exception;
+
+TEST_CASE("GraceException stores message via what()", "[exceptions]") {
+  GraceException ex("test error");
+  CHECK(std::string(ex.what()) == "test error");
 }
 
-TEST(grace_exceptions, grace_no_open_cttor_test) {
-  std::string msg = "No grace subprocess currently connected.";
-  auto exception = dft::exception::GraceNotOpenedException();
-  EXPECT_THROW(throw exception, dft::exception::GraceNotOpenedException);
-  ASSERT_STREQ(exception.error_message().c_str(), msg.c_str());
-  ASSERT_STREQ(exception.what(), msg.c_str());
+TEST_CASE("GraceException is throwable and catchable", "[exceptions]") {
+  REQUIRE_THROWS_AS(throw GraceException("error"), std::runtime_error);
 }
 
-TEST(grace_exceptions, grace_communication_failed_cttor_default_test) {
-  std::string msg = "There was a problem while communicating with Grace.";
-  auto exception = dft::exception::GraceCommunicationFailedException();
-  EXPECT_THROW(throw exception, dft::exception::GraceCommunicationFailedException);
-  ASSERT_STREQ(exception.error_message().c_str(), msg.c_str());
-  ASSERT_STREQ(exception.what(), msg.c_str());
+TEST_CASE("GraceNotOpenedException has default message", "[exceptions]") {
+  GraceNotOpenedException ex;
+  CHECK(std::string(ex.what()) == "No grace subprocess currently connected.");
 }
 
-TEST(grace_exceptions, grace_communication_failed_cttor_test) {
-  std::string msg = "example";
-  auto exception = dft::exception::GraceCommunicationFailedException(msg);
-  EXPECT_THROW(throw exception, dft::exception::GraceCommunicationFailedException);
-  ASSERT_STREQ(exception.error_message().c_str(), msg.c_str());
-  ASSERT_STREQ(exception.what(), msg.c_str());
+TEST_CASE("GraceNotOpenedException is a GraceException", "[exceptions]") {
+  REQUIRE_THROWS_AS(throw GraceNotOpenedException(), GraceException);
+}
+
+TEST_CASE("GraceCommunicationFailedException has default message", "[exceptions]") {
+  GraceCommunicationFailedException ex;
+  CHECK(std::string(ex.what()) == "There was a problem while communicating with Grace.");
+}
+
+TEST_CASE("GraceCommunicationFailedException accepts custom message", "[exceptions]") {
+  GraceCommunicationFailedException ex("custom error");
+  CHECK(std::string(ex.what()) == "custom error");
+}
+
+TEST_CASE("GraceCommunicationFailedException is a GraceException", "[exceptions]") {
+  REQUIRE_THROWS_AS(throw GraceCommunicationFailedException(), GraceException);
 }

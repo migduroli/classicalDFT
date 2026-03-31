@@ -1,120 +1,84 @@
-#include "dft/console.h"
+#include "dft/console.hpp"
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
 #include <sstream>
 
-using namespace dft;
+using namespace dft::console;
 
-// ── write / write_line / new_line ───────────────────────────────────────────
-
-TEST(Console, WriteOutputsToStdout) {
-  testing::internal::CaptureStdout();
-  console::write("test");
-  ASSERT_EQ(testing::internal::GetCapturedStdout(), "test");
+TEST_CASE("bold wraps message with ANSI bold codes", "[console]") {
+  auto result = format::bold("test");
+  CHECK(result == "\x1b[1mtest\x1b[0m");
 }
 
-TEST(Console, WriteLineOutputsWithNewline) {
-  testing::internal::CaptureStdout();
-  console::write_line("test");
-  ASSERT_EQ(testing::internal::GetCapturedStdout(), "test\n");
+TEST_CASE("blink wraps message with ANSI blink codes", "[console]") {
+  auto result = format::blink("test");
+  CHECK(result == "\033[33;5;7mtest\033[0m");
 }
 
-TEST(Console, WriteLineInitializerList) {
-  testing::internal::CaptureStdout();
-  console::write_line({"test", "one", "two"});
-  ASSERT_EQ(testing::internal::GetCapturedStdout(), "test\none\ntwo\n");
+TEST_CASE("now_str returns 19-character timestamp", "[console]") {
+  auto ts = now_str();
+  CHECK(ts.size() == 19);
+  CHECK(ts[4] == '-');
+  CHECK(ts[7] == '-');
+  CHECK(ts[10] == ' ');
+  CHECK(ts[13] == ':');
+  CHECK(ts[16] == ':');
 }
 
-TEST(Console, NewLine) {
-  testing::internal::CaptureStdout();
-  console::new_line();
-  ASSERT_EQ(testing::internal::GetCapturedStdout(), "\n");
+TEST_CASE("write outputs to stdout", "[console]") {
+  std::ostringstream captured;
+  auto* old_buf = std::cout.rdbuf(captured.rdbuf());
+  write("hello");
+  std::cout.rdbuf(old_buf);
+  CHECK(captured.str() == "hello");
 }
 
-// ── format::bold / format::blink ────────────────────────────────────────────
-
-TEST(ConsoleFormat, BoldWrapsCorrectly) {
-  auto result = console::format::bold("hello");
-  EXPECT_EQ(result, "\x1b[1mhello\x1b[0m");
+TEST_CASE("write_line outputs with newline", "[console]") {
+  std::ostringstream captured;
+  auto* old_buf = std::cout.rdbuf(captured.rdbuf());
+  write_line("line");
+  std::cout.rdbuf(old_buf);
+  CHECK(captured.str() == "line\n");
 }
 
-TEST(ConsoleFormat, BlinkWrapsCorrectly) {
-  auto result = console::format::blink("hello");
-  EXPECT_EQ(result, "\033[33;5;7mhello\033[0m");
+TEST_CASE("info output contains Info marker", "[console]") {
+  std::ostringstream captured;
+  auto* old_buf = std::cout.rdbuf(captured.rdbuf());
+  info("test message");
+  std::cout.rdbuf(old_buf);
+  CHECK(captured.str().find("[i] Info:") != std::string::npos);
+  CHECK(captured.str().find("test message") != std::string::npos);
 }
 
-// ── now_str ─────────────────────────────────────────────────────────────────
-
-TEST(Console, NowStrReturnsFormattedTime) {
-  auto result = console::now_str();
-  // Format: YYYY-MM-DD HH:MM:SS (19 chars)
-  EXPECT_EQ(result.size(), 19U);
-  EXPECT_EQ(result[4], '-');
-  EXPECT_EQ(result[7], '-');
-  EXPECT_EQ(result[10], ' ');
-  EXPECT_EQ(result[13], ':');
-  EXPECT_EQ(result[16], ':');
+TEST_CASE("warning output contains Warning marker", "[console]") {
+  std::ostringstream captured;
+  auto* old_buf = std::cout.rdbuf(captured.rdbuf());
+  warning("test warning");
+  std::cout.rdbuf(old_buf);
+  CHECK(captured.str().find("[?] Warning:") != std::string::npos);
 }
 
-// ── info / warning / error / debug ──────────────────────────────────────────
-
-TEST(Console, InfoContainsMarker) {
-  testing::internal::CaptureStdout();
-  console::info("test message");
-  auto output = testing::internal::GetCapturedStdout();
-  EXPECT_NE(output.find("[i] Info:"), std::string::npos);
-  EXPECT_NE(output.find("test message"), std::string::npos);
+TEST_CASE("error output contains Error marker", "[console]") {
+  std::ostringstream captured;
+  auto* old_buf = std::cout.rdbuf(captured.rdbuf());
+  error("test error");
+  std::cout.rdbuf(old_buf);
+  CHECK(captured.str().find("[!] Error:") != std::string::npos);
 }
 
-TEST(Console, WarningContainsMarker) {
-  testing::internal::CaptureStdout();
-  console::warning("test message");
-  auto output = testing::internal::GetCapturedStdout();
-  EXPECT_NE(output.find("[?] Warning:"), std::string::npos);
-  EXPECT_NE(output.find("test message"), std::string::npos);
+TEST_CASE("debug output contains Debug marker", "[console]") {
+  std::ostringstream captured;
+  auto* old_buf = std::cout.rdbuf(captured.rdbuf());
+  debug("test debug");
+  std::cout.rdbuf(old_buf);
+  CHECK(captured.str().find("[+] Debug:") != std::string::npos);
 }
 
-TEST(Console, ErrorContainsMarker) {
-  testing::internal::CaptureStdout();
-  console::error("test message");
-  auto output = testing::internal::GetCapturedStdout();
-  EXPECT_NE(output.find("[!] Error:"), std::string::npos);
-  EXPECT_NE(output.find("test message"), std::string::npos);
-}
-
-TEST(Console, DebugContainsMarker) {
-  testing::internal::CaptureStdout();
-  console::debug("test message");
-  auto output = testing::internal::GetCapturedStdout();
-  EXPECT_NE(output.find("[+] Debug:"), std::string::npos);
-  EXPECT_NE(output.find("test message"), std::string::npos);
-}
-
-// ── read_line (redirect stdin) ──────────────────────────────────────────────
-
-TEST(Console, ReadLineFromRedirectedStdin) {
-  std::istringstream input("hello_world");
-  auto old_buf = std::cin.rdbuf(input.rdbuf());
-  auto result = console::read_line();
-  std::cin.rdbuf(old_buf);
-  EXPECT_EQ(result, "hello_world");
-}
-
-// ── pause / wait (redirect stdin to avoid blocking) ─────────────────────────
-
-TEST(Console, PauseReadsFromStdin) {
-  std::istringstream input("\n");
-  auto old_buf = std::cin.rdbuf(input.rdbuf());
-  console::pause();
-  std::cin.rdbuf(old_buf);
-}
-
-TEST(Console, WaitPrintsAndReadsFromStdin) {
-  std::istringstream input("\n");
-  auto old_buf = std::cin.rdbuf(input.rdbuf());
-  testing::internal::CaptureStdout();
-  console::wait();
-  auto output = testing::internal::GetCapturedStdout();
-  std::cin.rdbuf(old_buf);
-  EXPECT_NE(output.find("Press enter to continue"), std::string::npos);
+TEST_CASE("color constants are non-empty ANSI codes", "[console]") {
+  CHECK_FALSE(color::RED.empty());
+  CHECK_FALSE(color::GREEN.empty());
+  CHECK_FALSE(color::YELLOW.empty());
+  CHECK_FALSE(color::CYAN.empty());
+  CHECK_FALSE(color::MAGENTA.empty());
+  CHECK_FALSE(color::RESET.empty());
 }

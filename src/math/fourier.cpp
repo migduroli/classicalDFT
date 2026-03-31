@@ -1,12 +1,11 @@
-#include "dft/math/fourier.h"
+#include "dft/math/fourier.hpp"
 
 #include <algorithm>
 #include <cstring>
 #include <numeric>
+#include <stdexcept>
 
-namespace dft::math::fourier {
-
-  // ── FourierTransform ─────────────────────────────────────────────────
+namespace dft::math {
 
   FourierTransform::FourierTransform(std::vector<long> shape) : shape_(std::move(shape)) {
     if (shape_.size() != 3) {
@@ -45,36 +44,34 @@ namespace dft::math::fourier {
   }
 
   FourierTransform::~FourierTransform() = default;
+  FourierTransform::FourierTransform(FourierTransform&&) noexcept = default;
+  FourierTransform& FourierTransform::operator=(FourierTransform&&) noexcept = default;
 
-  FourierTransform::FourierTransform(FourierTransform&& other) noexcept = default;
-
-  FourierTransform& FourierTransform::operator=(FourierTransform&& other) noexcept = default;
-
-  const std::vector<long>& FourierTransform::shape() const {
+  auto FourierTransform::shape() const -> const std::vector<long>& {
     return shape_;
   }
 
-  long FourierTransform::total() const {
-    return std::accumulate(begin(shape_), end(shape_), 1L, std::multiplies<>());
+  auto FourierTransform::total() const -> long {
+    return std::accumulate(shape_.begin(), shape_.end(), 1L, std::multiplies<>());
   }
 
-  long FourierTransform::fourier_total() const {
+  auto FourierTransform::fourier_total() const -> long {
     return shape_[0] * shape_[1] * (shape_[2] / 2 + 1);
   }
 
-  std::span<double> FourierTransform::real() {
+  auto FourierTransform::real() -> std::span<double> {
     return {real_data_.get(), static_cast<std::size_t>(total())};
   }
 
-  std::span<const double> FourierTransform::real() const {
+  auto FourierTransform::real() const -> std::span<const double> {
     return {real_data_.get(), static_cast<std::size_t>(total())};
   }
 
-  std::span<std::complex<double>> FourierTransform::fourier() {
+  auto FourierTransform::fourier() -> std::span<std::complex<double>> {
     return {reinterpret_cast<std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())};
   }
 
-  std::span<const std::complex<double>> FourierTransform::fourier() const {
+  auto FourierTransform::fourier() const -> std::span<const std::complex<double>> {
     return {
         reinterpret_cast<const std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())};
   }
@@ -99,19 +96,17 @@ namespace dft::math::fourier {
     }
   }
 
-  // ── FourierConvolution ────────────────────────────────────────────────────
+  // FourierConvolution
 
   FourierConvolution::FourierConvolution(std::vector<long> shape) : a_(shape), b_(shape), c_(std::move(shape)) {}
 
-  std::span<double> FourierConvolution::input_a() {
+  auto FourierConvolution::input_a() -> std::span<double> {
     return a_.real();
   }
-
-  std::span<double> FourierConvolution::input_b() {
+  auto FourierConvolution::input_b() -> std::span<double> {
     return b_.real();
   }
-
-  std::span<const double> FourierConvolution::result() const {
+  auto FourierConvolution::result() const -> std::span<const double> {
     return c_.real();
   }
 
@@ -130,12 +125,11 @@ namespace dft::math::fourier {
     c_.scale(1.0 / static_cast<double>(c_.total()));
   }
 
-  const std::vector<long>& FourierConvolution::shape() const {
+  auto FourierConvolution::shape() const -> const std::vector<long>& {
     return a_.shape();
   }
-
-  long FourierConvolution::total() const {
+  auto FourierConvolution::total() const -> long {
     return a_.total();
   }
 
-}  // namespace dft::math::fourier
+}  // namespace dft::math

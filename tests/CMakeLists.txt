@@ -5,7 +5,7 @@ add_executable(classicaldft_tests ${TEST_SOURCES})
 target_link_libraries(classicaldft_tests
     PRIVATE
         classicaldft
-        GTest::gtest
+        Catch2::Catch2WithMain
 )
 
 target_compile_options(classicaldft_tests
@@ -13,13 +13,11 @@ target_compile_options(classicaldft_tests
         $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>
 )
 
-add_test(NAME classicaldft_tests COMMAND classicaldft_tests)
-set_tests_properties(classicaldft_tests PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+target_compile_definitions(classicaldft_tests
+    PRIVATE
+        DFT_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-# Copy config files needed by config_parser tests
-configure_file(config_files/config.ini  ${CMAKE_CURRENT_BINARY_DIR}/config.ini  COPYONLY)
-configure_file(config_files/config.json ${CMAKE_CURRENT_BINARY_DIR}/config.json COPYONLY)
-configure_file(config_files/config.xml  ${CMAKE_CURRENT_BINARY_DIR}/config.xml  COPYONLY)
-configure_file(config_files/config.info ${CMAKE_CURRENT_BINARY_DIR}/config.info COPYONLY)
+include(CTest)
+include(Catch)
+catch_discover_tests(classicaldft_tests)

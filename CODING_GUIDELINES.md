@@ -5,6 +5,8 @@ project. All new code, refactored code, examples, and tests must follow it.
 
 See `RENOVATION.md` for the complete architectural plan.
 
+For comments, we try to keep the code as self-explanatory as possible. If comments are needed, never use complicated box-drawing characters that visually break up the code into sections (e.g. `// ── Section title ──`). Instead, use simple sentences `// Section title` with a blank line before (keep it as close as possible to the code it describes). The code itself should be the primary guide to understanding, with comments only for clarifications.
+
 ---
 
 ## 1. Language standard and tooling
@@ -32,11 +34,8 @@ include/
     init.hpp                               # convenience state factories
     console.hpp                            # terminal formatting utilities
     exceptions.hpp                         # general + math exceptions
-    core/
-      grid.hpp                             # lightweight DFT grid struct
-      density.hpp                          # density data struct
-      species.hpp                          # Species identity + SpeciesState
-      state.hpp                            # State aggregate
+    grid.hpp                               # lightweight DFT grid struct
+    types.hpp                              # Density, Species, SpeciesState, State, Crystal types
     math/
       fourier.hpp                          # FFTW3 RAII wrapper
       convolution.hpp                      # FFT-based convolution
@@ -44,23 +43,23 @@ include/
       spline.hpp                           # cubic spline (GSL)
       integration.hpp                      # numerical integration
       autodiff.hpp                         # autodiff adapter
-      hessian.hpp                          # Hessian operator
+      types.hpp                            # HessianOperator, module-scoped types
     physics/
       potentials.hpp                       # variant-based potentials
       interactions.hpp                     # Interaction spec struct
       model.hpp                            # Model aggregate
-      enskog.hpp                           # hard-sphere thermodynamics
+      hard_spheres.hpp                     # hard-sphere thermodynamics + transport
       eos.hpp                              # equations of state
-      fmt/
-        models.hpp                         # FMT model structs + free fns
-        measures.hpp                       # fundamental measures struct
-        weights.hpp                        # weight generation
     functionals/
       ideal_gas.hpp                        # ideal gas contribution
       hard_sphere.hpp                      # FMT hard sphere contribution
       mean_field.hpp                       # mean-field interaction contribution
       external_field.hpp                   # external field contribution
       functionals.hpp                      # orchestrator + Result struct
+      fmt/
+        models.hpp                         # FMT model structs + free fns
+        measures.hpp                       # fundamental measures struct
+        weights.hpp                        # weight generation
       bulk/
         thermodynamics.hpp                 # pressure, chemical potential, etc.
         phase_diagram.hpp                  # continuation-based coexistence/spinodal
@@ -77,9 +76,6 @@ include/
       vertex.hpp                           # value-type vertex
       element.hpp                          # variant-based elements (2D/3D)
       mesh.hpp                             # variant-based meshes (2D/3D)
-    crystal/
-      lattice.hpp                          # BCC/FCC/HCP crystal lattice builder
-      types.hpp                            # crystal enums and types
     config/
       parser.hpp                           # configuration file parser
     plotting/
@@ -98,8 +94,9 @@ examples/
     exports/                               # plot output
 ```
 
-Top-level modules: `core`, `math`, `physics`, `functionals`, `algorithms`,
-`geometry`, `crystal`, `config`, `plotting`.
+Top-level modules: `math`, `physics`, `functionals`, `algorithms`,
+`geometry`, `config`, `plotting`. Root-level headers: `grid.hpp`,
+`types.hpp`, `console.hpp`, `exceptions.hpp`, `init.hpp`.
 
 Source tree, test tree, and example tree mirror the header tree.
 File names must not repeat the directory name.
@@ -113,6 +110,15 @@ File names must not repeat the directory name.
 - Header extension: `.hpp`. Source extension: `.cpp`.
 - File name matches the primary type name in snake_case:
   `FmtWeightSet` → `weights.hpp`, `WhiteBearII` → `models.hpp` (shared).
+
+### `types.hpp` convention
+
+Shared vocabulary types (structs, enums, type aliases) that are used across
+modules live in `include/dft/types.hpp` under `namespace dft`. Module-scoped
+types that are only used within a single module live in
+`include/dft/<module>/types.hpp` under the module's namespace. This avoids
+proliferating tiny single-struct headers while keeping a clear boundary
+between library-wide and module-local definitions.
 
 ---
 
@@ -153,7 +159,7 @@ Follows the Google C++ style guide, enforced by `.clang-format`:
 Blank line between each group. Example:
 
 ```cpp
-#include "dft/core/density.hpp"
+#include "dft/types.hpp"
 
 #include "dft/math/arithmetic.hpp"
 
@@ -169,21 +175,21 @@ No forward declarations. Include what you use.
 ## 6. Namespaces
 
 Root namespace: **`dft`**. Sub-namespaces mirror the directory structure.
+Root-level headers (`grid.hpp`, `types.hpp`) live directly in `namespace dft`.
 
 | Directory | Namespace |
 |-----------|-----------|
-| `core/` | `dft::core` |
 | `math/` | `dft::math` |
 | `physics/` | `dft::physics` |
 | `physics/potentials.hpp` | `dft::physics::potentials` |
-| `physics/fmt/` | `dft::physics::fmt` |
+| `physics/hard_spheres.hpp` | `dft::physics::hard_spheres` |
 | `functionals/` | `dft::functionals` |
+| `functionals/fmt/` | `dft::functionals::fmt` |
 | `functionals/bulk/` | `dft::functionals::bulk` |
 | `algorithms/` | `dft::algorithms` |
 | `algorithms/solvers/` | `dft::algorithms::solvers` |
 | `algorithms/solvers/continuation.hpp` | `dft::algorithms::continuation` |
 | `geometry/` | `dft::geometry` |
-| `crystal/` | `dft::crystal` |
 | `config/` | `dft::config` |
 | `plotting/` | `dft::plotting` |
 | `init.hpp` | `dft::init` |
@@ -494,15 +500,6 @@ Configured in `.clang-format` (Google base):
 | Bin-pack args/params | No (one per line if they don't fit) |
 | Include sorting | Case-sensitive, regrouped |
 
-### Section separators
-
-Use Unicode box-drawing characters to fill to ~80 columns:
-
-```cpp
-// ── Section title ──────────────────────────────────────────────────────
-```
-
-Each logical section of a file gets a separator.
 
 ---
 
@@ -524,14 +521,14 @@ custom `main.cpp` needed.
 
 using namespace dft::physics::fmt;
 
-// ── Default construction ──────────────────────────────────────────────
+// Default construction
 
 TEST_CASE("Measures default construction is all zero", "[measures]") {
   Measures m;
   CHECK(m.n0 == 0.0);
 }
 
-// ── Uniform factory ───────────────────────────────────────────────────
+// Uniform factory
 
 TEST_CASE("Measures uniform eta is consistent", "[measures]") {
   auto m = Measures::uniform(0.5, 1.0);
@@ -625,20 +622,20 @@ using namespace dft;
 int main() {
   std::filesystem::create_directories("exports");
 
-  // ── Define model ─────────────────────────────────────────────────
+  // Define model
   physics::Model model{
       .grid = core::make_grid(0.1, {10.0, 10.0, 10.0}),
       .species = {core::Species{.name = "Argon", .hard_sphere_diameter = 1.0}},
   };
 
-  // ── Initial state ────────────────────────────────────────────────
+  // Initial state
   auto state = init::homogeneous(model, 0.5);
 
-  // ── Evaluate ─────────────────────────────────────────────────────
+  // Evaluate
   auto result = functionals::total(model, state);
   std::cout << "Free energy: " << result.total_free_energy << "\n";
 
-  // ── Grace plots ──────────────────────────────────────────────────
+  // Grace plots
 #ifdef DFT_HAS_GRACE
   using namespace dft::plotting;
 

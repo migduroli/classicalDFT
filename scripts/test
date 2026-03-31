@@ -59,8 +59,16 @@ test_coverage() {
 
   # Filter: keep only project sources (include/ and src/)
   lcov --extract "$BUILD_DIR/coverage.info" \
-    "*/include/classicaldft_bits/*" \
+    "*/include/dft/*" \
     "*/src/*" \
+    --output-file "$BUILD_DIR/coverage_filtered.info" \
+    --quiet \
+    $LCOV_IGNORE_UNUSED \
+    $LCOV_IGNORE
+
+  # Remove third-party code that slipped through (Catch2, autodiff, etc.)
+  lcov --remove "$BUILD_DIR/coverage_filtered.info" \
+    "*/_deps/*" \
     --output-file "$BUILD_DIR/coverage_filtered.info" \
     --quiet \
     $LCOV_IGNORE_UNUSED \

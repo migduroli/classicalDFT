@@ -1,145 +1,64 @@
-#include "dft/math/integration.h"
+#include "dft/math/integration.hpp"
 
-#include <gtest/gtest.h>
-
-// region Default parameters:
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <cmath>
 
 using namespace dft::math;
 
-TEST(numerics, default_relative_error_test) {
-  EXPECT_DOUBLE_EQ(1e-5, integration::DEFAULT_RELATIVE_ERROR_TOLERANCE);
+TEST_CASE("integrate constant function", "[integration]") {
+  Integrator ig([](double) { return 2.0; });
+  auto r = ig.integrate(0.0, 5.0);
+  CHECK(r.value == Catch::Approx(10.0).epsilon(1e-8));
 }
 
-TEST(numerics, default_absolute_error_test) {
-  EXPECT_DOUBLE_EQ(1e-5, integration::DEFAULT_ABSOLUTE_ERROR_TOLERANCE);
+TEST_CASE("integrate linear function", "[integration]") {
+  Integrator ig([](double x) { return x; });
+  auto r = ig.integrate(0.0, 4.0);
+  CHECK(r.value == Catch::Approx(8.0).epsilon(1e-8));
 }
 
-TEST(numerics, default_initial_error_value_test) {
-  EXPECT_DOUBLE_EQ(123456.789, integration::DEFAULT_INITIAL_ERROR_VALUE);
+TEST_CASE("integrate sin over full period", "[integration]") {
+  Integrator ig([](double x) { return std::sin(x); });
+  auto r = ig.integrate(0.0, 2.0 * M_PI);
+  CHECK(r.value == Catch::Approx(0.0).margin(1e-10));
 }
 
-TEST(numerics, default_initial_result_value_test) {
-  EXPECT_DOUBLE_EQ(123456.789, integration::DEFAULE_INITIAL_RESULT_VALUE);
+TEST_CASE("integrate sin over half period", "[integration]") {
+  Integrator ig([](double x) { return std::sin(x); });
+  auto r = ig.integrate(0.0, M_PI);
+  CHECK(r.value == Catch::Approx(2.0).epsilon(1e-8));
 }
 
-TEST(numerics, default_gsl_working_space_size_test) {
-  EXPECT_EQ(1000, integration::DEFAULT_GSL_WORKING_SPACE_SIZE);
+TEST_CASE("integrate_fast on smooth function", "[integration]") {
+  Integrator ig([](double x) { return x * x; });
+  auto r = ig.integrate_fast(0.0, 3.0);
+  CHECK(r.value == Catch::Approx(9.0).epsilon(1e-8));
 }
 
-// endregion
-
-class TestProblemClass {
- private:
-  double param_ = 0.5;
-
- public:
-  explicit TestProblemClass(double param = 0.5) : param_(param) {}
-  double NegativeExp(double x) const { return param_ * exp(-x); }
-  double PositiveExp(double x) const { return param_ * exp(x); }
-  double NormalDist(double x) const { return param_ * exp(-x * x * 0.5) / sqrt(2 * M_PI); }
-};
-
-// region Integrator class:
-TEST(integrator, cttor_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
-
-  EXPECT_DOUBLE_EQ(integrator.absolute_error_tolerance(), integration::DEFAULT_ABSOLUTE_ERROR_TOLERANCE);
-
-  EXPECT_DOUBLE_EQ(integrator.relative_error_tolerance(), integration::DEFAULT_RELATIVE_ERROR_TOLERANCE);
-
-  EXPECT_DOUBLE_EQ(integrator.numerical_error(), integration::DEFAULT_INITIAL_ERROR_VALUE);
-
-  EXPECT_DOUBLE_EQ(integrator.numerical_result(), integration::DEFAULE_INITIAL_RESULT_VALUE);
-
-  EXPECT_EQ(integrator.gsl_working_space_size(), integration::DEFAULT_GSL_WORKING_SPACE_SIZE);
+TEST_CASE("integrate_upper_infinite on exp(-x)", "[integration]") {
+  Integrator ig([](double x) { return std::exp(-x); });
+  auto r = ig.integrate_upper_infinite(0.0);
+  CHECK(r.value == Catch::Approx(1.0).epsilon(1e-6));
 }
 
-TEST(integrator, setters_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
-
-  auto expected_val = 1e-7;
-  integrator.set_absolute_error(expected_val);
-  EXPECT_DOUBLE_EQ(integrator.absolute_error_tolerance(), expected_val);
-
-  integrator.set_relative_error(expected_val);
-  EXPECT_DOUBLE_EQ(integrator.relative_error_tolerance(), expected_val);
-
-  auto expected_size = 15000;
-  integrator.set_working_space_size(expected_size);
-  EXPECT_EQ(integrator.gsl_working_space_size(), expected_size);
+TEST_CASE("integrate_lower_infinite on exp(x)", "[integration]") {
+  Integrator ig([](double x) { return std::exp(x); });
+  auto r = ig.integrate_lower_infinite(0.0);
+  CHECK(r.value == Catch::Approx(1.0).epsilon(1e-6));
 }
 
-TEST(integrator, definite_integral_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
-
-  auto expected_result = 0.5;
-  auto actual_result = integrator.definite_integral(0, -log(0.5));
-
-  EXPECT_DOUBLE_EQ(expected_result, actual_result);
-  EXPECT_DOUBLE_EQ(expected_result, integrator.numerical_result());
-  EXPECT_LE(integrator.numerical_error(), integrator.relative_error_tolerance());
+TEST_CASE("integrate_infinite on Gaussian", "[integration]") {
+  // integral of exp(-x^2) from -inf to +inf = sqrt(pi)
+  Integrator ig([](double x) { return std::exp(-x * x); });
+  auto r = ig.integrate_infinite();
+  CHECK(r.value == Catch::Approx(std::sqrt(M_PI)).epsilon(1e-6));
 }
 
-TEST(integrator, definite_integral_fast_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
-
-  auto expected_result = 0.5;
-  auto actual_result = integrator.definite_integral_fast(0, -log(0.5));
-
-  EXPECT_DOUBLE_EQ(expected_result, actual_result);
-  EXPECT_DOUBLE_EQ(expected_result, integrator.numerical_result());
-  EXPECT_LE(integrator.numerical_error(), integrator.relative_error_tolerance());
+TEST_CASE("custom integration config tolerances", "[integration]") {
+  IntegrationConfig cfg{.absolute_tolerance = 1e-12, .relative_tolerance = 1e-12, .workspace_size = 2000};
+  Integrator ig([](double x) { return std::exp(-x * x); }, cfg);
+  auto r = ig.integrate(-5.0, 5.0);
+  CHECK(r.value == Catch::Approx(std::sqrt(M_PI)).epsilon(1e-10));
+  CHECK(r.error < 1e-10);
 }
-
-TEST(integrator, upper_semi_infinite_integral_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NegativeExp);
-
-  double expected_result = 1.0;
-  auto actual_result = integrator.upper_semi_infinite_integral(0);
-
-  EXPECT_NEAR(expected_result, actual_result, integrator.numerical_error());
-  EXPECT_NEAR(expected_result, integrator.numerical_result(), integrator.numerical_error());
-  EXPECT_LE(integrator.numerical_error(), integrator.relative_error_tolerance());
-}
-
-TEST(integrator, lower_semi_infinite_integral_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::PositiveExp);
-
-  double expected_result = 1.0;
-  auto actual_result = integrator.lower_semi_infinite_integral(0);
-
-  EXPECT_NEAR(expected_result, actual_result, integrator.numerical_error());
-  EXPECT_NEAR(expected_result, integrator.numerical_result(), integrator.numerical_error());
-  EXPECT_LE(integrator.numerical_error(), integrator.relative_error_tolerance());
-}
-
-TEST(integrator, infinite_integral_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NormalDist);
-
-  double expected_result = 1.0;
-  auto actual_result = integrator.full_infinite_integral();
-
-  EXPECT_NEAR(expected_result, actual_result, integrator.numerical_error());
-  EXPECT_NEAR(expected_result, integrator.numerical_result(), integrator.numerical_error());
-  EXPECT_LE(integrator.numerical_error(), integrator.relative_error_tolerance());
-}
-
-TEST(integrator, class_method_passing_works_ok_test) {
-  auto problem = TestProblemClass(1.0);
-  auto integrator = integration::Integrator<TestProblemClass>(problem, &TestProblemClass::NormalDist);
-
-  double expected_value = problem.NormalDist(2 * M_PI);
-  EXPECT_DOUBLE_EQ(integrator.function(2 * M_PI), expected_value);
-  EXPECT_DOUBLE_EQ(
-      integration::Integrator<TestProblemClass>::integrand_function(2 * M_PI, &integrator), expected_value
-  );
-}
-
-// endregion
