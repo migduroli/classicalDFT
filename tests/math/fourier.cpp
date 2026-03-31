@@ -81,6 +81,15 @@ TEST_CASE("FourierTransform is move-constructible", "[fourier]") {
   CHECK(ft2.total() == 64);
 }
 
+TEST_CASE("FourierTransform is move-assignable", "[fourier]") {
+  FourierTransform ft1({4, 4, 4});
+  ft1.real()[0] = 99.0;
+  FourierTransform ft2({2, 2, 2});
+  ft2 = std::move(ft1);
+  CHECK(ft2.real()[0] == 99.0);
+  CHECK(ft2.total() == 64);
+}
+
 TEST_CASE("FourierConvolution computes cyclic convolution", "[fourier]") {
   FourierConvolution conv({4, 4, 4});
   auto a = conv.input_a();

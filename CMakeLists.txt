@@ -58,6 +58,7 @@ set(DFT_LIB_SOURCES
     src/config/parser.cpp
     src/math/fourier.cpp
     src/math/spline.cpp
+    src/physics/eos.cpp
 )
 
 add_library(classicaldft STATIC ${DFT_LIB_SOURCES})
@@ -93,6 +94,7 @@ target_include_directories(classicaldft
 target_compile_options(classicaldft
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>
+        $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>
 )
 
 # Coverage
