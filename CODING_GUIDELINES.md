@@ -5,6 +5,12 @@ project. All new code, refactored code, examples, and tests must follow it.
 
 See `RENOVATION.md` for the complete architectural plan.
 
+The guiding principle is **readability through simplicity**: code should read
+almost like a high-level scripting language while retaining zero-cost C++23
+abstractions. Data flows in, results flow out. No hidden mutation, no shared
+mutable state, no control inversion. Every function signature tells the
+complete story of what it needs and what it produces.
+
 For comments, we try to keep the code as self-explanatory as possible. If comments are needed, never use complicated box-drawing characters that visually break up the code into sections (e.g. `// ── Section title ──`). Instead, use simple sentences `// Section title` with a blank line before (keep it as close as possible to the code it describes). The code itself should be the primary guide to understanding, with comments only for clarifications.
 
 ---
@@ -239,8 +245,9 @@ Enforced by `.clang-tidy` `readability-identifier-naming`:
   `pressure()`, `forces()`, `fire()`, `trace()`.
 - No abbreviation-heavy compound names.
 - Derivative methods use `d_` / `d2_` prefix: `d_f1()`, `d2_f1()`.
-- `make_` prefix ONLY for validated factory functions: `make_grid()`,
-  `make_fmt_workspace()`.
+- `make_` prefix ONLY for validated factory functions that enforce
+  invariants: `make_grid()`. Do not use `make_` for simple allocation
+  that is immediately followed by a second fill step (see anti-patterns).
 
 ---
 
@@ -288,12 +295,34 @@ Functions return new values. Algorithm functions take `State` by value (they
 own a local working copy) and return the final state. RVO and `std::move`
 eliminate copies.
 
+Every function that produces a result **must** return it. Never pass an
+object by mutable reference to be filled internally. The caller should not
+need to read the function body to understand what is being created or
+modified. The function signature must tell the full story.
+
 ```cpp
 // Good: takes State by value, returns Solution
 [[nodiscard]] auto fire(const Model&, State, const FireConfig&) -> Solution;
 
 // Bad: mutates argument in place
 void minimize(State&, const Model&);
+```
+
+```cpp
+// Good: single factory that allocates and populates
+[[nodiscard]] auto generate_weights(double diameter, const Grid& grid) -> WeightSet;
+
+// Bad: two-step allocate-then-fill via mutable reference
+auto ws = make_weight_set(grid);
+generate_weights(diameter, grid, ws);  // hidden mutation
+```
+
+```cpp
+// Good: returns the convolution result
+[[nodiscard]] auto convolve(weight_k, rho_k, shape) -> arma::vec;
+
+// Bad: requires caller to manage a scratch buffer
+auto result = convolve(weight_k, rho_k, scratch);  // scratch mutated as side effect
 ```
 
 ### Designated initialisers for all struct construction
@@ -463,30 +492,85 @@ struct Measures {
 
 ## 10. Armadillo conventions
 
+Armadillo is to this library what NumPy is to Python. It is the **primary**
+tool for all numerical operations. Every loop over arrays that could be a
+vectorised Armadillo operation is a bug, not a style choice.
+
+### Mandatory vectorisation
+
+If Armadillo provides a vectorised operation, use it. Never write a manual
+`for` loop for element-wise arithmetic, reductions, or copies when an
+Armadillo one-liner exists.
+
+```cpp
+// BANNED: manual element-wise multiply
+for (std::size_t i = 0; i < n; ++i) {
+  result[i] = a[i] * b[i];
+}
+
+// CORRECT: Armadillo Schur product
+arma::cx_vec result = a % b;
+```
+
+```cpp
+// BANNED: manual accumulation loop
+for (std::size_t i = 0; i < n; ++i) {
+  force_k[i] += partial[i];
+}
+
+// CORRECT: vectorised addition
+force_k += partial;
+```
+
+```cpp
+// BANNED: manual copy
+std::copy_n(src.memptr(), src.n_elem, dst.data());
+
+// CORRECT: Armadillo assignment or constructor
+arma::vec dst(src_span.data(), src_span.size());
+```
+
+### Preferred types at API boundaries
+
 | Type | Use for |
 |------|---------|
-| `arma::vec` | 1D arrays: density field, forces, FFT data |
+| `arma::vec` | Real-valued arrays: density, forces, derivatives |
+| `arma::cx_vec` | Complex arrays: Fourier coefficients, convolution results |
 | `arma::rowvec3` | 3D spatial vectors: box size, position |
 | `arma::mat33` | 3x3 tensors |
 | `arma::mat` | N x 3 position arrays (lattice), Jacobian matrices |
 | `arma::uword` | All index types |
-| `arma::cx_vec` | Complex FFT output |
 
-API boundaries accept `const arma::vec&` or `const arma::rowvec3&`. Internal
-computation uses Armadillo functions directly: `arma::dot()`, `arma::trace()`,
-`arma::norm()`, `arma::clamp()`, `arma::log()`.
+Use `arma::cx_vec` instead of `std::vector<std::complex<double>>` in all
+function signatures and return types. The only exception is inside RAII
+wrappers (`FourierTransform`) that must interface with C APIs (FFTW).
+
+### Bridging FFTW and Armadillo
+
+The `FourierTransform` class exposes raw FFTW buffers via `std::span`.
+All downstream code must immediately wrap these in Armadillo views for
+computation. Helper methods on FourierTransform (`set_real`, `real_vec`,
+`fourier_vec`) bridge the two worlds, so downstream code never touches raw
+spans directly.
+
+### Operations that must use Armadillo
+
+| Operation | Armadillo way | Not this |
+|-----------|--------------|----------|
+| Element-wise multiply | `a % b` | `for` loop |
+| Element-wise add | `a + b` or `a += b` | `for` loop |
+| Conjugate | `arma::conj(v)` | `std::conj` in loop |
+| Dot product | `arma::dot(a, b)` | manual sum |
+| Sum all elements | `arma::accu(v)` | manual sum |
+| Fill with zeros | `arma::zeros(n)` or `.zeros()` | `memset` / loop |
+| Copy to vec | `arma::vec(ptr, n)` | `std::copy_n` |
+| Clamp | `arma::clamp(v, lo, hi)` | manual loop |
+| Log / Exp | `arma::log(v)` / `arma::exp(v)` | loop with `std::log` |
+| Max / Min | `arma::max(v)` | `std::max_element` |
+| Norm | `arma::norm(v)` | manual sqrt of dot |
 
 Do **not** use `std::vector<double>` or raw `double*` at public APIs.
-Do **not** use flat index enums for tensor components; use Armadillo structures:
-
-```cpp
-struct FmtWeightSet {
-  FourierTransform eta;
-  FourierTransform scalar;
-  std::array<FourierTransform, 3> vector;
-  std::array<std::array<FourierTransform, 3>, 3> tensor;
-};
-```
+Do **not** use flat index enums for tensor components; use Armadillo structures.
 
 ---
 
@@ -721,7 +805,13 @@ functions. No methods on data types (except trivial `constexpr` helpers like
 
 All data is passed by value or `const&`. Functions return new values; they
 never mutate inputs. Algorithm functions take `State` by value and return
-`Solution`.
+`Solution`. The function signature is the contract: inputs on the left,
+output on the right. No hidden side channels through mutable references.
+
+Immutable precomputed data (weights, models) is separated from ephemeral
+scratch memory. Precomputed data is passed by `const&`. Scratch is allocated
+internally by the functions that need it. The caller never manages temporary
+buffers.
 
 ### Single responsibility
 
@@ -756,3 +846,110 @@ No commented-out code, no unused includes, no functions that are never called.
 - Pass large objects by `const&`.
 - Use `const` local variables when the value does not change.
 - Mark all pure functions `[[nodiscard]]`.
+
+---
+
+## 17. Anti-patterns
+
+The following patterns are **banned** in this codebase. Each entry explains
+why it is harmful and shows the correct alternative.
+
+### Out-parameter mutation
+
+Never pass an object by mutable reference for the function to fill. This
+hides the data flow, forces the caller to pre-allocate, and makes the
+function signature misleading (a `void` return implies no useful output).
+
+```cpp
+// BANNED: caller has no idea ws is being populated
+void generate_weights(double diameter, const Grid& grid, WeightSet& ws);
+
+// CORRECT: factory returns a fully constructed value
+[[nodiscard]] auto generate_weights(double diameter, const Grid& grid) -> WeightSet;
+```
+
+### Separate allocate-then-fill
+
+Never split object creation into an allocation step followed by a mutation
+step. This creates a temporal coupling (must call B after A) and an invalid
+intermediate state (the object exists but is empty).
+
+```cpp
+// BANNED: two-step pattern with invalid intermediate state
+auto ws = make_weight_set(grid);       // empty shell
+generate_weights(diameter, grid, ws);  // now filled
+
+// CORRECT: single factory, no invalid intermediate
+auto ws = generate_weights(diameter, grid);
+```
+
+### Shared mutable scratch buffers
+
+Never require the caller to manage FFT scratch buffers or temporary work
+arrays and pass them into functions. Scratch memory is an implementation
+detail. Allocate it internally or accept a shape/size parameter instead.
+
+```cpp
+// BANNED: caller manages scratch lifetime and aliasing rules
+FourierTransform scratch(shape);
+auto eta = convolve(w3_k, rho_k, scratch);   // mutates scratch
+auto n2  = convolve(w2_k, rho_k, scratch);   // reuses scratch
+
+// CORRECT: function owns its scratch
+auto eta = convolve(w3_k, rho_k, shape);
+auto n2  = convolve(w2_k, rho_k, shape);
+```
+
+### Accumulation into mutable spans
+
+Never pass a `std::span<T>` or raw pointer for the function to accumulate
+results into. Return the partial result and let the caller combine them.
+
+```cpp
+// BANNED: hidden accumulation into force_k
+void accumulate(weight_k, derivative, scratch, force_k);
+
+// CORRECT: returns the partial contribution
+[[nodiscard]] auto back_convolve(weight_k, derivative, shape) -> std::vector<std::complex<double>>;
+```
+
+### Mutable workspace references in public APIs
+
+Never require the caller to pass a mutable workspace `struct&` that bundles
+precomputed data with temporary scratch buffers. Separate the concerns:
+immutable precomputed data (passed by `const&`) and ephemeral scratch
+(internal to the function).
+
+```cpp
+// BANNED: mixes immutable weights with mutable scratch
+struct FMTWorkspace {
+  std::vector<WeightSet> weights;        // immutable after creation
+  std::vector<FourierTransform> rho_ft;  // mutated every call
+  FourierTransform scratch;              // mutated every call
+};
+auto result = hard_sphere(model, grid, state, species, workspace);  // workspace mutated
+
+// CORRECT: weights are const, scratch is internal
+struct FMTWeights {
+  std::vector<WeightSet> per_species;    // immutable
+};
+auto result = hard_sphere(model, grid, state, species, weights);    // weights unchanged
+```
+
+### God structs with mixed concerns
+
+Never bundle unrelated data into a single struct for convenience. If a struct
+contains both immutable configuration and mutable runtime state, split it
+into separate types.
+
+### `void` functions that do useful work
+
+If a function produces a result, it must return it. A `void` return type on a
+function that is not purely side-effecting (I/O, logging) is a code smell.
+Every transformation of data should be visible in the return type.
+
+### Two-phase initialisation
+
+Objects must be valid and complete at construction time. Never construct an
+object in a partially initialised state and require a second method call to
+finish setup. Use factory functions that return fully formed values.

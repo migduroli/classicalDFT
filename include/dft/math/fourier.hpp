@@ -1,6 +1,7 @@
 #ifndef DFT_MATH_FOURIER_HPP
 #define DFT_MATH_FOURIER_HPP
 
+#include <armadillo>
 #include <complex>
 #include <fftw3.h>
 #include <memory>
@@ -58,6 +59,18 @@ namespace dft::math {
     void backward();
     void zeros();
     void scale(double factor);
+
+    // Armadillo bridge: copy an arma::vec into the real buffer.
+    void set_real(const arma::vec& v);
+
+    // Armadillo bridge: copy an arma::cx_vec into the Fourier buffer.
+    void set_fourier(const arma::cx_vec& v);
+
+    // Armadillo bridge: wrap the real buffer as a non-owning arma::vec.
+    [[nodiscard]] auto real_vec() const -> arma::vec;
+
+    // Armadillo bridge: wrap the Fourier buffer as a non-owning arma::cx_vec.
+    [[nodiscard]] auto fourier_vec() const -> arma::cx_vec;
 
    private:
     std::vector<long> shape_;

@@ -97,6 +97,34 @@ namespace dft::math {
     }
   }
 
+  void FourierTransform::set_real(const arma::vec& v) {
+    auto r = real();
+    auto n = std::min(v.n_elem, static_cast<arma::uword>(r.size()));
+    std::copy_n(v.memptr(), n, r.data());
+  }
+
+  void FourierTransform::set_fourier(const arma::cx_vec& v) {
+    auto f = fourier();
+    auto n = std::min(v.n_elem, static_cast<arma::uword>(f.size()));
+    std::copy_n(
+        reinterpret_cast<const std::complex<double>*>(v.memptr()),
+        n, f.data()
+    );
+  }
+
+  auto FourierTransform::real_vec() const -> arma::vec {
+    auto r = real();
+    return arma::vec(const_cast<double*>(r.data()), static_cast<arma::uword>(r.size()), true);
+  }
+
+  auto FourierTransform::fourier_vec() const -> arma::cx_vec {
+    auto f = fourier();
+    return arma::cx_vec(
+        const_cast<std::complex<double>*>(f.data()),
+        static_cast<arma::uword>(f.size()), true
+    );
+  }
+
   // FourierConvolution
 
   FourierConvolution::FourierConvolution(std::vector<long> shape) : a_(shape), b_(shape), c_(std::move(shape)) {}
@@ -115,12 +143,8 @@ namespace dft::math {
     a_.forward();
     b_.forward();
 
-    auto fa = a_.fourier();
-    auto fb = b_.fourier();
-    auto fc = c_.fourier();
-    for (std::size_t i = 0; i < fc.size(); ++i) {
-      fc[i] = fa[i] * fb[i];
-    }
+    arma::cx_vec fc = a_.fourier_vec() % b_.fourier_vec();
+    c_.set_fourier(fc);
 
     c_.backward();
     c_.scale(1.0 / static_cast<double>(c_.total()));

@@ -109,38 +109,25 @@ namespace dft::functionals {
         const std::array<arma::vec, 3>& d_nv0,
         const std::array<std::array<arma::vec, 3>, 3>& d_nT,
         const std::vector<long>& shape
-    ) -> std::vector<std::complex<double>> {
+    ) -> arma::cx_vec {
       double four_pi_R = 4.0 * std::numbers::pi * R;
 
       // w3 channel: dPhi/deta
-      auto force_k = math::back_convolve(ws.w3.fourier(), d_eta, shape);
+      arma::cx_vec force_k = math::back_convolve(ws.w3.fourier(), d_eta, shape);
 
       // w2 channel: dPhi/dn2 + dPhi/dn1 / (4piR) + dPhi/dn0 / (4piR^2)
-      arma::vec d_w2 = d_n2 + d_n1 / four_pi_R + d_n0 / (four_pi_R * R);
-      auto w2_k = math::back_convolve(ws.w2.fourier(), d_w2, shape);
-      for (std::size_t i = 0; i < force_k.size(); ++i) {
-        force_k[i] += w2_k[i];
-      }
+      force_k += math::back_convolve(ws.w2.fourier(), d_n2 + d_n1 / four_pi_R + d_n0 / (four_pi_R * R), shape);
 
-      // wv2 channels: dPhi/dnv2_a + dPhi/dnv0_a / (4piR)
-      // Vector weights are parity-odd, so use conjugate = true
+      // wv2 channels (parity-odd, conjugate = true)
       for (int a = 0; a < 3; ++a) {
-        arma::vec d_wv = d_nv2[a] + d_nv0[a] / four_pi_R;
-        auto wv_k = math::back_convolve(ws.wv2[a].fourier(), d_wv, shape, true);
-        for (std::size_t i = 0; i < force_k.size(); ++i) {
-          force_k[i] += wv_k[i];
-        }
+        force_k += math::back_convolve(ws.wv2[a].fourier(), d_nv2[a] + d_nv0[a] / four_pi_R, shape, true);
       }
 
       // wT channels
       for (int i = 0; i < 3; ++i) {
         for (int j = i; j < 3; ++j) {
           double sym = (i == j) ? 1.0 : 2.0;
-          arma::vec d_wt = sym * d_nT[i][j];
-          auto wt_k = math::back_convolve(ws.tensor(i, j).fourier(), d_wt, shape);
-          for (std::size_t k = 0; k < force_k.size(); ++k) {
-            force_k[k] += wt_k[k];
-          }
+          force_k += math::back_convolve(ws.tensor(i, j).fourier(), sym * d_nT[i][j], shape);
         }
       }
 
@@ -162,18 +149,16 @@ namespace dft::functionals {
     double dv = grid.cell_volume();
     std::vector<long> shape(grid.shape.begin(), grid.shape.end());
 
-    // Step 1: FFT all density profiles
+    // FFT all density profiles
     std::vector<math::FourierTransform> rho_ft;
     rho_ft.reserve(n_species);
     for (std::size_t s = 0; s < n_species; ++s) {
       rho_ft.emplace_back(shape);
-      auto real = rho_ft.back().real();
-      const arma::vec& rho = state.species[s].density.values;
-      std::copy_n(rho.memptr(), rho.n_elem, real.data());
+      rho_ft.back().set_real(state.species[s].density.values);
       rho_ft.back().forward();
     }
 
-    // Step 2: Convolve each species density with its weights
+    // Convolve each species density with its weights
     std::vector<detail::WeightedDensityArrays> wd;
     wd.reserve(n_species);
     for (std::size_t s = 0; s < n_species; ++s) {
@@ -182,7 +167,7 @@ namespace dft::functionals {
       );
     }
 
-    // Step 3: At each grid point, sum weighted densities from all species,
+    // At each grid point, sum weighted densities from all species,
     // evaluate Phi and dPhi, then distribute derivatives back per species.
 
     struct DerivativeArrays {
@@ -256,7 +241,7 @@ namespace dft::functionals {
       }
     }
 
-    // Step 4: Back-convolve derivatives with weights to get forces
+    // Back-convolve derivatives with weights to get forces
     Contribution result;
     result.free_energy = free_energy;
     result.forces.reserve(n_species);
@@ -271,11 +256,9 @@ namespace dft::functionals {
 
       // IFFT to get real-space force, scaled by dv
       math::FourierTransform force_ft(shape);
-      auto fk = force_ft.fourier();
-      std::copy(force_k.begin(), force_k.end(), fk.begin());
+      force_ft.set_fourier(force_k);
       force_ft.backward();
-      auto real = force_ft.real();
-      result.forces.push_back(arma::vec(real.data(), n_points) * dv);
+      result.forces.push_back(force_ft.real_vec() * dv);
     }
 
     return result;

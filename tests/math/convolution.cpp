@@ -81,11 +81,9 @@ TEST_CASE("back_convolve results can be summed for accumulation", "[convolution]
   auto r1 = back_convolve(weight_k, derivative, SHAPE);
   auto r2 = back_convolve(weight_k, derivative, SHAPE);
 
-  // Sum two contributions
-  for (std::size_t i = 0; i < r1.size(); ++i) {
-    r1[i] += r2[i];
-  }
+  // Sum two contributions via Armadillo +=
+  r1 += r2;
 
   // DC gets 2 * N
-  CHECK(r1[0].real() == Catch::Approx(2.0 * static_cast<double>(N)).epsilon(1e-10));
+  CHECK(r1(0).real() == Catch::Approx(2.0 * static_cast<double>(N)).epsilon(1e-10));
 }
