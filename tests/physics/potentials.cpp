@@ -46,35 +46,35 @@ TEST_CASE("WRDF factory rescales epsilon", "[potentials]") {
   CHECK(w.v_min < 0.0);
 }
 
-// Raw energy
+// Pair potential
 
-TEST_CASE("LennardJones raw energy at r_min is -epsilon", "[potentials]") {
+TEST_CASE("LennardJones potential at r_min is -epsilon", "[potentials]") {
   auto lj = make_lennard_jones(1.0, 1.0);
   double r = lj.r_min;
 
-  CHECK(raw_energy(lj, r) == Catch::Approx(-1.0).margin(1e-12));
+  CHECK(potential(lj, r) == Catch::Approx(-1.0).margin(1e-12));
 }
 
-TEST_CASE("LennardJones raw_energy_r2 matches raw_energy", "[potentials]") {
+TEST_CASE("LennardJones potential_r2 matches potential", "[potentials]") {
   auto lj = make_lennard_jones(1.0, 1.0, 2.5);
   double r = 1.5;
 
-  CHECK(raw_energy_r2(lj, r * r) == Catch::Approx(raw_energy(lj, r)).margin(1e-12));
+  CHECK(potential_r2(lj, r * r) == Catch::Approx(potential(lj, r)).margin(1e-12));
 }
 
 TEST_CASE("TenWoldeFrenkel diverges inside hard core", "[potentials]") {
   auto twf = make_ten_wolde_frenkel(1.0, 1.0, 2.5);
 
-  CHECK(raw_energy(twf, 0.5) == MAX_POTENTIAL_VALUE);
-  CHECK(raw_energy_r2(twf, 0.25) == MAX_POTENTIAL_VALUE);
+  CHECK(potential(twf, 0.5) == MAX_POTENTIAL_VALUE);
+  CHECK(potential_r2(twf, 0.25) == MAX_POTENTIAL_VALUE);
 }
 
 TEST_CASE("WRDF vanishes at and beyond r_cutoff", "[potentials]") {
   auto w = make_wang_ramirez_dobnikar_frenkel(1.0, 1.0, 3.0);
 
-  CHECK(raw_energy(w, 3.0) == 0.0);
-  CHECK(raw_energy(w, 4.0) == 0.0);
-  CHECK(raw_energy_r2(w, 9.0) == 0.0);
+  CHECK(potential(w, 3.0) == 0.0);
+  CHECK(potential(w, 4.0) == 0.0);
+  CHECK(potential_r2(w, 9.0) == 0.0);
 }
 
 // Cut-and-shifted energy via variant
@@ -83,7 +83,7 @@ TEST_CASE("energy() via variant returns shifted LJ value", "[potentials]") {
   auto lj = make_lennard_jones(1.0, 1.0, 2.5);
   Potential pot = lj;
 
-  double shifted = raw_energy(lj, 1.5) - lj.epsilon_shift;
+  double shifted = potential(lj, 1.5) - lj.epsilon_shift;
   CHECK(energy(pot, 1.5) == Catch::Approx(shifted).margin(1e-12));
 }
 
@@ -177,35 +177,35 @@ TEST_CASE("vdw_integral returns zero without cutoff", "[potentials]") {
   CHECK(a == 0.0);
 }
 
-// TenWoldeFrenkel: raw_energy and raw_energy_r2 outside hard core
+// TenWoldeFrenkel: potential and potential_r2 outside hard core
 
-TEST_CASE("TenWoldeFrenkel raw energy at r_min matches v_min + shift", "[potentials]") {
+TEST_CASE("TenWoldeFrenkel potential at r_min matches v_min + shift", "[potentials]") {
   auto twf = make_ten_wolde_frenkel(1.0, 1.0, 2.5, 50.0);
-  double v = raw_energy(twf, twf.r_min);
+  double v = potential(twf, twf.r_min);
 
   CHECK(v == Catch::Approx(twf.v_min + twf.epsilon_shift).margin(1e-10));
 }
 
-TEST_CASE("TenWoldeFrenkel raw_energy_r2 matches raw_energy", "[potentials]") {
+TEST_CASE("TenWoldeFrenkel potential_r2 matches potential", "[potentials]") {
   auto twf = make_ten_wolde_frenkel(1.0, 1.0, 2.5);
   double r = 1.5;
 
-  CHECK(raw_energy_r2(twf, r * r) == Catch::Approx(raw_energy(twf, r)).margin(1e-12));
+  CHECK(potential_r2(twf, r * r) == Catch::Approx(potential(twf, r)).margin(1e-12));
 }
 
-// WRDF: raw_energy and raw_energy_r2 inside cutoff
+// WRDF: potential and potential_r2 inside cutoff
 
-TEST_CASE("WRDF raw energy is negative near r_min", "[potentials]") {
+TEST_CASE("WRDF potential is negative near r_min", "[potentials]") {
   auto w = make_wang_ramirez_dobnikar_frenkel(1.0, 1.0, 3.0);
 
-  CHECK(raw_energy(w, w.r_min) == Catch::Approx(w.v_min).margin(1e-10));
+  CHECK(potential(w, w.r_min) == Catch::Approx(w.v_min).margin(1e-10));
 }
 
-TEST_CASE("WRDF raw_energy_r2 matches raw_energy", "[potentials]") {
+TEST_CASE("WRDF potential_r2 matches potential", "[potentials]") {
   auto w = make_wang_ramirez_dobnikar_frenkel(1.0, 1.0, 3.0);
   double r = 2.0;
 
-  CHECK(raw_energy_r2(w, r * r) == Catch::Approx(raw_energy(w, r)).margin(1e-12));
+  CHECK(potential_r2(w, r * r) == Catch::Approx(potential(w, r)).margin(1e-12));
 }
 
 // energy() via variant for tWF and WRDF
@@ -215,16 +215,16 @@ TEST_CASE("energy() via variant for TenWoldeFrenkel", "[potentials]") {
   Potential pot = twf;
 
   double r = 1.5;
-  double expected = raw_energy(twf, r) - twf.epsilon_shift;
+  double expected = potential(twf, r) - twf.epsilon_shift;
   CHECK(energy(pot, r) == Catch::Approx(expected).margin(1e-12));
 }
 
-TEST_CASE("energy() via variant for WRDF returns raw energy", "[potentials]") {
+TEST_CASE("energy() via variant for WRDF returns potential value", "[potentials]") {
   auto w = make_wang_ramirez_dobnikar_frenkel(1.0, 1.0, 3.0);
   Potential pot = w;
 
   double r = 2.0;
-  CHECK(energy(pot, r) == Catch::Approx(raw_energy(w, r)).margin(1e-12));
+  CHECK(energy(pot, r) == Catch::Approx(potential(w, r)).margin(1e-12));
 }
 
 // WRDF hard-core diameter is zero

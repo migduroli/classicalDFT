@@ -13,11 +13,9 @@ namespace dft::physics::eos {
     }
     double tc = 0.0;
     if (cutoff_radius > 0.0) {
-      tc = -(32.0 / 9.0) * std::numbers::pi *
-          (std::pow(cutoff_radius, -9.0) - 1.5 * std::pow(cutoff_radius, -3.0));
+      tc = -(32.0 / 9.0) * std::numbers::pi * (std::pow(cutoff_radius, -9.0) - 1.5 * std::pow(cutoff_radius, -3.0));
       if (!shifted) {
-        tc += (8.0 / 3.0) * std::numbers::pi *
-            (std::pow(cutoff_radius, -9.0) - std::pow(cutoff_radius, -3.0));
+        tc += (8.0 / 3.0) * std::numbers::pi * (std::pow(cutoff_radius, -9.0) - std::pow(cutoff_radius, -3.0));
       }
     }
     return LennardJonesJZG{.kT = kT, .tail_correction = tc};
@@ -31,11 +29,9 @@ namespace dft::physics::eos {
     }
     double tc = 0.0;
     if (cutoff_radius > 0.0) {
-      tc = -(32.0 / 9.0) * std::numbers::pi *
-          (std::pow(cutoff_radius, -9.0) - 1.5 * std::pow(cutoff_radius, -3.0));
+      tc = -(32.0 / 9.0) * std::numbers::pi * (std::pow(cutoff_radius, -9.0) - 1.5 * std::pow(cutoff_radius, -3.0));
       if (!shifted) {
-        tc += (8.0 / 3.0) * std::numbers::pi *
-            (std::pow(cutoff_radius, -9.0) - std::pow(cutoff_radius, -3.0));
+        tc += (8.0 / 3.0) * std::numbers::pi * (std::pow(cutoff_radius, -9.0) - std::pow(cutoff_radius, -3.0));
       }
     }
     return LennardJonesMecke{.kT = kT, .tail_correction = tc};

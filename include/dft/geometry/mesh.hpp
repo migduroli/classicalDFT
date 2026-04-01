@@ -4,6 +4,7 @@
 #include "dft/geometry/element.hpp"
 
 #include <cmath>
+#include <ranges>
 #include <stdexcept>
 #include <variant>
 #include <vector>
@@ -58,11 +59,11 @@ namespace dft::geometry {
       if (idxs.size() != shape.size()) {
         throw std::invalid_argument("Index dimension does not match mesh dimension");
       }
-      for (size_t i = 0; i < idxs.size(); ++i) {
-        if (idxs[i] < 0) {
-          idxs[i] += shape[i];
+      for (auto [idx, dim] : std::views::zip(idxs, shape)) {
+        if (idx < 0) {
+          idx += dim;
         }
-        if (idxs[i] < 0 || idxs[i] >= shape[i]) {
+        if (idx < 0 || idx >= dim) {
           throw std::out_of_range("Index out of bounds in mesh indexer");
         }
       }
@@ -238,10 +239,10 @@ namespace dft::geometry {
     return std::visit(
         [&position](const auto& m) -> Vertex {
           auto coords = position.coordinates;
-          for (size_t d = 0; d < coords.size(); ++d) {
-            coords[d] = std::fmod(coords[d], m.dimensions[d]);
-            if (coords[d] < 0.0) {
-              coords[d] += m.dimensions[d];
+          for (auto [coord, dim] : std::views::zip(coords, m.dimensions)) {
+            coord = std::fmod(coord, dim);
+            if (coord < 0.0) {
+              coord += dim;
             }
           }
           return Vertex{std::move(coords)};

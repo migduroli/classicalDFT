@@ -4,6 +4,7 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <print>
 #include <string>
 
 namespace dft::console {
@@ -33,22 +34,22 @@ namespace dft::console {
 
   template <class T>
   void write(const T& msg) {
-    std::cout << msg;
+    std::print(std::cout, "{}", msg);
   }
 
   template <class T>
   void write_line(const T& msg) {
-    std::cout << msg << std::endl;
+    std::println(std::cout, "{}", msg);
   }
 
   template <class T>
   void write_line(const std::initializer_list<T>& msg) {
     for (const auto& m : msg) {
-      std::cout << m << std::endl;
+      std::println(std::cout, "{}", m);
     }
   }
 
-  inline void new_line() { std::cout << std::endl; }
+  inline void new_line() { std::println(std::cout, ""); }
 
   inline void pause() { std::cin.ignore(); }
 

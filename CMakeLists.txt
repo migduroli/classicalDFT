@@ -6,7 +6,7 @@ project(classicalDFT
     LANGUAGES CXX
 )
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -53,7 +53,6 @@ endif()
 
 # Core library (static, grows as phases land)
 set(DFT_LIB_SOURCES
-    src/stub.cpp
     src/crystal.cpp
     src/config/parser.cpp
     src/math/fourier.cpp

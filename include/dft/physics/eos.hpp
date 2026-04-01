@@ -8,7 +8,7 @@
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
-#include <string>
+#include <string_view>
 #include <variant>
 
 namespace dft::physics::eos {
@@ -16,19 +16,21 @@ namespace dft::physics::eos {
   // Ideal gas (no excess free energy)
 
   struct IdealGas {
+    static constexpr std::string_view NAME = "IdealGas";
+
     double kT;
 
     template <typename T = double>
     [[nodiscard]] auto excess_free_energy(T /*density*/) const -> T {
       return T(0.0);
     }
-
-    [[nodiscard]] static auto name() -> std::string { return "IdealGas"; }
   };
 
   // Percus-Yevick (compressibility route, wraps hard-sphere PY)
 
   struct PercusYevick {
+    static constexpr std::string_view NAME = "PercusYevick";
+
     double kT;
 
     template <typename T = double>
@@ -36,22 +38,19 @@ namespace dft::physics::eos {
       T eta = hard_spheres::packing_fraction(density);
       return hard_spheres::PercusYevickCompressibility::excess_free_energy(eta);
     }
-
-    [[nodiscard]] static auto name() -> std::string { return "PercusYevick"; }
   };
 
   // Lennard-Jones Johnson-Zollweg-Gubbins (JZG) 32-parameter EOS
 
   struct LennardJonesJZG {
+    static constexpr std::string_view NAME = "LennardJonesJZG";
+
     double kT;
     double tail_correction{0.0};
-
-    [[nodiscard]] static auto name() -> std::string { return "LennardJonesJZG"; }
 
     template <typename T = double>
     [[nodiscard]] auto excess_free_energy(T density) const -> T;
 
-   private:
     [[nodiscard]] auto a_coeff(int i) const -> double;
     [[nodiscard]] auto b_coeff(int i) const -> double;
 
@@ -74,15 +73,14 @@ namespace dft::physics::eos {
   // Lennard-Jones Mecke et al. EOS
 
   struct LennardJonesMecke {
+    static constexpr std::string_view NAME = "LennardJonesMecke";
+
     double kT;
     double tail_correction{0.0};
-
-    [[nodiscard]] static auto name() -> std::string { return "LennardJonesMecke"; }
 
     template <typename T = double>
     [[nodiscard]] auto excess_free_energy(T density) const -> T;
 
-   private:
     static constexpr double RHO_C = 0.3107;
     static constexpr double KT_C = 1.328;
 
@@ -173,32 +171,26 @@ namespace dft::physics::eos {
     return std::visit([](const auto& m) { return m.kT; }, model);
   }
 
-  [[nodiscard]] inline auto name(const EosModel& model) -> std::string {
-    return std::visit([](const auto& m) { return m.name(); }, model);
+  [[nodiscard]] inline auto name(const EosModel& model) -> std::string_view {
+    return std::visit([](const auto& m) -> std::string_view { return m.NAME; }, model);
   }
 
-  // f_per_particle = log(rho) - 1 + f_ex(rho)
+  // f = log(rho) - 1 + f_ex(rho)
 
-  [[nodiscard]] inline auto free_energy_per_particle(const EosModel& model, double density) -> double {
+  [[nodiscard]] inline auto free_energy(const EosModel& model, double density) -> double {
     return std::log(density) - 1.0 + excess_free_energy(model, density);
   }
 
-  // f_density = rho * f_ex(rho)
+  // mu_ex / kT = f_ex + rho * f_ex'
 
-  [[nodiscard]] inline auto excess_free_energy_density(const EosModel& model, double density) -> double {
-    return density * excess_free_energy(model, density);
-  }
-
-  // d/d(rho) [rho * f_ex(rho)] = f_ex + rho * f_ex'
-
-  [[nodiscard]] inline auto d_excess_free_energy_density(const EosModel& model, double density) -> double {
+  [[nodiscard]] inline auto excess_chemical_potential(const EosModel& model, double density) -> double {
     return excess_free_energy(model, density) + density * d_excess_free_energy(model, density);
   }
 
-  // d2/d(rho)^2 [rho * f_ex(rho)] = 2 f_ex' + rho * f_ex''
+  // mu / kT = log(rho) + f_ex + rho * f_ex'
 
-  [[nodiscard]] inline auto d2_excess_free_energy_density(const EosModel& model, double density) -> double {
-    return 2.0 * d_excess_free_energy(model, density) + density * d2_excess_free_energy(model, density);
+  [[nodiscard]] inline auto chemical_potential(const EosModel& model, double density) -> double {
+    return std::log(density) + excess_chemical_potential(model, density);
   }
 
   // P / (rho kT) = 1 + rho * f_ex'(rho)

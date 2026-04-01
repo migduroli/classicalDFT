@@ -82,8 +82,7 @@ TEST_CASE("d2_excess_free_energy matches numerical second derivative", "[hard_sp
   double h = 1e-5;
 
   double numerical =
-      (excess_free_energy(cs, eta + h) - 2.0 * excess_free_energy(cs, eta) + excess_free_energy(cs, eta - h)) /
-      (h * h);
+      (excess_free_energy(cs, eta + h) - 2.0 * excess_free_energy(cs, eta) + excess_free_energy(cs, eta - h)) / (h * h);
   double analytic = d2_excess_free_energy(cs, eta);
 
   CHECK(analytic == Catch::Approx(numerical).margin(1e-4));

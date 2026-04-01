@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
-#include <string>
+#include <string_view>
 #include <variant>
 
 namespace dft::physics::potentials {
@@ -25,6 +25,8 @@ namespace dft::physics::potentials {
   // V(r) = 4 epsilon [(sigma/r)^12 - (sigma/r)^6] - epsilon_shift
   // where epsilon_shift = V_raw(r_cutoff) if cutoff > 0.
   struct LennardJones {
+    static constexpr std::string_view NAME = "LennardJones";
+
     double sigma{1.0};
     double epsilon{1.0};
     double r_cutoff{-1.0};
@@ -41,6 +43,8 @@ namespace dft::physics::potentials {
   // V(r) = (4 eps / alpha^2) [(1/(s^2-1))^6 - alpha (1/(s^2-1))^3]
   // with s = r / sigma. Hard core at r = sigma.
   struct TenWoldeFrenkel {
+    static constexpr std::string_view NAME = "TenWoldeFrenkel";
+
     double sigma{1.0};
     double epsilon{1.0};
     double r_cutoff{-1.0};
@@ -57,6 +61,8 @@ namespace dft::physics::potentials {
   // V(r) = eps_eff (sigma^2/r^2 - 1)(r_c^2/r^2 - 1)^2
   // Finite-ranged, vanishes quadratically at r_cutoff.
   struct WangRamirezDobnikarFrenkel {
+    static constexpr std::string_view NAME = "WangRamirezDobnikarFrenkel";
+
     double sigma{1.0};
     double epsilon{1.0};
     double r_cutoff{3.0};
@@ -132,15 +138,15 @@ namespace dft::physics::potentials {
     return w;
   }
 
-  // Raw potential energy at distance r
+  // Pair potential V(r) at distance r
 
-  [[nodiscard]] inline auto raw_energy(const LennardJones& lj, double r) -> double {
+  [[nodiscard]] inline auto potential(const LennardJones& lj, double r) -> double {
     double y = lj.sigma / r;
     double y6 = y * y * y * y * y * y;
     return 4.0 * lj.epsilon * (y6 * y6 - y6);
   }
 
-  [[nodiscard]] inline auto raw_energy(const TenWoldeFrenkel& twf, double r) -> double {
+  [[nodiscard]] inline auto potential(const TenWoldeFrenkel& twf, double r) -> double {
     if (r < twf.sigma) {
       return MAX_POTENTIAL_VALUE;
     }
@@ -150,7 +156,7 @@ namespace dft::physics::potentials {
     return (4.0 * twf.epsilon / (twf.alpha * twf.alpha)) * (y3 * y3 - twf.alpha * y3);
   }
 
-  [[nodiscard]] inline auto raw_energy(const WangRamirezDobnikarFrenkel& w, double r) -> double {
+  [[nodiscard]] inline auto potential(const WangRamirezDobnikarFrenkel& w, double r) -> double {
     if (r >= w.r_cutoff) {
       return 0.0;
     }
@@ -159,15 +165,15 @@ namespace dft::physics::potentials {
     return w.epsilon_effective * (y * y - 1.0) * (z * z - 1.0) * (z * z - 1.0);
   }
 
-  // Raw potential from r^2 (avoids sqrt)
+  // Pair potential from r^2 (avoids sqrt in inner loops)
 
-  [[nodiscard]] inline auto raw_energy_r2(const LennardJones& lj, double r2) -> double {
+  [[nodiscard]] inline auto potential_r2(const LennardJones& lj, double r2) -> double {
     double y2 = lj.sigma * lj.sigma / r2;
     double y6 = y2 * y2 * y2;
     return 4.0 * lj.epsilon * (y6 * y6 - y6);
   }
 
-  [[nodiscard]] inline auto raw_energy_r2(const TenWoldeFrenkel& twf, double r2) -> double {
+  [[nodiscard]] inline auto potential_r2(const TenWoldeFrenkel& twf, double r2) -> double {
     if (r2 < twf.sigma * twf.sigma) {
       return MAX_POTENTIAL_VALUE;
     }
@@ -177,7 +183,7 @@ namespace dft::physics::potentials {
     return (4.0 * twf.epsilon / (twf.alpha * twf.alpha)) * (y3 * y3 - twf.alpha * y3);
   }
 
-  [[nodiscard]] inline auto raw_energy_r2(const WangRamirezDobnikarFrenkel& w, double r2) -> double {
+  [[nodiscard]] inline auto potential_r2(const WangRamirezDobnikarFrenkel& w, double r2) -> double {
     double rc2 = w.r_cutoff * w.r_cutoff;
     if (r2 >= rc2) {
       return 0.0;
@@ -194,9 +200,9 @@ namespace dft::physics::potentials {
         [r](const auto& p) {
           using T = std::decay_t<decltype(p)>;
           if constexpr (std::is_same_v<T, WangRamirezDobnikarFrenkel>) {
-            return raw_energy(p, r);
+            return potential(p, r);
           } else {
-            return raw_energy(p, r) - p.epsilon_shift;
+            return potential(p, r) - p.epsilon_shift;
           }
         },
         pot
@@ -233,20 +239,8 @@ namespace dft::physics::potentials {
 
   // Name of the potential
 
-  [[nodiscard]] inline auto name(const Potential& pot) -> std::string {
-    return std::visit(
-        [](const auto& p) -> std::string {
-          using T = std::decay_t<decltype(p)>;
-          if constexpr (std::is_same_v<T, LennardJones>) {
-            return "LennardJones";
-          } else if constexpr (std::is_same_v<T, TenWoldeFrenkel>) {
-            return "TenWoldeFrenkel";
-          } else {
-            return "WangRamirezDobnikarFrenkel";
-          }
-        },
-        pot
-    );
+  [[nodiscard]] inline auto name(const Potential& pot) -> std::string_view {
+    return std::visit([](const auto& p) -> std::string_view { return p.NAME; }, pot);
   }
 
   // Repulsive part (WCA or BH split)
@@ -255,7 +249,7 @@ namespace dft::physics::potentials {
     return std::visit(
         [r, scheme](const auto& p) -> double {
           using T = std::decay_t<decltype(p)>;
-          double v = raw_energy(p, r);
+          double v = potential(p, r);
           if constexpr (std::is_same_v<T, WangRamirezDobnikarFrenkel>) {
             // WRDF: epsilon_shift is always 0
             if (scheme == SplitScheme::BarkerHenderson) {
@@ -292,7 +286,7 @@ namespace dft::physics::potentials {
             return 0.0;
           }
 
-          double v = raw_energy(p, r);
+          double v = potential(p, r);
           if constexpr (std::is_same_v<T, WangRamirezDobnikarFrenkel>) {
             if (scheme == SplitScheme::BarkerHenderson) {
               return (r >= p.r_min) ? v : 0.0;

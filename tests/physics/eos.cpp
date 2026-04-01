@@ -101,17 +101,21 @@ TEST_CASE("name returns correct eos name", "[eos]") {
 
 // Derived thermodynamic functions
 
-TEST_CASE("free_energy_per_particle of ideal gas is log(rho)-1", "[eos]") {
+TEST_CASE("free_energy of ideal gas is log(rho)-1", "[eos]") {
   EosModel model = make_ideal_gas(1.0);
   double rho = 0.5;
-  CHECK(free_energy_per_particle(model, rho) == Catch::Approx(std::log(rho) - 1.0).margin(1e-14));
+  CHECK(free_energy(model, rho) == Catch::Approx(std::log(rho) - 1.0).margin(1e-14));
 }
 
-TEST_CASE("excess_free_energy_density is rho * f_ex", "[eos]") {
-  EosModel model = make_percus_yevick(1.0);
-  double rho = 0.3;
-  double expected = rho * excess_free_energy(model, rho);
-  CHECK(excess_free_energy_density(model, rho) == Catch::Approx(expected).margin(1e-14));
+TEST_CASE("excess_chemical_potential of ideal gas is zero", "[eos]") {
+  EosModel model = make_ideal_gas(1.0);
+  CHECK(excess_chemical_potential(model, 0.5) == Catch::Approx(0.0).margin(1e-14));
+}
+
+TEST_CASE("chemical_potential of ideal gas is log(rho)", "[eos]") {
+  EosModel model = make_ideal_gas(1.0);
+  double rho = 0.5;
+  CHECK(chemical_potential(model, rho) == Catch::Approx(std::log(rho)).margin(1e-14));
 }
 
 TEST_CASE("pressure of ideal gas is 1", "[eos]") {
@@ -150,16 +154,16 @@ TEST_CASE("Mecke derivative matches numerical finite difference", "[eos]") {
   CHECK(analytic == Catch::Approx(numerical).margin(1e-4));
 }
 
-// d_excess_free_energy_density consistency
+// excess_chemical_potential consistency
 
-TEST_CASE("d_excess_free_energy_density matches numerical derivative of density*f_ex", "[eos]") {
+TEST_CASE("excess_chemical_potential matches numerical derivative of rho*f_ex", "[eos]") {
   EosModel model = make_percus_yevick(1.0);
   double rho = 0.3;
   double h = 1e-6;
 
   auto density_f = [&](double r) { return r * excess_free_energy(model, r); };
   double numerical = (density_f(rho + h) - density_f(rho - h)) / (2.0 * h);
-  double analytic = d_excess_free_energy_density(model, rho);
+  double analytic = excess_chemical_potential(model, rho);
 
   CHECK(analytic == Catch::Approx(numerical).margin(1e-4));
 }
@@ -185,16 +189,13 @@ TEST_CASE("JZG with shifted cutoff differs from unshifted", "[eos]") {
   CHECK(jzg_unshifted.tail_correction != jzg_shifted.tail_correction);
 }
 
-// d2_excess_free_energy_density consistency
+// chemical_potential consistency
 
-TEST_CASE("d2_excess_free_energy_density matches numerical second derivative", "[eos]") {
+TEST_CASE("chemical_potential equals log(rho) + excess_chemical_potential", "[eos]") {
   EosModel model = make_percus_yevick(1.0);
   double rho = 0.3;
-  double h = 1e-5;
 
-  auto density_f = [&](double r) { return r * excess_free_energy(model, r); };
-  double numerical = (density_f(rho + h) - 2.0 * density_f(rho) + density_f(rho - h)) / (h * h);
-  double analytic = d2_excess_free_energy_density(model, rho);
-
-  CHECK(analytic == Catch::Approx(numerical).margin(1e-3));
+  double mu = chemical_potential(model, rho);
+  double expected = std::log(rho) + excess_chemical_potential(model, rho);
+  CHECK(mu == Catch::Approx(expected).margin(1e-14));
 }

@@ -5,7 +5,7 @@
 
 #include <cmath>
 #include <numbers>
-#include <string>
+#include <string_view>
 #include <variant>
 
 namespace dft::physics::hard_spheres {
@@ -32,35 +32,35 @@ namespace dft::physics::hard_spheres {
   // excess_free_energy(eta) to support autodiff forward types.
 
   struct CarnahanStarling {
+    static constexpr std::string_view NAME = "CarnahanStarling";
+
     template <typename T = double>
     [[nodiscard]] static auto excess_free_energy(T eta) -> T {
       T e = T(1.0) - eta;
       return eta * (T(4.0) - T(3.0) * eta) / (e * e);
     }
-
-    [[nodiscard]] static auto name() -> std::string { return "CarnahanStarling"; }
   };
 
   struct PercusYevickVirial {
+    static constexpr std::string_view NAME = "PercusYevickVirial";
+
     template <typename T = double>
     [[nodiscard]] static auto excess_free_energy(T eta) -> T {
       using std::log;
       T e = T(1.0) - eta;
       return T(2.0) * log(e) + T(6.0) * eta / e;
     }
-
-    [[nodiscard]] static auto name() -> std::string { return "PercusYevickVirial"; }
   };
 
   struct PercusYevickCompressibility {
+    static constexpr std::string_view NAME = "PercusYevickCompressibility";
+
     template <typename T = double>
     [[nodiscard]] static auto excess_free_energy(T eta) -> T {
       using std::log;
       T e = T(1.0) - eta;
       return -log(e) + T(1.5) * eta * (T(2.0) - eta) / (e * e);
     }
-
-    [[nodiscard]] static auto name() -> std::string { return "PercusYevickCompressibility"; }
   };
 
   using HardSphereModel = std::variant<CarnahanStarling, PercusYevickVirial, PercusYevickCompressibility>;
@@ -130,8 +130,8 @@ namespace dft::physics::hard_spheres {
 
   // Model name
 
-  [[nodiscard]] inline auto name(const HardSphereModel& model) -> std::string {
-    return std::visit([](const auto& m) { return m.name(); }, model);
+  [[nodiscard]] inline auto name(const HardSphereModel& model) -> std::string_view {
+    return std::visit([](const auto& m) -> std::string_view { return m.NAME; }, model);
   }
 
   // Enskog transport coefficients (hard spheres with d = kT = 1)

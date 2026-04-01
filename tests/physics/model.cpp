@@ -45,14 +45,12 @@ TEST_CASE("Model supports interactions", "[model]") {
 
   Model model{
       .grid = grid,
-      .species =
-          {Species{.name = "A", .hard_sphere_diameter = 1.0}, Species{.name = "B", .hard_sphere_diameter = 1.0}},
-      .interactions =
-          {Interaction{
-              .species_i = 0,
-              .species_j = 1,
-              .potential = Potential{lj},
-          }},
+      .species = {Species{.name = "A", .hard_sphere_diameter = 1.0}, Species{.name = "B", .hard_sphere_diameter = 1.0}},
+      .interactions = {Interaction{
+          .species_i = 0,
+          .species_j = 1,
+          .potential = Potential{lj},
+      }},
       .temperature = 1.0,
   };
 

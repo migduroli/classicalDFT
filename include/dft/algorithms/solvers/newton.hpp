@@ -5,7 +5,7 @@
 
 #include <armadillo>
 #include <concepts>
-#include <iostream>
+#include <print>
 
 namespace dft::algorithms::solvers {
 
@@ -35,7 +35,7 @@ namespace dft::algorithms::solvers {
       const double norm_fk = arma::norm(fk);
 
       if (config.verbose) {
-        std::cout << "newton: iter=" << k << " ||f||=" << norm_fk << "\n";
+        std::println("newton: iter={} ||f||={}", k, norm_fk);
       }
 
       if (norm_fk < config.tolerance) {

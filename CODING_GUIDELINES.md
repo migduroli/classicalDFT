@@ -13,7 +13,7 @@ For comments, we try to keep the code as self-explanatory as possible. If commen
 
 | Setting | Value |
 |---------|-------|
-| Standard | C++20 (`CMAKE_CXX_STANDARD 20`, required, no extensions) |
+| Standard | C++23 (`CMAKE_CXX_STANDARD 23`, required, no extensions) |
 | Compiler warnings | `-Wall -Wextra -Wpedantic` |
 | Formatting | `.clang-format` (Google base, 120 col, 2-space indent) |
 | Linting | `.clang-tidy` (see naming table below) |
@@ -322,7 +322,7 @@ using Potential = std::variant<LennardJones, TenWoldeFrenkel, WangRamirezDobnika
 
 ### C++20 concepts for generic solvers
 
-Use C++20 concepts for constraining template parameters in the generic solver
+Use concepts for constraining template parameters in the generic solver
 layer:
 
 ```cpp
@@ -335,18 +335,46 @@ template <VectorFunction Func>
 [[nodiscard]] auto newton(arma::vec x, Func&& f, const NewtonConfig&) -> SolverResult;
 ```
 
+### C++23 idioms
+
+Prefer these C++23 features when they improve readability:
+
+| Feature | When to use | Example |
+|---------|------------|---------|
+| `std::views::zip` | Parallel iteration over two or more ranges | `for (auto [a, b] : std::views::zip(xs, ys))` |
+| `std::print` / `std::println` | Formatted output (replaces `iostream` insertion chains) | `std::println("iter={} norm={}", k, norm)` |
+| `std::expected<T, E>` | Fallible operations where the error carries information | `auto result = parse(...) -> std::expected<Config, std::string>` |
+| `std::unreachable()` | Unreachable `default:` branches in exhaustive switches | `default: std::unreachable();` |
+| Deducing `this` | Simplifying const/non-const overload pairs | `auto&& operator[](this auto&& self, int i)` |
+| Multidimensional `operator[]` | Tensor or matrix subscript | `auto operator[](int i, int j) -> T&` |
+
+When using `std::print`/`std::println` on redirectable streams,
+always pass the stream explicitly: `std::print(std::cout, "{}", msg)`.
+The no-argument overload writes to `stdout` directly and bypasses
+`std::cout` rdbuf redirects.
+
+Features **not yet available** on Apple Clang 17 (do not use):
+`std::views::cartesian_product`, `std::views::enumerate`.
+
 ### Attributes
 
 - **`[[nodiscard]]`** on every function that returns a value.
 - **`noexcept`** on trivial `constexpr` member functions.
 
-### `std::optional` for fallible operations
+### `std::optional` and `std::expected` for fallible operations
 
 Return `std::optional` when a computation may not produce a result:
 
 ```cpp
 [[nodiscard]] auto coexistence(const Model&, double T, double rho_v, double rho_l)
     -> std::optional<PhasePoint>;
+```
+
+Prefer `std::expected<T, E>` when the caller needs to know why it failed:
+
+```cpp
+[[nodiscard]] auto parse_config(const std::string& path)
+    -> std::expected<Config, std::string>;
 ```
 
 ### Callbacks

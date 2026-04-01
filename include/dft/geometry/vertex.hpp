@@ -2,6 +2,7 @@
 #define DFT_GEOMETRY_VERTEX_HPP
 
 #include <ostream>
+#include <ranges>
 #include <stdexcept>
 #include <vector>
 
@@ -29,8 +30,8 @@ namespace dft::geometry {
     }
     std::vector<double> result;
     result.reserve(a.coordinates.size());
-    for (size_t i = 0; i < a.coordinates.size(); ++i) {
-      result.push_back(a.coordinates[i] + b.coordinates[i]);
+    for (auto [ai, bi] : std::views::zip(a.coordinates, b.coordinates)) {
+      result.push_back(ai + bi);
     }
     return Vertex{std::move(result)};
   }
@@ -41,8 +42,8 @@ namespace dft::geometry {
     }
     std::vector<double> result;
     result.reserve(a.coordinates.size());
-    for (size_t i = 0; i < a.coordinates.size(); ++i) {
-      result.push_back(a.coordinates[i] - b.coordinates[i]);
+    for (auto [ai, bi] : std::views::zip(a.coordinates, b.coordinates)) {
+      result.push_back(ai - bi);
     }
     return Vertex{std::move(result)};
   }

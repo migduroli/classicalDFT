@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 
@@ -48,6 +49,43 @@ namespace dft {
     }
 
     return Grid{.dx = dx, .box_size = box, .shape = shape};
+  }
+
+  // A single mode in the half-complex Fourier grid.
+  struct Wavevector {
+    long idx;
+    std::array<double, 3> k;
+
+    [[nodiscard]] auto norm2() const noexcept -> double { return k[0] * k[0] + k[1] * k[1] + k[2] * k[2]; }
+    [[nodiscard]] auto norm() const noexcept -> double { return std::sqrt(norm2()); }
+  };
+
+  // Iterates over the half-complex Fourier grid, calling fn(Wavevector)
+  // for each mode. Encapsulates the index layout (z-fastest, half-complex in z)
+  // and the frequency wrapping (negative frequencies for i > N/2).
+
+  template <typename F>
+  void for_each_wavevector(const Grid& grid, F&& fn) {
+    long nx = grid.shape[0];
+    long ny = grid.shape[1];
+    long nz = grid.shape[2];
+    long nz_half = nz / 2 + 1;
+
+    double dk_x = 2.0 * std::numbers::pi / (static_cast<double>(nx) * grid.dx);
+    double dk_y = 2.0 * std::numbers::pi / (static_cast<double>(ny) * grid.dx);
+    double dk_z = 2.0 * std::numbers::pi / (static_cast<double>(nz) * grid.dx);
+
+    for (long ix = 0; ix < nx; ++ix) {
+      double kx = dk_x * static_cast<double>(ix <= nx / 2 ? ix : ix - nx);
+      for (long iy = 0; iy < ny; ++iy) {
+        double ky = dk_y * static_cast<double>(iy <= ny / 2 ? iy : iy - ny);
+        for (long iz = 0; iz < nz_half; ++iz) {
+          double kz = dk_z * static_cast<double>(iz);
+          long idx = iz + nz_half * (iy + ny * ix);
+          fn(Wavevector{.idx = idx, .k = {kx, ky, kz}});
+        }
+      }
+    }
   }
 
 }  // namespace dft

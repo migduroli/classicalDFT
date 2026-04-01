@@ -1,11 +1,11 @@
-FROM debian:bookworm-slim AS grace-donor
+FROM debian:trixie-slim AS grace-donor
 RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends grace \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /grace-out/lib \
     && cp /usr/include/grace_np.h /grace-out/ \
     && cp "$(find /usr/lib -name libgrace_np.a -print -quit)" /grace-out/lib/
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
