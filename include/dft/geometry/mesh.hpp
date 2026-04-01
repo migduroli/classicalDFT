@@ -55,7 +55,8 @@ namespace dft::geometry {
       return result;
     }
 
-    inline void validate_indices(std::vector<long>& idxs, const std::vector<long>& shape) {
+    [[nodiscard]] inline auto validate_indices(std::vector<long> idxs, const std::vector<long>& shape)
+        -> std::vector<long> {
       if (idxs.size() != shape.size()) {
         throw std::invalid_argument("Index dimension does not match mesh dimension");
       }
@@ -67,6 +68,7 @@ namespace dft::geometry {
           throw std::out_of_range("Index out of bounds in mesh indexer");
         }
       }
+      return idxs;
     }
 
   }  // namespace detail
@@ -211,8 +213,8 @@ namespace dft::geometry {
   [[nodiscard]] inline auto flat_index(const Mesh& mesh, std::vector<long> idx) -> long {
     return std::visit(
         [&idx](const auto& m) -> long {
-          detail::validate_indices(idx, m.shape);
-          return detail::flat_index_impl(idx, m.shape);
+          auto wrapped = detail::validate_indices(std::move(idx), m.shape);
+          return detail::flat_index_impl(wrapped, m.shape);
         },
         mesh
     );
@@ -227,8 +229,8 @@ namespace dft::geometry {
   [[nodiscard]] inline auto vertex(const Mesh& mesh, std::vector<long> idx) -> const Vertex& {
     return std::visit(
         [&idx](const auto& m) -> const Vertex& {
-          detail::validate_indices(idx, m.shape);
-          auto flat = detail::flat_index_impl(idx, m.shape);
+          auto wrapped = detail::validate_indices(std::move(idx), m.shape);
+          auto flat = detail::flat_index_impl(wrapped, m.shape);
           return m.vertices.at(static_cast<size_t>(flat));
         },
         mesh

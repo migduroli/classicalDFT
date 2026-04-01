@@ -7,82 +7,85 @@
 
 using namespace dft::math;
 
-TEST_CASE("convolve with unit weight returns IFFT(rho_k)", "[convolution]") {
-  FourierTransform scratch({4, 4, 4});
-  auto n = scratch.fourier_total();
+static const std::vector<long> SHAPE = {4, 4, 4};
+static constexpr long N = 64;
 
-  // Set up rho_k as FFT of constant 1
-  FourierTransform rho_ft({4, 4, 4});
+TEST_CASE("convolve with unit weight returns IFFT(rho_k)", "[convolution]") {
+  FourierTransform rho_ft(SHAPE);
+  auto n = rho_ft.fourier_total();
+
   auto r = rho_ft.real();
   for (std::size_t i = 0; i < r.size(); ++i) {
     r[i] = 1.0;
   }
   rho_ft.forward();
 
-  // Unit weight: w_k[i] = 1/N so that convolve gives back 1
-  std::vector<std::complex<double>> weight_k(n, {1.0 / 64.0, 0.0});
+  std::vector<std::complex<double>> weight_k(n, {1.0 / static_cast<double>(N), 0.0});
   auto rho_k = rho_ft.fourier();
 
-  auto result = convolve(weight_k, rho_k, scratch);
-  CHECK(result.n_elem == 64);
+  auto result = convolve(weight_k, rho_k, SHAPE);
+  CHECK(result.n_elem == static_cast<arma::uword>(N));
   for (arma::uword i = 0; i < result.n_elem; ++i) {
     CHECK(result(i) == Catch::Approx(1.0).margin(1e-10));
   }
 }
 
 TEST_CASE("convolve with zero weight returns zero", "[convolution]") {
-  FourierTransform scratch({4, 4, 4});
-  auto n = scratch.fourier_total();
+  FourierTransform tmp(SHAPE);
+  auto n = tmp.fourier_total();
 
   std::vector<std::complex<double>> weight_k(n, {0.0, 0.0});
   std::vector<std::complex<double>> rho_k(n, {1.0, 0.0});
 
-  auto result = convolve(weight_k, rho_k, scratch);
+  auto result = convolve(weight_k, rho_k, SHAPE);
   for (arma::uword i = 0; i < result.n_elem; ++i) {
     CHECK(result(i) == Catch::Approx(0.0).margin(1e-12));
   }
 }
 
-TEST_CASE("accumulate adds to force buffer", "[convolution]") {
-  FourierTransform scratch({4, 4, 4});
-  auto n = scratch.fourier_total();
+TEST_CASE("back_convolve computes weight_k * FFT(derivative)", "[convolution]") {
+  FourierTransform tmp(SHAPE);
+  auto n = tmp.fourier_total();
 
-  arma::vec derivative(64, arma::fill::ones);
+  arma::vec derivative(N, arma::fill::ones);
   std::vector<std::complex<double>> weight_k(n, {1.0, 0.0});
-  std::vector<std::complex<double>> force_k(n, {0.0, 0.0});
 
-  accumulate(weight_k, derivative, scratch, force_k);
+  auto result = back_convolve(weight_k, derivative, SHAPE);
 
   // The DC component should be N (FFT of all-ones = N at DC)
-  CHECK(force_k[0].real() == Catch::Approx(64.0).epsilon(1e-10));
+  CHECK(result[0].real() == Catch::Approx(static_cast<double>(N)).epsilon(1e-10));
 }
 
-TEST_CASE("accumulate with conjugate flag uses conj(weight)", "[convolution]") {
-  FourierTransform scratch({4, 4, 4});
-  auto n = scratch.fourier_total();
+TEST_CASE("back_convolve with conjugate flag uses conj(weight)", "[convolution]") {
+  FourierTransform tmp(SHAPE);
+  auto n = tmp.fourier_total();
 
-  arma::vec derivative(64, arma::fill::ones);
+  arma::vec derivative(N, arma::fill::ones);
   // weight with imaginary part
   std::vector<std::complex<double>> weight_k(n, {0.0, 1.0});
-  std::vector<std::complex<double>> force_k(n, {0.0, 0.0});
 
-  accumulate(weight_k, derivative, scratch, force_k, true);
+  auto result = back_convolve(weight_k, derivative, SHAPE, true);
 
-  // conj({0, 1}) = {0, -1}, multiplied by FFT of ones (64 at DC, 0 elsewhere)
-  CHECK(force_k[0].real() == Catch::Approx(0.0).margin(1e-10));
-  CHECK(force_k[0].imag() == Catch::Approx(-64.0).epsilon(1e-10));
+  // conj({0, 1}) = {0, -1}, multiplied by FFT of ones (N at DC, 0 elsewhere)
+  CHECK(result[0].real() == Catch::Approx(0.0).margin(1e-10));
+  CHECK(result[0].imag() == Catch::Approx(-static_cast<double>(N)).epsilon(1e-10));
 }
 
-TEST_CASE("accumulate accumulates into existing force", "[convolution]") {
-  FourierTransform scratch({4, 4, 4});
-  auto n = scratch.fourier_total();
+TEST_CASE("back_convolve results can be summed for accumulation", "[convolution]") {
+  FourierTransform tmp(SHAPE);
+  auto n = tmp.fourier_total();
 
-  arma::vec derivative(64, arma::fill::ones);
+  arma::vec derivative(N, arma::fill::ones);
   std::vector<std::complex<double>> weight_k(n, {1.0, 0.0});
-  std::vector<std::complex<double>> force_k(n, {10.0, 0.0});
 
-  accumulate(weight_k, derivative, scratch, force_k);
+  auto r1 = back_convolve(weight_k, derivative, SHAPE);
+  auto r2 = back_convolve(weight_k, derivative, SHAPE);
 
-  // DC gets +64 on top of the existing 10
-  CHECK(force_k[0].real() == Catch::Approx(74.0).epsilon(1e-10));
+  // Sum two contributions
+  for (std::size_t i = 0; i < r1.size(); ++i) {
+    r1[i] += r2[i];
+  }
+
+  // DC gets 2 * N
+  CHECK(r1[0].real() == Catch::Approx(2.0 * static_cast<double>(N)).epsilon(1e-10));
 }

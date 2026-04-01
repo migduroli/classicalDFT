@@ -29,8 +29,8 @@ TEST_CASE("Model supports multiple species", "[model]") {
   Model model{
       .grid = grid,
       .species =
-          {Species{.name = "Argon", .hard_sphere_diameter = 1.0},
-           Species{.name = "Xenon", .hard_sphere_diameter = 1.2}},
+          {Species{.name = "Argon", .hard_sphere_diameter = 1.0}, Species{.name = "Xenon", .hard_sphere_diameter = 1.2}
+          },
       .interactions = {},
       .temperature = 2.0,
   };

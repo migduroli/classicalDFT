@@ -68,7 +68,7 @@ namespace dft::functionals::fmt {
     }
   };
 
-  // Allocate a WeightSet where every channel has the given grid shape.
+  // Allocate an empty WeightSet where every channel has the given grid shape.
 
   [[nodiscard]] inline auto make_weight_set(const Grid& grid) -> WeightSet {
     std::vector<long> s(grid.shape.begin(), grid.shape.end());
@@ -143,10 +143,11 @@ namespace dft::functionals::fmt {
 
   }  // namespace detail
 
-  // Populate a WeightSet with the Fourier-space weight functions for
-  // a hard sphere of given diameter on the specified grid.
+  // Build a complete WeightSet with Fourier-space weight functions
+  // for a hard sphere of given diameter on the specified grid.
 
-  inline void generate_weights(double diameter, const Grid& grid, WeightSet& ws) {
+  [[nodiscard]] inline auto generate_weights(double diameter, const Grid& grid) -> WeightSet {
+    auto ws = make_weight_set(grid);
     double R = 0.5 * diameter;
     double inv_n = 1.0 / static_cast<double>(grid.total_points());
 
@@ -183,6 +184,8 @@ namespace dft::functionals::fmt {
         }
       }
     });
+
+    return ws;
   }
 
 }  // namespace dft::functionals::fmt

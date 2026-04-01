@@ -73,7 +73,8 @@ namespace dft::math {
 
   auto FourierTransform::fourier() const -> std::span<const std::complex<double>> {
     return {
-        reinterpret_cast<const std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())};
+        reinterpret_cast<const std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())
+    };
   }
 
   void FourierTransform::forward() {
