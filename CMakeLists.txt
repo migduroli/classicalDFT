@@ -41,6 +41,31 @@ set(AUTODIFF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(AUTODIFF_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(autodiff)
 
+# matplotlib-cpp (header-only, fetched automatically)
+if(DFT_USE_MATPLOTLIB)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+    FetchContent_Declare(
+        matplotlib_cpp
+        GIT_REPOSITORY https://github.com/lava/matplotlib-cpp.git
+        GIT_TAG        master
+    )
+    if(POLICY CMP0169)
+        cmake_policy(SET CMP0169 OLD)
+    endif()
+    FetchContent_GetProperties(matplotlib_cpp)
+    if(NOT matplotlib_cpp_POPULATED)
+        FetchContent_Populate(matplotlib_cpp)
+    endif()
+
+    add_library(matplotlib_cpp INTERFACE)
+    target_include_directories(matplotlib_cpp SYSTEM INTERFACE
+        $<BUILD_INTERFACE:${matplotlib_cpp_SOURCE_DIR}>
+    )
+    target_link_libraries(matplotlib_cpp INTERFACE Python3::Python)
+    target_compile_definitions(matplotlib_cpp INTERFACE WITHOUT_NUMPY)
+endif()
+
 # Catch2 v3
 if(DFT_BUILD_TESTS)
     FetchContent_Declare(
@@ -96,6 +121,12 @@ target_compile_options(classicaldft
         $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>
 )
 
+# Matplotlib
+if(DFT_USE_MATPLOTLIB)
+    target_link_libraries(classicaldft PUBLIC matplotlib_cpp)
+    target_compile_definitions(classicaldft PUBLIC DFT_HAS_MATPLOTLIB)
+endif()
+
 # Coverage
 if(DFT_CODE_COVERAGE)
     target_compile_options(classicaldft PUBLIC --coverage -fprofile-arcs -ftest-coverage)
@@ -106,4 +137,9 @@ endif()
 if(DFT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# Examples
+if(DFT_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()

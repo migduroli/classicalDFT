@@ -131,7 +131,14 @@ namespace dft::algorithms::continuation {
     double ds = config.initial_step;
 
     while (ds >= config.min_step) {
-      auto next = step(curve.back(), R, ds, config);
+      std::optional<CurvePoint> next;
+      try {
+        next = step(curve.back(), R, ds, config);
+      } catch (...) {
+        // Numerical failure (e.g. degenerate SVD near a bifurcation).
+        // Return the curve traced so far.
+        break;
+      }
 
       if (!next) {
         // Shrink step and retry
