@@ -5,10 +5,13 @@
 #include "dft/algorithms/solvers/newton.hpp"
 #include "dft/functionals/bulk/thermodynamics.hpp"
 #include "dft/functionals/functionals.hpp"
+#include "dft/math/spline.hpp"
 #include "dft/types.hpp"
 
 #include <armadillo>
+#include <cmath>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <vector>
 
@@ -66,11 +69,26 @@ namespace dft::functionals::bulk {
     double critical_density{0.0};
   };
 
-  // Full phase diagram containing both binodal and spinodal curves.
+  // Phase boundaries at a single temperature: densities on both sides
+  // of the binodal and spinodal. NaN indicates the boundary is not
+  // available (e.g. above Tc).
+
+  struct PhaseBoundaries {
+    double temperature;
+    double binodal_vapor{std::numeric_limits<double>::quiet_NaN()};
+    double binodal_liquid{std::numeric_limits<double>::quiet_NaN()};
+    double spinodal_low{std::numeric_limits<double>::quiet_NaN()};
+    double spinodal_high{std::numeric_limits<double>::quiet_NaN()};
+  };
+
+  // Full phase diagram containing both binodal and spinodal curves,
+  // with a unified critical point.
 
   struct PhaseDiagram {
     CoexistenceCurve binodal;
     SpinodalCurve spinodal;
+    double critical_temperature{0.0};
+    double critical_density{0.0};
   };
 
   // Configuration for full phase diagram computation.
@@ -466,10 +484,56 @@ namespace dft::functionals::bulk {
       return std::nullopt;
     }
 
+    double Tc = 0.0;
+    double rho_c = 0.0;
+    if (b) {
+      Tc = b->critical_temperature;
+      rho_c = b->critical_density;
+    } else if (s) {
+      Tc = s->critical_temperature;
+      rho_c = s->critical_density;
+    }
+
     return PhaseDiagram{
         .binodal = b.value_or(CoexistenceCurve{}),
         .spinodal = s.value_or(SpinodalCurve{}),
+        .critical_temperature = Tc,
+        .critical_density = rho_c,
     };
+  }
+
+  // Interpolate the phase boundaries at an arbitrary temperature using
+  // cubic spline interpolation on the raw curve data. Returns NaN for
+  // any boundary that is not available at the requested temperature
+  // (e.g. above Tc or outside the traced range).
+
+  [[nodiscard]] inline auto interpolate(const PhaseDiagram& pd, double temperature) -> PhaseBoundaries {
+    PhaseBoundaries result{.temperature = temperature};
+
+    auto try_spline = [](const arma::vec& T, const arma::vec& y, double t) -> double {
+      if (T.n_elem < 4 || t < T.front() || t > T.back()) {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
+      math::CubicSpline spline(
+          std::span<const double>(T.memptr(), T.n_elem),
+          std::span<const double>(y.memptr(), y.n_elem)
+      );
+      return spline(t);
+    };
+
+    const auto& b = pd.binodal;
+    if (!b.temperature.is_empty()) {
+      result.binodal_vapor = try_spline(b.temperature, b.rho_vapor, temperature);
+      result.binodal_liquid = try_spline(b.temperature, b.rho_liquid, temperature);
+    }
+
+    const auto& s = pd.spinodal;
+    if (!s.temperature.is_empty()) {
+      result.spinodal_low = try_spline(s.temperature, s.rho_low, temperature);
+      result.spinodal_high = try_spline(s.temperature, s.rho_high, temperature);
+    }
+
+    return result;
   }
 
 }  // namespace dft::functionals::bulk

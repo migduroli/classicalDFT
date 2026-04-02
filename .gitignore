@@ -29,5 +29,4 @@ compile_commands.json
 .DS_Store
 
 # Test/example plot output
-exports/
 Testing/

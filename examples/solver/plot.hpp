@@ -3,6 +3,7 @@
 #include "dft/functionals/bulk/phase_diagram.hpp"
 
 #include <armadillo>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,11 @@ struct CoexData {
   arma::vec T, rho_v, rho_l;
   double Tc{0.0};
   double rho_c{0.0};
+};
+
+struct SpinodalData {
+  std::string name;
+  arma::vec T, rho_lo, rho_hi;
 };
 
 #ifdef DFT_HAS_MATPLOTLIB
