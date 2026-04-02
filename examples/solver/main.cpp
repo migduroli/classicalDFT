@@ -95,28 +95,40 @@ int main() {
   std::cout << "\n=== Coexistence via pseudo-arclength continuation ===\n\n";
 
   std::vector<CoexData> all_coex;
+  std::vector<SpinodalData> all_spin;
   for (const auto& [name, fmt_model] : fmt_models) {
     CoexData cd{.name = name};
+    SpinodalData sd{.name = name};
 
     functionals::bulk::WeightFactory wf = [&](double kT) {
       return weight_factory(fmt_model, kT);
     };
 
-    auto curve = functionals::bulk::binodal(model.species, wf, pd_config);
-
-    if (curve) {
-      cd.T = curve->temperature;
-      cd.rho_v = curve->rho_vapor;
-      cd.rho_l = curve->rho_liquid;
-      cd.Tc = curve->critical_temperature;
-      cd.rho_c = curve->critical_density;
-      std::cout << name << ": " << cd.T.n_elem << " continuation points"
-                << ", T_c ~ " << cd.Tc << ", rho_c ~ " << cd.rho_c << "\n";
+    auto b = functionals::bulk::binodal(model.species, wf, pd_config);
+    if (b) {
+      cd.T = b->temperature;
+      cd.rho_v = b->rho_vapor;
+      cd.rho_l = b->rho_liquid;
+      cd.Tc = b->critical_temperature;
+      cd.rho_c = b->critical_density;
+      std::cout << name << ": binodal " << cd.T.n_elem << " pts"
+                << ", T_c ~ " << cd.Tc << ", rho_c ~ " << cd.rho_c;
     } else {
-      std::cout << name << ": failed to find coexistence\n";
+      std::cout << name << ": binodal failed";
+    }
+
+    auto s = functionals::bulk::spinodal(model.species, wf, pd_config);
+    if (s) {
+      sd.T = s->temperature;
+      sd.rho_lo = s->rho_low;
+      sd.rho_hi = s->rho_high;
+      std::cout << "  |  spinodal " << sd.T.n_elem << " pts\n";
+    } else {
+      std::cout << "  |  spinodal failed\n";
     }
 
     all_coex.push_back(std::move(cd));
+    all_spin.push_back(std::move(sd));
   }
 
   // Detailed White Bear II table.
@@ -134,37 +146,66 @@ int main() {
 
   // Spinodal curve for White Bear II.
 
+  const auto& wb2_spin = all_spin.back();
   std::cout << "\n=== Spinodal curve (White Bear II) ===\n\n";
-
-  functionals::bulk::WeightFactory wb2_wf = [&](double kT) {
-    return weight_factory(wb2, kT);
-  };
-
-  auto sp = functionals::bulk::spinodal(model.species, wb2_wf, pd_config);
-  if (sp) {
-    std::cout << "Spinodal: " << sp->temperature.n_elem << " points"
-              << ", T_c ~ " << sp->critical_temperature
-              << ", rho_c ~ " << sp->critical_density << "\n";
+  if (!wb2_spin.T.is_empty()) {
+    std::cout << "Spinodal: " << wb2_spin.T.n_elem << " points\n";
 
     std::cout << "\n--- White Bear II spinodal data ---\n";
     std::cout << std::setw(8) << "T*"
               << std::setw(14) << "rho_low"
               << std::setw(14) << "rho_high" << "\n";
-    for (arma::uword i = 0; i < sp->temperature.n_elem; ++i) {
-      std::cout << std::setw(8) << sp->temperature(i)
-                << std::setw(14) << sp->rho_low(i)
-                << std::setw(14) << sp->rho_high(i) << "\n";
+    for (arma::uword i = 0; i < wb2_spin.T.n_elem; ++i) {
+      std::cout << std::setw(8) << wb2_spin.T(i)
+                << std::setw(14) << wb2_spin.rho_lo(i)
+                << std::setw(14) << wb2_spin.rho_hi(i) << "\n";
     }
-  } else {
-    std::cout << "Spinodal: failed\n";
+  }
+
+  // Demonstrate spline interpolation on the phase diagram.
+
+  std::cout << "\n=== Interpolated phase boundaries (White Bear II) ===\n\n";
+
+  functionals::bulk::PhaseDiagram wb2_pd{
+      .binodal = {
+          .temperature = wb2_data.T,
+          .rho_vapor = wb2_data.rho_v,
+          .rho_liquid = wb2_data.rho_l,
+          .critical_temperature = wb2_data.Tc,
+          .critical_density = wb2_data.rho_c,
+      },
+      .spinodal = {
+          .temperature = wb2_spin.T,
+          .rho_low = wb2_spin.rho_lo,
+          .rho_high = wb2_spin.rho_hi,
+      },
+      .critical_temperature = wb2_data.Tc,
+      .critical_density = wb2_data.rho_c,
+  };
+
+  std::cout << std::setw(8) << "T*"
+            << std::setw(14) << "rho_v(bin)"
+            << std::setw(14) << "rho_l(bin)"
+            << std::setw(14) << "rho_lo(sp)"
+            << std::setw(14) << "rho_hi(sp)" << "\n";
+
+  for (double T = 0.65; T <= 1.15; T += 0.1) {
+    auto pb = functionals::bulk::interpolate(wb2_pd, T);
+    std::cout << std::setw(8) << T
+              << std::setw(14) << pb.binodal_vapor
+              << std::setw(14) << pb.binodal_liquid
+              << std::setw(14) << pb.spinodal_low
+              << std::setw(14) << pb.spinodal_high << "\n";
   }
 
 #ifdef DFT_HAS_MATPLOTLIB
   plot::isotherms(iso_rho, iso_p, isotherm_temps);
-  plot::coexistence(all_coex);
+  plot::coexistence(all_coex, all_spin);
   plot::binodal(wb2_data);
-  if (sp) {
-    plot::phase_diagram_plot(wb2_data, *sp);
+  if (!wb2_spin.T.is_empty()) {
+    dft::functionals::bulk::SpinodalCurve wb2_sp{
+        .temperature = wb2_spin.T, .rho_low = wb2_spin.rho_lo, .rho_high = wb2_spin.rho_hi};
+    plot::phase_diagram_plot(wb2_data, wb2_sp);
   }
 #endif
 }

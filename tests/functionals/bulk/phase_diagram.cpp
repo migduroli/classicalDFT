@@ -7,6 +7,7 @@
 #include "dft/physics/potentials.hpp"
 
 #include <armadillo>
+#include <cmath>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -349,6 +350,8 @@ TEST_CASE("phase_diagram returns both binodal and spinodal", "[phase_diagram]") 
   REQUIRE(result.has_value());
   CHECK_FALSE(result->binodal.temperature.is_empty());
   CHECK_FALSE(result->spinodal.temperature.is_empty());
+  CHECK(result->critical_temperature > 0.7);
+  CHECK(result->critical_density > 0.0);
 }
 
 TEST_CASE("phase_diagram returns nullopt for purely repulsive system", "[phase_diagram]") {
@@ -358,4 +361,52 @@ TEST_CASE("phase_diagram returns nullopt for purely repulsive system", "[phase_d
 
   auto result = phase_diagram(SPECIES, hs_factory);
   CHECK_FALSE(result.has_value());
+}
+
+// interpolate
+
+TEST_CASE("interpolate returns phase boundaries at a known temperature", "[phase_diagram]") {
+  PhaseDiagramConfig pd_config{
+      .start_temperature = 0.6,
+      .search = CONFIG,
+  };
+
+  auto pd = phase_diagram(SPECIES, WEIGHT_FACTORY, pd_config);
+  REQUIRE(pd.has_value());
+
+  auto pb = interpolate(*pd, 0.8);
+  CHECK(pb.temperature == 0.8);
+  CHECK(std::isfinite(pb.binodal_vapor));
+  CHECK(std::isfinite(pb.binodal_liquid));
+  CHECK(std::isfinite(pb.spinodal_low));
+  CHECK(std::isfinite(pb.spinodal_high));
+  CHECK(pb.binodal_vapor < pb.spinodal_low);
+  CHECK(pb.spinodal_high < pb.binodal_liquid);
+}
+
+TEST_CASE("interpolate returns NaN above the critical temperature", "[phase_diagram]") {
+  PhaseDiagramConfig pd_config{
+      .start_temperature = 0.6,
+      .search = CONFIG,
+  };
+
+  auto pd = phase_diagram(SPECIES, WEIGHT_FACTORY, pd_config);
+  REQUIRE(pd.has_value());
+
+  auto pb = interpolate(*pd, pd->critical_temperature + 0.5);
+  CHECK(std::isnan(pb.binodal_vapor));
+  CHECK(std::isnan(pb.binodal_liquid));
+}
+
+TEST_CASE("interpolate returns NaN below the traced range", "[phase_diagram]") {
+  PhaseDiagramConfig pd_config{
+      .start_temperature = 0.6,
+      .search = CONFIG,
+  };
+
+  auto pd = phase_diagram(SPECIES, WEIGHT_FACTORY, pd_config);
+  REQUIRE(pd.has_value());
+
+  auto pb = interpolate(*pd, 0.1);
+  CHECK(std::isnan(pb.binodal_vapor));
 }
