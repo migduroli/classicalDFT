@@ -75,8 +75,7 @@ TEST_CASE("hard sphere bulk free energy matches fmt::free_energy_density", "[bul
   CHECK(bulk_val == Catch::Approx(fmt_val).epsilon(1e-14));
 }
 
-TEST_CASE("hard sphere excess mu matches fmt::excess_chemical_potential for single species",
-    "[bulk][thermodynamics]") {
+TEST_CASE("hard sphere excess mu matches fmt::excess_chemical_potential for single species", "[bulk][thermodynamics]") {
   double rho0 = 0.4;
   arma::vec rho = {rho0};
 

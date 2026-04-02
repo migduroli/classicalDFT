@@ -7,17 +7,17 @@
 #include "dft/physics/potentials.hpp"
 
 #include <armadillo>
-#include <cmath>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <cmath>
 
 using namespace dft::functionals::bulk;
 using namespace dft::physics;
 using namespace dft::physics::potentials;
-using dft::functionals::fmt::Rosenfeld;
+using dft::Species;
 using dft::functionals::make_bulk_weights;
 using dft::functionals::Weights;
-using dft::Species;
+using dft::functionals::fmt::Rosenfeld;
 
 // A strongly attractive LJ system that has a clear van der Waals loop.
 
@@ -176,9 +176,7 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
   auto coex = find_coexistence(SPECIES, w, CONFIG);
   REQUIRE(coex.has_value());
 
-  WeightFactory factory = [](double kT) -> Weights {
-    return make_lj_weights_at(kT);
-  };
+  WeightFactory factory = [](double kT) -> Weights { return make_lj_weights_at(kT); };
 
   dft::algorithms::continuation::ContinuationConfig cont_config{
       .initial_step = 0.005,
@@ -188,7 +186,11 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
   };
 
   auto curve = trace_coexistence(
-      *coex, 0.75, SPECIES, factory, cont_config,
+      *coex,
+      0.75,
+      SPECIES,
+      factory,
+      cont_config,
       [](const dft::algorithms::continuation::CurvePoint& p) { return p.lambda > 0.8; }
   );
 
@@ -206,9 +208,7 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
 
 // binodal
 
-static const WeightFactory WEIGHT_FACTORY = [](double kT) -> Weights {
-  return make_lj_weights_at(kT);
-};
+static const WeightFactory WEIGHT_FACTORY = [](double kT) -> Weights { return make_lj_weights_at(kT); };
 
 TEST_CASE("binodal returns a coexistence curve for LJ system", "[phase_diagram]") {
   PhaseDiagramConfig pd_config{
@@ -272,9 +272,7 @@ TEST_CASE("binodal satisfies equal pressure along the curve", "[phase_diagram]")
 }
 
 TEST_CASE("binodal returns nullopt for purely repulsive system", "[phase_diagram]") {
-  WeightFactory hs_factory = [](double kT) -> Weights {
-    return make_bulk_weights(Rosenfeld{}, {}, kT);
-  };
+  WeightFactory hs_factory = [](double kT) -> Weights { return make_bulk_weights(Rosenfeld{}, {}, kT); };
 
   auto result = binodal(SPECIES, hs_factory);
   CHECK_FALSE(result.has_value());
@@ -329,9 +327,7 @@ TEST_CASE("spinodal lies inside the binodal", "[phase_diagram]") {
 }
 
 TEST_CASE("spinodal returns nullopt for purely repulsive system", "[phase_diagram]") {
-  WeightFactory hs_factory = [](double kT) -> Weights {
-    return make_bulk_weights(Rosenfeld{}, {}, kT);
-  };
+  WeightFactory hs_factory = [](double kT) -> Weights { return make_bulk_weights(Rosenfeld{}, {}, kT); };
 
   auto result = spinodal(SPECIES, hs_factory);
   CHECK_FALSE(result.has_value());
@@ -355,9 +351,7 @@ TEST_CASE("phase_diagram returns both binodal and spinodal", "[phase_diagram]") 
 }
 
 TEST_CASE("phase_diagram returns nullopt for purely repulsive system", "[phase_diagram]") {
-  WeightFactory hs_factory = [](double kT) -> Weights {
-    return make_bulk_weights(Rosenfeld{}, {}, kT);
-  };
+  WeightFactory hs_factory = [](double kT) -> Weights { return make_bulk_weights(Rosenfeld{}, {}, kT); };
 
   auto result = phase_diagram(SPECIES, hs_factory);
   CHECK_FALSE(result.has_value());

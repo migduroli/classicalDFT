@@ -14,8 +14,7 @@ static const dft::Grid GRID{.dx = 0.5, .box_size = {4.0, 4.0, 4.0}, .shape = {8,
 // Trivial force callback: ideal gas only (F = sum rho * (ln(rho) - 1)).
 // Force = dF/drho = ln(rho), with cell volume factor.
 
-static auto ideal_gas_forces(const std::vector<arma::vec>& densities)
-    -> std::pair<double, std::vector<arma::vec>> {
+static auto ideal_gas_forces(const std::vector<arma::vec>& densities) -> std::pair<double, std::vector<arma::vec>> {
   double energy = 0.0;
   double dv = GRID.cell_volume();
   std::vector<arma::vec> forces(densities.size());

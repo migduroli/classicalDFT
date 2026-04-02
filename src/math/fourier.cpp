@@ -106,10 +106,7 @@ namespace dft::math {
   void FourierTransform::set_fourier(const arma::cx_vec& v) {
     auto f = fourier();
     auto n = std::min(v.n_elem, static_cast<arma::uword>(f.size()));
-    std::copy_n(
-        reinterpret_cast<const std::complex<double>*>(v.memptr()),
-        n, f.data()
-    );
+    std::copy_n(reinterpret_cast<const std::complex<double>*>(v.memptr()), n, f.data());
   }
 
   auto FourierTransform::real_vec() const -> arma::vec {
@@ -119,10 +116,7 @@ namespace dft::math {
 
   auto FourierTransform::fourier_vec() const -> arma::cx_vec {
     auto f = fourier();
-    return arma::cx_vec(
-        const_cast<std::complex<double>*>(f.data()),
-        static_cast<arma::uword>(f.size()), true
-    );
+    return arma::cx_vec(const_cast<std::complex<double>*>(f.data()), static_cast<arma::uword>(f.size()), true);
   }
 
   // FourierConvolution

@@ -8,8 +8,7 @@ using namespace dft::algorithms::fire;
 
 // Test with a simple quadratic: E = 0.5 * x^T x, f = -x.
 
-static auto quadratic_force(const std::vector<arma::vec>& x)
-    -> std::pair<double, std::vector<arma::vec>> {
+static auto quadratic_force(const std::vector<arma::vec>& x) -> std::pair<double, std::vector<arma::vec>> {
   double energy = 0.0;
   std::vector<arma::vec> forces(x.size());
   for (std::size_t s = 0; s < x.size(); ++s) {
@@ -78,8 +77,7 @@ TEST_CASE("fire minimize handles multi-species", "[fire]") {
 
 // Rosenbrock-like: E = (1-x)^2 + 100*(y-x^2)^2
 
-static auto rosenbrock_force(const std::vector<arma::vec>& x)
-    -> std::pair<double, std::vector<arma::vec>> {
+static auto rosenbrock_force(const std::vector<arma::vec>& x) -> std::pair<double, std::vector<arma::vec>> {
   double xi = x[0](0);
   double yi = x[0](1);
   double energy = (1.0 - xi) * (1.0 - xi) + 100.0 * (yi - xi * xi) * (yi - xi * xi);

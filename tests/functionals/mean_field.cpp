@@ -235,12 +235,10 @@ TEST_CASE("mean_field handles cross-interaction in binary mixture", "[mean_field
 TEST_CASE("InterpolationZero produces different weight than Linear", "[mean_field]") {
   auto pot = make_lj();
   std::vector<Interaction> inter_zero = {
-      {.species_i = 0, .species_j = 0, .potential = pot,
-       .weight_scheme = WeightScheme::InterpolationZero},
+      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationZero},
   };
   std::vector<Interaction> inter_linear = {
-      {.species_i = 0, .species_j = 0, .potential = pot,
-       .weight_scheme = WeightScheme::InterpolationLinearF},
+      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationLinearF},
   };
 
   auto w_zero = make_mean_field_weights(GRID, inter_zero, KT);

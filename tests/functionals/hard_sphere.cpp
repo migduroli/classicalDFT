@@ -9,11 +9,11 @@
 
 using namespace dft::functionals;
 using namespace dft::functionals::fmt;
+using dft::Density;
 using dft::Grid;
 using dft::Species;
-using dft::State;
 using dft::SpeciesState;
-using dft::Density;
+using dft::State;
 
 static constexpr double DX = 0.1;
 static constexpr double DIAMETER = 1.0;
@@ -23,11 +23,10 @@ static constexpr long N = 16 * 16 * 16;
 static auto uniform_state(double rho0, double kT = 1.0) -> State {
   arma::vec rho(N, arma::fill::value(rho0));
   return State{
-      .species =
-          {SpeciesState{
-              .density = Density{.values = rho, .external_field = arma::zeros(N)},
-              .force = arma::zeros(N),
-          }},
+      .species = {SpeciesState{
+          .density = Density{.values = rho, .external_field = arma::zeros(N)},
+          .force = arma::zeros(N),
+      }},
       .temperature = kT,
   };
 }

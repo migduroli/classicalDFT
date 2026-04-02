@@ -33,12 +33,11 @@ static const std::vector<Species> SPECIES = {{.name = "HS", .hard_sphere_diamete
 static auto uniform_state(double rho0, double mu = 0.0) -> State {
   arma::vec rho(N, arma::fill::value(rho0));
   return State{
-      .species =
-          {SpeciesState{
-              .density = Density{.values = rho, .external_field = arma::zeros(N)},
-              .force = arma::zeros(N),
-              .chemical_potential = mu,
-          }},
+      .species = {SpeciesState{
+          .density = Density{.values = rho, .external_field = arma::zeros(N)},
+          .force = arma::zeros(N),
+          .chemical_potential = mu,
+      }},
       .temperature = KT,
   };
 }
