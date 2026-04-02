@@ -22,10 +22,10 @@ int main() {
 
   std::cout << std::fixed << std::setprecision(6);
 
-  // Define the Lennard-Jones system.
+  // Lennard-Jones model (same as the density example).
 
   physics::Model model{
-      .grid = make_grid(0.25, {10.0, 5.0, 5.0}),
+      .grid = make_grid(0.4, {12.0, 12.0, 12.0}),
       .species = {Species{.name = "LJ", .hard_sphere_diameter = 1.0}},
       .interactions = {{
           .species_i = 0,
@@ -38,28 +38,16 @@ int main() {
 
   auto fmt_model = functionals::fmt::WhiteBearII{};
 
-  std::cout << "=== DFT + DDFT: LJ liquid slab relaxation ===\n\n";
-  std::cout << "  Grid:        " << model.grid.shape[0] << "x"
-            << model.grid.shape[1] << "x" << model.grid.shape[2]
+  std::cout << "=== Nucleation: critical droplet in supersaturated vapor ===\n\n";
+  std::cout << "  Grid:        " << model.grid.shape[0] << "^3"
             << " (dx = " << model.grid.dx << ")\n";
-  std::cout << "  Species:     " << model.species[0].name << "\n";
   std::cout << "  Temperature: T* = " << model.temperature << "\n\n";
 
-  // Bulk thermodynamics.
+  // Bulk thermodynamics and coexistence.
 
   auto bulk_weights = functionals::make_bulk_weights(
       fmt_model, model.interactions, model.temperature
   );
-
-  arma::vec rho_grid = arma::linspace(0.01, 1.0, 200);
-  arma::vec f_grid(rho_grid.n_elem), mu_grid(rho_grid.n_elem), p_grid(rho_grid.n_elem);
-  for (arma::uword i = 0; i < rho_grid.n_elem; ++i) {
-    f_grid(i) = functionals::bulk::free_energy_density(arma::vec{rho_grid(i)}, model.species, bulk_weights);
-    mu_grid(i) = functionals::bulk::chemical_potential(arma::vec{rho_grid(i)}, model.species, bulk_weights, 0);
-    p_grid(i) = functionals::bulk::pressure(arma::vec{rho_grid(i)}, model.species, bulk_weights);
-  }
-
-  // Find coexistence.
 
   functionals::bulk::PhaseSearchConfig search_config{
       .rho_max = 1.0,
@@ -76,66 +64,99 @@ int main() {
   double mu_coex = functionals::bulk::chemical_potential(
       arma::vec{coex->rho_vapor}, model.species, bulk_weights, 0
   );
-  double p_coex = functionals::bulk::pressure(
-      arma::vec{coex->rho_vapor}, model.species, bulk_weights
-  );
 
   std::cout << "  Coexistence:\n";
   std::cout << "    rho_vapor  = " << coex->rho_vapor << "\n";
   std::cout << "    rho_liquid = " << coex->rho_liquid << "\n";
-  std::cout << "    mu_coex    = " << mu_coex << "\n";
-  std::cout << "    P_coex     = " << p_coex << "\n\n";
+  std::cout << "    mu_coex    = " << mu_coex << "\n\n";
 
-  // Build DFT weights (FFT-based, full functional).
+  // Supersaturation: increase chemical potential above coexistence.
+  // At mu > mu_coex, the liquid phase is thermodynamically stable,
+  // while the vapor is metastable. A sufficiently large liquid
+  // droplet (above the critical size) will grow.
+
+  double delta_mu = 0.1;
+  double mu_super = mu_coex + delta_mu;
+
+  std::cout << "  Supersaturation:\n";
+  std::cout << "    delta_mu   = " << delta_mu << "\n";
+  std::cout << "    mu_super   = " << mu_super << "\n\n";
+
+  // Build DFT weights.
 
   auto weights = functionals::make_weights(fmt_model, model);
 
-  // Construct liquid slab initial profile.
+  // Construct spherical droplet initial profile.
+  // A liquid droplet of radius R_drop in a uniform metastable vapor.
 
   long nx = model.grid.shape[0];
   long ny = model.grid.shape[1];
   long nz = model.grid.shape[2];
-  double center = model.grid.box_size[0] / 2.0;
-  double width = model.grid.box_size[0] / 4.0;
-  double interface_width = 1.0;
+  double dx = model.grid.dx;
+  double cx = model.grid.box_size[0] / 2.0;
+  double cy = model.grid.box_size[1] / 2.0;
+  double cz = model.grid.box_size[2] / 2.0;
 
-  arma::vec x_vals = arma::linspace(0.0, (nx - 1) * model.grid.dx, nx);
-  arma::vec profile_1d = coex->rho_vapor + 0.5 * (coex->rho_liquid - coex->rho_vapor) *
-      (arma::tanh((x_vals - center + width) / interface_width) -
-       arma::tanh((x_vals - center - width) / interface_width));
+  double R_drop = 3.0;       // droplet radius (sigma units)
+  double interface_w = 1.0;   // interface width
 
-  arma::vec slab_rho = arma::repelem(profile_1d, ny * nz, 1);
+  auto n_points = static_cast<arma::uword>(model.grid.total_points());
+  arma::vec rho_init(n_points);
 
-  // Extract 1D profile helper.
+  for (long ix = 0; ix < nx; ++ix) {
+    for (long iy = 0; iy < ny; ++iy) {
+      for (long iz = 0; iz < nz; ++iz) {
+        double x = ix * dx - cx;
+        double y = iy * dx - cy;
+        double z = iz * dx - cz;
+        double r = std::sqrt(x * x + y * y + z * z);
+        double profile = 0.5 * (1.0 - std::tanh((r - R_drop) / interface_w));
+        double rho = coex->rho_vapor + (coex->rho_liquid - coex->rho_vapor) * profile;
+        long idx = model.grid.flat_index(ix, iy, iz);
+        rho_init(static_cast<arma::uword>(idx)) = rho;
+      }
+    }
+  }
 
-  auto extract_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
-    arma::mat rho_mat = arma::reshape(rho_3d, ny * nz, nx);
-    arma::vec profile_avg = arma::mean(rho_mat, 0).as_col();
-    return arma::conv_to<std::vector<double>>::from(profile_avg);
+  // Extract radial density profile (x-axis slice through center).
+
+  long iy_mid = ny / 2;
+  long iz_mid = nz / 2;
+  auto extract_radial = [&](const arma::vec& rho_3d) -> std::pair<std::vector<double>, std::vector<double>> {
+    std::vector<double> r_vals, rho_vals;
+    for (long ix = 0; ix < nx; ++ix) {
+      double x = ix * dx - cx;
+      r_vals.push_back(x);
+      long idx = model.grid.flat_index(ix, iy_mid, iz_mid);
+      rho_vals.push_back(rho_3d(static_cast<arma::uword>(idx)));
+    }
+    return {r_vals, rho_vals};
   };
 
-  auto x_coords = arma::conv_to<std::vector<double>>::from(x_vals);
-  auto initial_profile = extract_profile(slab_rho);
+  auto [r_init, profile_init] = extract_radial(rho_init);
 
-  // Evaluate the initial functional.
+  // State factory with the supersaturated chemical potential.
 
   auto make_state = [&](const arma::vec& rho) -> State {
     auto s = init::from_profile(model, rho);
-    s.species[0].chemical_potential = mu_coex;
+    s.species[0].chemical_potential = mu_super;
     return s;
   };
 
-  auto initial_state = make_state(slab_rho);
+  // Evaluate the initial functional.
+
+  auto initial_state = make_state(rho_init);
   auto initial_result = functionals::total(model, initial_state, weights);
 
-  std::cout << "=== Initial slab (tanh profile) ===\n\n";
+  std::cout << "=== Initial droplet (R = " << R_drop << " sigma) ===\n\n";
   std::cout << "  Free energy:      " << initial_result.free_energy << "\n";
   std::cout << "  Grand potential:  " << initial_result.grand_potential << "\n";
-  std::cout << "  Max |force|:      " << arma::max(arma::abs(initial_result.forces[0])) << "\n\n";
+  std::cout << "  Max |force|:      " << arma::max(arma::abs(initial_result.forces[0])) << "\n";
+  std::cout << "  Total mass:       " << arma::accu(rho_init) * model.grid.cell_volume() << "\n\n";
 
-  // DDFT relaxation: use the full DFT functional as force function.
+  // DDFT relaxation.
 
-  std::cout << "=== DDFT relaxation (split-operator) ===\n\n";
+  std::cout << "=== DDFT relaxation ===\n\n";
 
   auto force_fn = [&](const std::vector<arma::vec>& densities)
       -> std::pair<double, std::vector<arma::vec>> {
@@ -153,20 +174,18 @@ int main() {
   auto k2 = algorithms::ddft::compute_k_squared(model.grid);
   auto prop = algorithms::ddft::diffusion_propagator(k2, dconf.diffusion_coefficient, dconf.dt);
 
-  std::vector<arma::vec> densities = {slab_rho};
-  int n_steps = 500;
-  int snapshot_interval = 100;
-  int log_interval = 50;
+  std::vector<arma::vec> densities = {rho_init};
+  int n_steps = 300;
+  int snapshot_interval = 60;
+  int log_interval = 30;
 
-  std::vector<double> times, omegas, max_forces;
+  std::vector<double> times, omegas;
   std::vector<std::vector<double>> profile_snapshots;
   std::vector<double> snapshot_times;
 
-  // Initial snapshot.
   times.push_back(0.0);
   omegas.push_back(initial_result.grand_potential);
-  max_forces.push_back(arma::max(arma::abs(initial_result.forces[0])));
-  profile_snapshots.push_back(initial_profile);
+  profile_snapshots.push_back(profile_init);
   snapshot_times.push_back(0.0);
 
   std::cout << std::setw(8) << "Step"
@@ -191,7 +210,6 @@ int main() {
       double t = step * dconf.dt;
       times.push_back(t);
       omegas.push_back(eval.grand_potential);
-      max_forces.push_back(arma::max(arma::abs(eval.forces[0])));
 
       std::cout << std::setw(8) << step
                 << std::setw(14) << t
@@ -200,7 +218,8 @@ int main() {
     }
 
     if (step % snapshot_interval == 0) {
-      profile_snapshots.push_back(extract_profile(densities[0]));
+      auto [r, prof] = extract_radial(densities[0]);
+      profile_snapshots.push_back(prof);
       snapshot_times.push_back(step * dconf.dt);
     }
   }
@@ -209,16 +228,14 @@ int main() {
 
   auto final_state = make_state(densities[0]);
   auto final_result = functionals::total(model, final_state, weights);
-  auto final_profile = extract_profile(densities[0]);
+  auto [r_final, profile_final] = extract_radial(densities[0]);
 
-  std::cout << "\n=== Final relaxed state ===\n\n";
+  double mass_initial = arma::accu(rho_init) * model.grid.cell_volume();
+  double mass_final = arma::accu(densities[0]) * model.grid.cell_volume();
+
+  std::cout << "\n=== Final state ===\n\n";
   std::cout << "  Grand potential:  " << final_result.grand_potential << "\n";
   std::cout << "  Max |force|:      " << arma::max(arma::abs(final_result.forces[0])) << "\n";
-
-  // Mass conservation.
-
-  double mass_initial = arma::accu(slab_rho) * model.grid.cell_volume();
-  double mass_final = arma::accu(densities[0]) * model.grid.cell_volume();
   std::cout << "  Mass initial:     " << mass_initial << "\n";
   std::cout << "  Mass final:       " << mass_final << "\n";
   std::cout << "  Rel. error:       " << std::abs(mass_final - mass_initial) / mass_initial << "\n";
@@ -226,18 +243,8 @@ int main() {
   // Plots.
 
 #ifdef DFT_HAS_MATPLOTLIB
-  auto rho_range = arma::conv_to<std::vector<double>>::from(rho_grid);
-  auto p_range = arma::conv_to<std::vector<double>>::from(p_grid);
-  auto f_range = arma::conv_to<std::vector<double>>::from(f_grid);
-  auto mu_range = arma::conv_to<std::vector<double>>::from(mu_grid);
-  double f_v = functionals::bulk::free_energy_density(arma::vec{coex->rho_vapor}, model.species, bulk_weights);
-  double f_l = functionals::bulk::free_energy_density(arma::vec{coex->rho_liquid}, model.species, bulk_weights);
-
-  plot::pressure_isotherm(rho_range, p_range, coex->rho_vapor, coex->rho_liquid, p_coex, model.temperature);
-  plot::free_energy(rho_range, f_range, coex->rho_vapor, coex->rho_liquid, f_v, f_l, model.temperature);
-  plot::chemical_potential(rho_range, mu_range, coex->rho_vapor, coex->rho_liquid, mu_coex, model.temperature);
-  plot::density_evolution(x_coords, profile_snapshots, snapshot_times,
-                          initial_profile, final_profile,
+  plot::droplet_evolution(r_init, profile_snapshots, snapshot_times,
+                          profile_init, profile_final,
                           coex->rho_vapor, coex->rho_liquid);
   plot::grand_potential(times, omegas);
 #endif

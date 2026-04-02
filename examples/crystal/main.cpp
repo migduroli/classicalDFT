@@ -1,12 +1,9 @@
 #include "dft.hpp"
+#include "plot.hpp"
 
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
-
-#ifdef DFT_HAS_MATPLOTLIB
-#include "matplotlibcpp.h"
-#endif
 
 using namespace dft;
 
@@ -100,41 +97,15 @@ int main() {
   // Plots.
 
 #ifdef DFT_HAS_MATPLOTLIB
-  namespace plt = matplotlibcpp;
-
-  auto plot_lattice = [](const Lattice& lat, const std::string& title,
-                         const std::string& style, const std::string& filename) {
-    std::vector<double> xs(lat.positions.n_rows), ys(lat.positions.n_rows);
-    for (arma::uword i = 0; i < lat.positions.n_rows; ++i) {
-      xs[i] = lat.positions(i, 0);
-      ys[i] = lat.positions(i, 1);
-    }
-
-    plt::figure_size(700, 700);
-    plt::named_plot("Atoms", xs, ys, style);
-    double pad = 0.3;
-    double range = std::max(lat.dimensions(0), lat.dimensions(1)) + 2 * pad;
-    plt::xlim(-pad, -pad + range);
-    plt::ylim(-pad, -pad + range);
-    plt::xlabel(R"($x / d_\mathrm{nn}$)");
-    plt::ylabel(R"($y / d_\mathrm{nn}$)");
-    plt::title(title);
-    plt::grid(true);
-    plt::tight_layout();
-    plt::save(filename);
-    plt::close();
-    std::cout << "Plot saved: " << std::filesystem::absolute(filename) << "\n";
-  };
-
-  plot_lattice(
+  plot::lattice(
       build_lattice(Structure::FCC, Orientation::_001, {4, 4, 4}),
       R"(FCC [001] ($4^3$ unit cells))", "bo", "exports/fcc_001.png"
   );
-  plot_lattice(
+  plot::lattice(
       build_lattice(Structure::BCC, Orientation::_110, {4, 4, 4}),
       R"(BCC [110] ($4^3$ unit cells))", "rs", "exports/bcc_110.png"
   );
-  plot_lattice(
+  plot::lattice(
       build_lattice(Structure::HCP, Orientation::_001, {4, 4, 4}),
       R"(HCP [001] ($4^3$ unit cells))", "g^", "exports/hcp_001.png"
   );

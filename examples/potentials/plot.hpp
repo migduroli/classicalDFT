@@ -12,7 +12,7 @@ namespace plot {
 inline void save(const std::string& path) {
   matplotlibcpp::save(path);
   matplotlibcpp::close();
-  std::cout << "Plot saved: " << std::filesystem::absolute(path) << "\n";
+  std::cout << "Plot saved: " << path << "\n";
 }
 
 inline void potentials_comparison(
@@ -22,7 +22,7 @@ inline void potentials_comparison(
     const std::vector<double>& v_wrdf
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot("Lennard-Jones", r, v_lj, "k-");
   plt::named_plot("ten Wolde-Frenkel", r, v_twf, "b-");
   plt::named_plot("WRDF", r, v_wrdf, "r-");
@@ -44,7 +44,7 @@ inline void perturbation_decomposition(
     const std::vector<double>& rep
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot(R"($v_\mathrm{LJ}(r)$)", r, v_lj, "k-");
   plt::named_plot(R"($w_\mathrm{att}(r)$)", r, att, "b-");
   plt::named_plot(R"($w_\mathrm{rep}(r)$)", r, rep, "r--");
@@ -65,7 +65,7 @@ inline void potential_with_dhs(
     double r_min, double v_min, double d_hs
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot(R"($v_\mathrm{LJ}(r)$)", r, v_lj, "k-");
   plt::named_plot("Minimum", std::vector<double>{r_min}, std::vector<double>{v_min}, "rs");
   plt::plot(std::vector<double>{d_hs, d_hs}, std::vector<double>{-2.0, 10.0},

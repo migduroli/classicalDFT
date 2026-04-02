@@ -15,7 +15,7 @@ inline void wca_bh_splitting(
     const std::vector<double>& watt_bh
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot(R"($v_\mathrm{LJ}(r)$)", r, v_full, "k-");
   plt::named_plot(R"($w_\mathrm{att}^\mathrm{WCA}(r)$)", r, watt_wca, "b-");
   plt::named_plot(R"($w_\mathrm{att}^\mathrm{BH}(r)$)", r, watt_bh, "r--");
@@ -37,7 +37,7 @@ inline void mean_field_free_energy(
     const std::vector<double>& f
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot(R"($f_\mathrm{mf}(\rho)$)", rho, f, "b-");
   plt::xlabel(R"($\rho \sigma^3$)");
   plt::ylabel(R"($f_\mathrm{mf} / k_BT$)");
@@ -55,7 +55,7 @@ inline void grid_convergence(
     double a_analytic
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot(R"($a_\mathrm{vdw}(\Delta x)$)", dx_vals, a_conv, "bo-");
   plt::plot(std::vector<double>{dx_vals.front(), dx_vals.back()},
             std::vector<double>{a_analytic, a_analytic},

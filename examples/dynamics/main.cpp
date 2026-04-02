@@ -121,6 +121,21 @@ void demo_ddft() {
   times.push_back(0.0);
   variances.push_back(arma::var(densities[0]));
 
+  // Capture 1D density profile snapshots along z for plotting.
+  // Extract z-profile by averaging over all (x, y) planes.
+  auto extract_z_profile = [&]() -> std::vector<double> {
+    arma::mat rho_mat = arma::reshape(densities[0], nz, nx * ny);
+    arma::vec avg = arma::mean(rho_mat, 1);
+    return arma::conv_to<std::vector<double>>::from(avg);
+  };
+
+  auto z_coords = arma::conv_to<std::vector<double>>::from(z_vals);
+  std::vector<std::vector<double>> profile_snapshots;
+  std::vector<double> snapshot_times;
+
+  profile_snapshots.push_back(extract_z_profile());
+  snapshot_times.push_back(0.0);
+
   for (int step = 1; step <= n_steps; ++step) {
     auto result = algorithms::ddft::split_operator_step(
         densities, model.grid, k2, prop, force_fn, dconf
@@ -130,6 +145,8 @@ void demo_ddft() {
     if (step % snapshot_interval == 0) {
       times.push_back(step * dconf.dt);
       variances.push_back(arma::var(densities[0]));
+      profile_snapshots.push_back(extract_z_profile());
+      snapshot_times.push_back(step * dconf.dt);
     }
   }
 
@@ -150,6 +167,7 @@ void demo_ddft() {
 
 #ifdef DFT_HAS_MATPLOTLIB
   plot::ddft_variance(times, variances);
+  plot::ddft_density_profiles(z_coords, profile_snapshots, snapshot_times, rho0);
 #endif
 }
 

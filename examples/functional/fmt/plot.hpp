@@ -15,7 +15,7 @@ inline void free_energy(
     const std::vector<double>& f_wb2
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot("Rosenfeld (= PY comp.)", eta, f_ros, "k-");
   plt::named_plot("White Bear I (= CS)", eta, f_wb1, "b-");
   plt::named_plot("White Bear II", eta, f_wb2, "g:");
@@ -40,7 +40,7 @@ inline void pressure(
     const std::vector<double>& p_cs
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot("Rosenfeld (= PY comp.)", eta, p_ros, "k-");
   plt::named_plot("PY (comp.) exact", eta, p_pyc, "r--");
   plt::named_plot("White Bear I (= CS)", eta, p_wb1, "b-");
@@ -65,7 +65,7 @@ inline void chemical_potential(
     const std::vector<double>& mu_wb2
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot("Rosenfeld", eta, mu_ros, "k-");
   plt::named_plot("White Bear I", eta, mu_wb1, "b-");
   plt::named_plot("White Bear II", eta, mu_wb2, "g:");

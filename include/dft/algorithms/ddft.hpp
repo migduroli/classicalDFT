@@ -98,28 +98,72 @@ namespace dft::algorithms::ddft {
     auto [energy, forces] = compute(rho_new);
 
     // Step 3: Excess contribution via forward Euler.
-    // The excess force for species s is: f_ex = (total_force / dV) - ln(rho)
-    // The flux is: rho * f_ex
-    // Divergence in Fourier space: -k^2 * FFT(flux)
+    // Correctly compute div(rho * grad(f_ex)) using spectral derivatives:
+    //   1. FFT(f_ex), multiply by ik_d to get each gradient component
+    //   2. IFFT to real space, multiply by rho to get flux J_d = rho * df_ex/dx_d
+    //   3. FFT(J_d), multiply by ik_d, sum all components for divergence
     double D = config.diffusion_coefficient;
     double dv = grid.cell_volume();
 
+    long nz_half = grid.shape[2] / 2 + 1;
+    long fourier_total = grid.shape[0] * grid.shape[1] * nz_half;
+    auto fu = static_cast<arma::uword>(fourier_total);
+
+    // Precompute wavevector components.
+    arma::vec kx_vec(fu), ky_vec(fu), kz_vec(fu);
+    for_each_wavevector(grid, [&](const Wavevector& wv) {
+      auto i = static_cast<arma::uword>(wv.idx);
+      kx_vec(i) = wv.k[0];
+      ky_vec(i) = wv.k[1];
+      kz_vec(i) = wv.k[2];
+    });
+
     for (std::size_t s = 0; s < n_species; ++s) {
       arma::vec f_ex = forces[s] / dv - arma::log(arma::clamp(rho_new[s], config.min_density, arma::datum::inf));
-      arma::vec flux = rho_new[s] % f_ex;
 
-      math::FourierTransform ft(shape_vec);
-      ft.set_real(flux);
-      ft.forward();
-      arma::cx_vec flux_k = ft.fourier_vec();
+      // FFT of f_ex.
+      math::FourierTransform ft_fex(shape_vec);
+      ft_fex.set_real(f_ex);
+      ft_fex.forward();
+      arma::cx_vec f_ex_k = ft_fex.fourier_vec();
 
-      // -k^2 in Fourier space gives the Laplacian of the flux
-      arma::cx_vec k2_cx(k_squared, arma::zeros(k_squared.n_elem));
-      flux_k %= -k2_cx;
+      // Accumulate divergence in Fourier space: sum_d ik_d * FFT(rho * IFFT(ik_d * f_ex_k))
+      arma::cx_vec div_k = arma::zeros<arma::cx_vec>(fu);
+      const std::array<const arma::vec*, 3> k_components = {&kx_vec, &ky_vec, &kz_vec};
 
-      ft.set_fourier(flux_k);
-      ft.backward();
-      arma::vec div_flux = ft.real_vec() / n_total;
+      for (const auto* k_d : k_components) {
+        // Gradient component in Fourier space: ik_d * f_ex_k.
+        arma::cx_vec grad_k(fu);
+        for (arma::uword i = 0; i < fu; ++i) {
+          grad_k(i) = std::complex<double>(0.0, (*k_d)(i)) * f_ex_k(i);
+        }
+
+        // To real space.
+        math::FourierTransform ft_grad(shape_vec);
+        ft_grad.set_fourier(grad_k);
+        ft_grad.backward();
+        arma::vec grad_real = ft_grad.real_vec() / n_total;
+
+        // Flux component: J_d = rho * df_ex/dx_d.
+        arma::vec J_d = rho_new[s] % grad_real;
+
+        // Back to Fourier space.
+        math::FourierTransform ft_J(shape_vec);
+        ft_J.set_real(J_d);
+        ft_J.forward();
+        arma::cx_vec J_d_k = ft_J.fourier_vec();
+
+        // Accumulate divergence: ik_d * J_d_k.
+        for (arma::uword i = 0; i < fu; ++i) {
+          div_k(i) += std::complex<double>(0.0, (*k_d)(i)) * J_d_k(i);
+        }
+      }
+
+      // Back to real space.
+      math::FourierTransform ft_div(shape_vec);
+      ft_div.set_fourier(div_k);
+      ft_div.backward();
+      arma::vec div_flux = ft_div.real_vec() / n_total;
 
       rho_new[s] += config.dt * D * div_flux;
       rho_new[s] = arma::clamp(rho_new[s], config.min_density, arma::datum::inf);
@@ -154,18 +198,50 @@ namespace dft::algorithms::ddft {
     arma::vec prop_half = diffusion_propagator(k_squared, D, config.dt / 2.0);
 
     // Compute N^n (nonlinear term at current density).
+    // N = div(rho * grad(f_ex)) computed correctly with spectral derivatives.
+    long nz_half = grid.shape[2] / 2 + 1;
+    long fourier_total = grid.shape[0] * grid.shape[1] * nz_half;
+    auto fu = static_cast<arma::uword>(fourier_total);
+
+    arma::vec kx_vec(fu), ky_vec(fu), kz_vec(fu);
+    for_each_wavevector(grid, [&](const Wavevector& wv) {
+      auto i = static_cast<arma::uword>(wv.idx);
+      kx_vec(i) = wv.k[0];
+      ky_vec(i) = wv.k[1];
+      kz_vec(i) = wv.k[2];
+    });
+
     auto nonlinear_term = [&](const std::vector<arma::vec>& rho,
                               const std::vector<arma::vec>& forces) -> std::vector<arma::cx_vec> {
       std::vector<arma::cx_vec> N(n_species);
-      arma::cx_vec k2_cx(k_squared, arma::zeros(k_squared.n_elem));
+      const std::array<const arma::vec*, 3> k_components = {&kx_vec, &ky_vec, &kz_vec};
       for (std::size_t s = 0; s < n_species; ++s) {
         arma::vec f_ex = forces[s] / dv - arma::log(arma::clamp(rho[s], config.min_density, arma::datum::inf));
-        arma::vec flux = rho[s] % f_ex;
 
-        math::FourierTransform ft(shape_vec);
-        ft.set_real(flux);
-        ft.forward();
-        N[s] = -D * k2_cx % ft.fourier_vec();
+        math::FourierTransform ft_fex(shape_vec);
+        ft_fex.set_real(f_ex);
+        ft_fex.forward();
+        arma::cx_vec f_ex_k = ft_fex.fourier_vec();
+
+        N[s] = arma::zeros<arma::cx_vec>(fu);
+        for (const auto* k_d : k_components) {
+          arma::cx_vec grad_k(fu);
+          for (arma::uword i = 0; i < fu; ++i) {
+            grad_k(i) = std::complex<double>(0.0, (*k_d)(i)) * f_ex_k(i);
+          }
+          math::FourierTransform ft_grad(shape_vec);
+          ft_grad.set_fourier(grad_k);
+          ft_grad.backward();
+          arma::vec grad_real = ft_grad.real_vec() / n_total;
+          arma::vec J_d = rho[s] % grad_real;
+          math::FourierTransform ft_J(shape_vec);
+          ft_J.set_real(J_d);
+          ft_J.forward();
+          arma::cx_vec J_d_k = ft_J.fourier_vec();
+          for (arma::uword i = 0; i < fu; ++i) {
+            N[s](i) += D * std::complex<double>(0.0, (*k_d)(i)) * J_d_k(i);
+          }
+        }
       }
       return N;
     };

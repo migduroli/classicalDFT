@@ -15,7 +15,7 @@ inline void hs_pressure(
     const std::vector<double>& pyc
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot("Carnahan-Starling", eta, cs, "k-");
   plt::named_plot("PY (virial)", eta, pyv, "r--");
   plt::named_plot("PY (compressibility)", eta, pyc, "b:");
@@ -38,7 +38,7 @@ inline void transport_viscosity(
     const std::vector<double>& bulk
 ) {
   namespace plt = matplotlibcpp;
-  plt::figure_size(800, 550);
+  plt::figure_size(900, 600);
   plt::named_plot(R"($\eta_\mathrm{shear}$)", rho, shear, "k-");
   plt::named_plot(R"($\eta_\mathrm{bulk}$)", rho, bulk, "r--");
   plt::xlim(0.0, 0.8);
