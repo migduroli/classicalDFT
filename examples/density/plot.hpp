@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dft/math/spline.hpp"
+
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -8,6 +10,24 @@
 #include "matplotlibcpp.h"
 
 namespace plot {
+
+constexpr int fine_grid_points = 500;
+
+// Evaluate a cubic spline on a uniform fine grid.
+inline auto spline_refine(
+    const std::vector<double>& x, const std::vector<double>& y, int n_fine = fine_grid_points
+) -> std::pair<std::vector<double>, std::vector<double>> {
+  dft::math::CubicSpline spline(x, y);
+  double x0 = x.front();
+  double x1 = x.back();
+  double dx = (x1 - x0) / (n_fine - 1);
+  std::vector<double> xf(n_fine), yf(n_fine);
+  for (int i = 0; i < n_fine; ++i) {
+    xf[i] = x0 + i * dx;
+    yf[i] = spline(xf[i]);
+  }
+  return {xf, yf};
+}
 
 inline void pressure_isotherm(
     const std::vector<double>& rho, const std::vector<double>& p,
@@ -101,23 +121,26 @@ inline void density_evolution(
   namespace plt = matplotlibcpp;
   plt::figure_size(900, 600);
 
-  // Initial profile (dashed).
-  plt::plot(x, initial,
+  // Initial profile (dashed, spline-interpolated).
+  auto [xi, yi] = spline_refine(x, initial);
+  plt::plot(xi, yi,
             {{"color", "#00000044"}, {"linestyle", "--"}, {"linewidth", "1.0"},
              {"label", "Initial (tanh)"}});
 
-  // Intermediate snapshots.
+  // Intermediate snapshots (spline-interpolated).
   std::vector<std::string> colors = {"#ff7f0e", "#2ca02c", "#9467bd", "#8c564b", "#e377c2"};
   for (std::size_t i = 1; i < snapshots.size(); ++i) {
     char label[32];
     std::snprintf(label, sizeof(label), R"($t = %.2f$)", snapshot_times[i]);
-    plt::plot(x, snapshots[i],
+    auto [xs, ys] = spline_refine(x, snapshots[i]);
+    plt::plot(xs, ys,
               {{"color", colors[(i - 1) % colors.size()]}, {"linestyle", "-"},
                {"label", label}});
   }
 
-  // Final relaxed profile (thick).
-  plt::plot(x, final_profile,
+  // Final relaxed profile (thick, spline-interpolated).
+  auto [xf, yf] = spline_refine(x, final_profile);
+  plt::plot(xf, yf,
             {{"color", "#1f77b4"}, {"linestyle", "-"}, {"linewidth", "2.0"},
              {"label", "Relaxed"}});
 

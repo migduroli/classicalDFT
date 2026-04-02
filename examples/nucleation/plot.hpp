@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dft/math/spline.hpp"
+
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -8,6 +10,23 @@
 #include "matplotlibcpp.h"
 
 namespace plot {
+
+constexpr int fine_grid_points = 500;
+
+inline auto spline_refine(
+    const std::vector<double>& x, const std::vector<double>& y, int n_fine = fine_grid_points
+) -> std::pair<std::vector<double>, std::vector<double>> {
+  dft::math::CubicSpline spline(x, y);
+  double x0 = x.front();
+  double x1 = x.back();
+  double dx = (x1 - x0) / (n_fine - 1);
+  std::vector<double> xf(n_fine), yf(n_fine);
+  for (int i = 0; i < n_fine; ++i) {
+    xf[i] = x0 + i * dx;
+    yf[i] = spline(xf[i]);
+  }
+  return {xf, yf};
+}
 
 inline void droplet_evolution(
     const std::vector<double>& x,
@@ -20,7 +39,8 @@ inline void droplet_evolution(
   namespace plt = matplotlibcpp;
   plt::figure_size(900, 600);
 
-  plt::plot(x, initial,
+  auto [xi, yi] = spline_refine(x, initial);
+  plt::plot(xi, yi,
             {{"color", "#00000044"}, {"linestyle", "--"}, {"linewidth", "1.0"},
              {"label", "Initial (tanh)"}});
 
@@ -28,12 +48,14 @@ inline void droplet_evolution(
   for (std::size_t i = 1; i < snapshots.size(); ++i) {
     char label[32];
     std::snprintf(label, sizeof(label), R"($t = %.3f$)", snapshot_times[i]);
-    plt::plot(x, snapshots[i],
+    auto [xs, ys] = spline_refine(x, snapshots[i]);
+    plt::plot(xs, ys,
               {{"color", colors[(i - 1) % colors.size()]}, {"linestyle", "-"},
                {"label", label}});
   }
 
-  plt::plot(x, final_profile,
+  auto [xf, yf] = spline_refine(x, final_profile);
+  plt::plot(xf, yf,
             {{"color", "#1f77b4"}, {"linestyle", "-"}, {"linewidth", "2.0"},
              {"label", "Final"}});
 

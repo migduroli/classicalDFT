@@ -39,6 +39,7 @@
 #include "dft/algorithms/alias.hpp"
 #include "dft/algorithms/fire.hpp"
 #include "dft/algorithms/ddft.hpp"
+#include "dft/algorithms/simulate.hpp"
 #include "dft/algorithms/solvers/newton.hpp"
 #include "dft/algorithms/solvers/jacobian.hpp"
 #include "dft/algorithms/solvers/continuation.hpp"

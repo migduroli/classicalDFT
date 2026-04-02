@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dft/math/spline.hpp"
+
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -8,6 +10,23 @@
 #include "matplotlibcpp.h"
 
 namespace plot {
+
+constexpr int fine_grid_points = 500;
+
+inline auto spline_refine(
+    const std::vector<double>& x, const std::vector<double>& y, int n_fine = fine_grid_points
+) -> std::pair<std::vector<double>, std::vector<double>> {
+  dft::math::CubicSpline spline(x, y);
+  double x0 = x.front();
+  double x1 = x.back();
+  double dx = (x1 - x0) / (n_fine - 1);
+  std::vector<double> xf(n_fine), yf(n_fine);
+  for (int i = 0; i < n_fine; ++i) {
+    xf[i] = x0 + i * dx;
+    yf[i] = spline(xf[i]);
+  }
+  return {xf, yf};
+}
 
 inline void fire2_energy(const std::vector<double>& steps, const std::vector<double>& energies) {
   namespace plt = matplotlibcpp;
@@ -52,7 +71,8 @@ inline void ddft_density_profiles(
   for (std::size_t i = 0; i < profiles.size(); ++i) {
     char label[32];
     std::snprintf(label, sizeof(label), R"($t = %.2f$)", snapshot_times[i]);
-    plt::plot(z, profiles[i], {{"color", colors[i % colors.size()]}, {"linestyle", "-"}, {"label", label}});
+    auto [zf, yf] = spline_refine(z, profiles[i]);
+    plt::plot(zf, yf, {{"color", colors[i % colors.size()]}, {"linestyle", "-"}, {"label", label}});
   }
 
   // Equilibrium reference line.

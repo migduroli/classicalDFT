@@ -12,8 +12,16 @@ using namespace dft;
 
 // FIRE2 minimisation of a 2D quadratic.
 
-void demo_fire2() {
+void demo_fire2(const nlohmann::json& cfg) {
   std::cout << "\n=== FIRE2: 2D quadratic minimisation ===\n\n";
+
+  double dt = config::get<double>(cfg, "fire2.dt");
+  double dt_max = config::get<double>(cfg, "fire2.dt_max");
+  double force_tolerance = config::get<double>(cfg, "fire2.force_tolerance");
+  int max_steps = config::get<int>(cfg, "fire2.max_steps");
+  double x0 = config::get<double>(cfg, "fire2.x0");
+  double y0 = config::get<double>(cfg, "fire2.y0");
+  int log_interval = config::get<int>(cfg, "fire2.log_interval");
 
   // Minimize f(x,y) = (x-1)^2 + 4*(y+2)^2.
 
@@ -26,14 +34,14 @@ void demo_fire2() {
     return {energy, {force}};
   };
 
-  algorithms::fire::FireConfig config{
-      .dt = 1e-3,
-      .dt_max = 0.1,
-      .force_tolerance = 1e-10,
-      .max_steps = 5000,
+  algorithms::fire::FireConfig fire_config{
+      .dt = dt,
+      .dt_max = dt_max,
+      .force_tolerance = force_tolerance,
+      .max_steps = max_steps,
   };
 
-  auto result = algorithms::fire::minimize({arma::vec{5.0, 5.0}}, force_fn, config);
+  auto result = algorithms::fire::minimize({arma::vec{x0, y0}}, force_fn, fire_config);
 
   std::cout << "  Converged: " << std::boolalpha << result.converged
             << " after " << result.iteration << " steps\n";
@@ -43,15 +51,15 @@ void demo_fire2() {
 
   // Step-by-step iteration for convergence logging.
 
-  auto state = algorithms::fire::initialize({arma::vec{5.0, 5.0}}, force_fn, config);
+  auto state = algorithms::fire::initialize({arma::vec{x0, y0}}, force_fn, fire_config);
   auto [init_energy, forces] = force_fn(state.x);
 
   std::vector<double> steps, energies;
-  while (!state.converged && state.iteration < config.max_steps) {
-    auto [new_state, new_forces] = algorithms::fire::step(std::move(state), forces, force_fn, config);
+  while (!state.converged && state.iteration < fire_config.max_steps) {
+    auto [new_state, new_forces] = algorithms::fire::step(std::move(state), forces, force_fn, fire_config);
     state = std::move(new_state);
     forces = std::move(new_forces);
-    if (state.iteration % 50 == 0 || state.converged) {
+    if (state.iteration % log_interval == 0 || state.converged) {
       steps.push_back(static_cast<double>(state.iteration));
       energies.push_back(state.energy);
     }
@@ -64,29 +72,34 @@ void demo_fire2() {
 
 // Split-operator DDFT: ideal gas relaxation to equilibrium.
 
-void demo_ddft() {
+void demo_ddft(const nlohmann::json& cfg) {
   std::cout << "\n=== Split-operator DDFT: ideal gas relaxation ===\n\n";
+
+  double dx = config::get<double>(cfg, "ddft.dx");
+  double box_size = config::get<double>(cfg, "ddft.box_size");
+  double temperature = config::get<double>(cfg, "ddft.temperature");
+  double rho0 = config::get<double>(cfg, "ddft.rho0");
+  double amplitude = config::get<double>(cfg, "ddft.amplitude");
+  double dt = config::get<double>(cfg, "ddft.dt");
+  double D = config::get<double>(cfg, "ddft.diffusion_coefficient");
+  int n_steps = config::get<int>(cfg, "ddft.n_steps");
+  int snapshot_interval = config::get<int>(cfg, "ddft.snapshot_interval");
 
   // Define the system as a Model (ideal gas: no interactions).
 
   physics::Model model{
-      .grid = make_grid(0.5, {8.0, 8.0, 8.0}),
+      .grid = make_grid(dx, {box_size, box_size, box_size}),
       .species = {Species{.name = "ideal", .hard_sphere_diameter = 0.0}},
       .interactions = {},
-      .temperature = 1.0,
+      .temperature = temperature,
   };
 
   // Sinusoidal density perturbation along z, built with Armadillo vectorisation.
 
-  double rho0 = 0.5;
-  double amplitude = 0.2;
   long nx = model.grid.shape[0];
   long ny = model.grid.shape[1];
   long nz = model.grid.shape[2];
 
-  // 1D z-profile, then replicate across all (x, y) planes.
-  // Flat layout is z-fastest: index = iz + nz*(iy + ny*ix).
-  // A full z-period repeats every nz entries, so tile it nx*ny times.
   arma::vec z_vals = arma::linspace(0.0, (nz - 1) * model.grid.dx, nz);
   arma::vec z_profile = rho0 + amplitude * arma::sin(2.0 * std::numbers::pi * z_vals / model.grid.box_size[2]);
   arma::vec rho = arma::repmat(z_profile, nx * ny, 1);
@@ -104,27 +117,21 @@ void demo_ddft() {
     return {energy, {force}};
   };
 
-  algorithms::ddft::DdftConfig dconf{
-      .dt = 1e-3,
-      .diffusion_coefficient = 1.0,
-      .min_density = 1e-18,
+  // DDFT relaxation via the simulate API.
+
+  algorithms::ddft::SimulationConfig sim_config{
+      .ddft = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
+      .n_steps = n_steps,
+      .snapshot_interval = snapshot_interval,
+      .log_interval = snapshot_interval,
   };
 
-  auto k2 = algorithms::ddft::compute_k_squared(model.grid);
-  auto prop = algorithms::ddft::diffusion_propagator(k2, dconf.diffusion_coefficient, dconf.dt);
+  auto sim = algorithms::ddft::simulate({state.species[0].density.values}, model.grid, force_fn, sim_config);
 
-  std::vector<arma::vec> densities = {state.species[0].density.values};
-  int n_steps = 500;
-  int snapshot_interval = 100;
+  // Collect z-profile snapshots.
 
-  std::vector<double> times, variances;
-  times.push_back(0.0);
-  variances.push_back(arma::var(densities[0]));
-
-  // Capture 1D density profile snapshots along z for plotting.
-  // Extract z-profile by averaging over all (x, y) planes.
-  auto extract_z_profile = [&]() -> std::vector<double> {
-    arma::mat rho_mat = arma::reshape(densities[0], nz, nx * ny);
+  auto extract_z_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
+    arma::mat rho_mat = arma::reshape(rho_3d, nz, nx * ny);
     arma::vec avg = arma::mean(rho_mat, 1);
     return arma::conv_to<std::vector<double>>::from(avg);
   };
@@ -133,21 +140,17 @@ void demo_ddft() {
   std::vector<std::vector<double>> profile_snapshots;
   std::vector<double> snapshot_times;
 
-  profile_snapshots.push_back(extract_z_profile());
-  snapshot_times.push_back(0.0);
+  for (const auto& snap : sim.snapshots) {
+    profile_snapshots.push_back(extract_z_profile(snap.densities[0]));
+    snapshot_times.push_back(snap.time);
+  }
 
-  for (int step = 1; step <= n_steps; ++step) {
-    auto result = algorithms::ddft::split_operator_step(
-        densities, model.grid, k2, prop, force_fn, dconf
-    );
-    densities = std::move(result.densities);
+  // Variance decay.
 
-    if (step % snapshot_interval == 0) {
-      times.push_back(step * dconf.dt);
-      variances.push_back(arma::var(densities[0]));
-      profile_snapshots.push_back(extract_z_profile());
-      snapshot_times.push_back(step * dconf.dt);
-    }
+  std::vector<double> times, variances;
+  for (const auto& snap : sim.snapshots) {
+    times.push_back(snap.time);
+    variances.push_back(arma::var(snap.densities[0]));
   }
 
   std::cout << std::setw(10) << "Time" << std::setw(16) << "Variance\n";
@@ -157,13 +160,9 @@ void demo_ddft() {
               << std::setw(16) << std::scientific << variances[i] << "\n";
   }
 
-  // Mass conservation check.
-
-  double mass_initial = arma::accu(rho) * model.grid.cell_volume();
-  double mass_final = arma::accu(densities[0]) * model.grid.cell_volume();
-  std::cout << "\n  Mass initial: " << std::fixed << mass_initial << "\n";
-  std::cout << "  Mass final:   " << mass_final << "\n";
-  std::cout << "  Rel. error:   " << std::abs(mass_final - mass_initial) / mass_initial << "\n";
+  std::cout << "\n  Mass initial: " << std::fixed << sim.mass_initial << "\n";
+  std::cout << "  Mass final:   " << sim.mass_final << "\n";
+  std::cout << "  Rel. error:   " << std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial << "\n";
 
 #ifdef DFT_HAS_MATPLOTLIB
   plot::ddft_variance(times, variances);
@@ -181,6 +180,7 @@ int main() {
   matplotlibcpp::backend("Agg");
 #endif
 
-  demo_fire2();
-  demo_ddft();
+  auto cfg = config::parse_config("config.ini", config::FileType::INI);
+  demo_fire2(cfg);
+  demo_ddft(cfg);
 }

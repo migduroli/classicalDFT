@@ -22,18 +22,39 @@ int main() {
 
   std::cout << std::fixed << std::setprecision(6);
 
-  // Lennard-Jones model (same as the density example).
+  // Read configuration.
+
+  auto cfg = config::parse_config("config.ini", config::FileType::INI);
+
+  double dx = config::get<double>(cfg, "model.dx");
+  double box_x = config::get<double>(cfg, "model.box_x");
+  double box_y = config::get<double>(cfg, "model.box_y");
+  double box_z = config::get<double>(cfg, "model.box_z");
+  double temperature = config::get<double>(cfg, "model.temperature");
+  double sigma = config::get<double>(cfg, "model.sigma");
+  double epsilon_lj = config::get<double>(cfg, "model.epsilon");
+  double cutoff = config::get<double>(cfg, "model.cutoff");
+  double R_drop = config::get<double>(cfg, "droplet.radius");
+  double interface_w = config::get<double>(cfg, "droplet.interface_width");
+  double delta_mu = config::get<double>(cfg, "droplet.delta_mu");
+  double dt = config::get<double>(cfg, "ddft.dt");
+  double D = config::get<double>(cfg, "ddft.diffusion_coefficient");
+  int n_steps = config::get<int>(cfg, "ddft.n_steps");
+  int snapshot_interval = config::get<int>(cfg, "ddft.snapshot_interval");
+  int log_interval = config::get<int>(cfg, "ddft.log_interval");
+
+  // Lennard-Jones model.
 
   physics::Model model{
-      .grid = make_grid(0.4, {12.0, 12.0, 12.0}),
-      .species = {Species{.name = "LJ", .hard_sphere_diameter = 1.0}},
+      .grid = make_grid(dx, {box_x, box_y, box_z}),
+      .species = {Species{.name = "LJ", .hard_sphere_diameter = sigma}},
       .interactions = {{
           .species_i = 0,
           .species_j = 0,
-          .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
+          .potential = physics::potentials::make_lennard_jones(sigma, epsilon_lj, cutoff),
           .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
       }},
-      .temperature = 0.7,
+      .temperature = temperature,
   };
 
   auto fmt_model = functionals::fmt::WhiteBearII{};
@@ -64,20 +85,12 @@ int main() {
   double mu_coex = functionals::bulk::chemical_potential(
       arma::vec{coex->rho_vapor}, model.species, bulk_weights, 0
   );
+  double mu_super = mu_coex + delta_mu;
 
   std::cout << "  Coexistence:\n";
   std::cout << "    rho_vapor  = " << coex->rho_vapor << "\n";
   std::cout << "    rho_liquid = " << coex->rho_liquid << "\n";
   std::cout << "    mu_coex    = " << mu_coex << "\n\n";
-
-  // Supersaturation: increase chemical potential above coexistence.
-  // At mu > mu_coex, the liquid phase is thermodynamically stable,
-  // while the vapor is metastable. A sufficiently large liquid
-  // droplet (above the critical size) will grow.
-
-  double delta_mu = 0.1;
-  double mu_super = mu_coex + delta_mu;
-
   std::cout << "  Supersaturation:\n";
   std::cout << "    delta_mu   = " << delta_mu << "\n";
   std::cout << "    mu_super   = " << mu_super << "\n\n";
@@ -87,18 +100,13 @@ int main() {
   auto weights = functionals::make_weights(fmt_model, model);
 
   // Construct spherical droplet initial profile.
-  // A liquid droplet of radius R_drop in a uniform metastable vapor.
 
   long nx = model.grid.shape[0];
   long ny = model.grid.shape[1];
   long nz = model.grid.shape[2];
-  double dx = model.grid.dx;
   double cx = model.grid.box_size[0] / 2.0;
   double cy = model.grid.box_size[1] / 2.0;
   double cz = model.grid.box_size[2] / 2.0;
-
-  double R_drop = 3.0;       // droplet radius (sigma units)
-  double interface_w = 1.0;   // interface width
 
   auto n_points = static_cast<arma::uword>(model.grid.total_points());
   arma::vec rho_init(n_points);
@@ -135,7 +143,7 @@ int main() {
 
   auto [r_init, profile_init] = extract_radial(rho_init);
 
-  // State factory with the supersaturated chemical potential.
+  // Force function with supersaturated chemical potential.
 
   auto make_state = [&](const arma::vec& rho) -> State {
     auto s = init::from_profile(model, rho);
@@ -143,7 +151,14 @@ int main() {
     return s;
   };
 
-  // Evaluate the initial functional.
+  auto force_fn = [&](const std::vector<arma::vec>& densities)
+      -> std::pair<double, std::vector<arma::vec>> {
+    auto state = make_state(densities[0]);
+    auto result = functionals::total(model, state, weights);
+    return {result.grand_potential, result.forces};
+  };
+
+  // Initial evaluation.
 
   auto initial_state = make_state(rho_init);
   auto initial_result = functionals::total(model, initial_state, weights);
@@ -154,91 +169,35 @@ int main() {
   std::cout << "  Max |force|:      " << arma::max(arma::abs(initial_result.forces[0])) << "\n";
   std::cout << "  Total mass:       " << arma::accu(rho_init) * model.grid.cell_volume() << "\n\n";
 
-  // DDFT relaxation.
+  // DDFT relaxation via the simulate API.
 
   std::cout << "=== DDFT relaxation ===\n\n";
 
-  auto force_fn = [&](const std::vector<arma::vec>& densities)
-      -> std::pair<double, std::vector<arma::vec>> {
-    auto state = make_state(densities[0]);
-    auto result = functionals::total(model, state, weights);
-    return {result.grand_potential, result.forces};
+  algorithms::ddft::SimulationConfig sim_config{
+      .ddft = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
+      .n_steps = n_steps,
+      .snapshot_interval = snapshot_interval,
+      .log_interval = log_interval,
   };
 
-  algorithms::ddft::DdftConfig dconf{
-      .dt = 5e-4,
-      .diffusion_coefficient = 1.0,
-      .min_density = 1e-18,
-  };
+  auto sim = algorithms::ddft::simulate({rho_init}, model.grid, force_fn, sim_config);
 
-  auto k2 = algorithms::ddft::compute_k_squared(model.grid);
-  auto prop = algorithms::ddft::diffusion_propagator(k2, dconf.diffusion_coefficient, dconf.dt);
+  // Collect profile snapshots.
 
-  std::vector<arma::vec> densities = {rho_init};
-  int n_steps = 300;
-  int snapshot_interval = 60;
-  int log_interval = 30;
-
-  std::vector<double> times, omegas;
   std::vector<std::vector<double>> profile_snapshots;
   std::vector<double> snapshot_times;
-
-  times.push_back(0.0);
-  omegas.push_back(initial_result.grand_potential);
-  profile_snapshots.push_back(profile_init);
-  snapshot_times.push_back(0.0);
-
-  std::cout << std::setw(8) << "Step"
-            << std::setw(14) << "Time"
-            << std::setw(18) << "Grand pot."
-            << std::setw(16) << "Max |force|" << "\n";
-  std::cout << std::string(56, '-') << "\n";
-  std::cout << std::setw(8) << 0
-            << std::setw(14) << 0.0
-            << std::setw(18) << initial_result.grand_potential
-            << std::setw(16) << arma::max(arma::abs(initial_result.forces[0])) << "\n";
-
-  for (int step = 1; step <= n_steps; ++step) {
-    auto result = algorithms::ddft::split_operator_step(
-        densities, model.grid, k2, prop, force_fn, dconf
-    );
-    densities = std::move(result.densities);
-
-    if (step % log_interval == 0 || step == n_steps) {
-      auto state = make_state(densities[0]);
-      auto eval = functionals::total(model, state, weights);
-      double t = step * dconf.dt;
-      times.push_back(t);
-      omegas.push_back(eval.grand_potential);
-
-      std::cout << std::setw(8) << step
-                << std::setw(14) << t
-                << std::setw(18) << eval.grand_potential
-                << std::setw(16) << arma::max(arma::abs(eval.forces[0])) << "\n";
-    }
-
-    if (step % snapshot_interval == 0) {
-      auto [r, prof] = extract_radial(densities[0]);
-      profile_snapshots.push_back(prof);
-      snapshot_times.push_back(step * dconf.dt);
-    }
+  for (const auto& snap : sim.snapshots) {
+    auto [r, prof] = extract_radial(snap.densities[0]);
+    profile_snapshots.push_back(prof);
+    snapshot_times.push_back(snap.time);
   }
-
-  // Final state.
-
-  auto final_state = make_state(densities[0]);
-  auto final_result = functionals::total(model, final_state, weights);
-  auto [r_final, profile_final] = extract_radial(densities[0]);
-
-  double mass_initial = arma::accu(rho_init) * model.grid.cell_volume();
-  double mass_final = arma::accu(densities[0]) * model.grid.cell_volume();
+  auto [r_final, profile_final] = extract_radial(sim.densities[0]);
 
   std::cout << "\n=== Final state ===\n\n";
-  std::cout << "  Grand potential:  " << final_result.grand_potential << "\n";
-  std::cout << "  Max |force|:      " << arma::max(arma::abs(final_result.forces[0])) << "\n";
-  std::cout << "  Mass initial:     " << mass_initial << "\n";
-  std::cout << "  Mass final:       " << mass_final << "\n";
-  std::cout << "  Rel. error:       " << std::abs(mass_final - mass_initial) / mass_initial << "\n";
+  std::cout << "  Grand potential:  " << sim.energies.back() << "\n";
+  std::cout << "  Mass initial:     " << sim.mass_initial << "\n";
+  std::cout << "  Mass final:       " << sim.mass_final << "\n";
+  std::cout << "  Rel. error:       " << std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial << "\n";
 
   // Plots.
 
@@ -246,6 +205,6 @@ int main() {
   plot::droplet_evolution(r_init, profile_snapshots, snapshot_times,
                           profile_init, profile_final,
                           coex->rho_vapor, coex->rho_liquid);
-  plot::grand_potential(times, omegas);
+  plot::grand_potential(sim.times, sim.energies);
 #endif
 }
