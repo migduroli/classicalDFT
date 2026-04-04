@@ -33,8 +33,6 @@ namespace dft::algorithms::fire {
     double alpha;
     int n_positive{0};
     int n_negative{0};
-    int backtracks{0};
-    double dt_best{0.0};
     double energy{0.0};
     double rms_force{0.0};
     int iteration{0};
@@ -104,25 +102,16 @@ namespace dft::algorithms::fire {
         throw std::runtime_error("fire::step: exceeded max uphill steps");
       }
 
-      if (state.iteration > config.n_delay) {
-        if (state.dt_best == 0.0 || state.dt < state.dt_best) {
-          state.dt_best = state.dt;
-        }
-        state.dt = std::max(state.dt * config.f_dec, config.dt_min);
-        state.alpha = config.alpha_start;
-      }
-
-      state.backtracks++;
-
-      // Adaptive dt_max after many backtracks
-      if (state.backtracks >= 10 && state.dt_best > 0.0) {
-        state.backtracks = 0;
-      }
-
-      // Backtrack position and kill velocity (FIRE2 convention).
+      // Backtrack position and kill velocity FIRST (FIRE2 convention:
+      // undo half-step with current dt, then reduce dt).
       for (std::size_t s = 0; s < state.x.size(); ++s) {
         state.x[s] -= 0.5 * state.dt * state.v[s];
         state.v[s].zeros();
+      }
+
+      if (state.iteration > config.n_delay) {
+        state.dt = std::max(state.dt * config.f_dec, config.dt_min);
+        state.alpha = config.alpha_start;
       }
     }
 

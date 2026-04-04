@@ -74,3 +74,18 @@ namespace).
 ```bash
 make run-local
 ```
+
+## Output
+
+### Autodiff derivatives of $\sin(x)$
+
+The function $\sin(x)$ and its first two derivatives computed via autodiff.
+
+![Autodiff sin](exports/autodiff_sin.png)
+
+### Autodiff vs finite differences
+
+Error comparison for $\log(1 + x^2)$: autodiff achieves machine precision
+while central finite differences are limited by truncation error.
+
+![Autodiff accuracy](exports/autodiff_accuracy.png)

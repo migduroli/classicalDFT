@@ -97,3 +97,12 @@ validating the numerical convolution.
 ```bash
 make run-local
 ```
+
+## Output
+
+### Gaussian self-convolution
+
+FFT-based convolution of a Gaussian with itself closely matches the
+analytical result $(\sigma\sqrt{\pi})\exp(-x^2 / 4\sigma^2)$.
+
+![Gaussian convolution](exports/gaussian_convolution.png)

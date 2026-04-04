@@ -1,5 +1,6 @@
 #include "dft.hpp"
 #include "plot.hpp"
+#include "utils.hpp"
 
 #include <filesystem>
 #include <iomanip>
@@ -129,18 +130,12 @@ void demo_ddft(const nlohmann::json& cfg) {
 
   // Collect z-profile snapshots.
 
-  auto extract_z_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
-    arma::mat rho_mat = arma::reshape(rho_3d, nz, nx * ny);
-    arma::vec avg = arma::mean(rho_mat, 1);
-    return arma::conv_to<std::vector<double>>::from(avg);
-  };
-
   auto z_coords = arma::conv_to<std::vector<double>>::from(z_vals);
   std::vector<std::vector<double>> profile_snapshots;
   std::vector<double> snapshot_times;
 
   for (const auto& snap : sim.snapshots) {
-    profile_snapshots.push_back(extract_z_profile(snap.densities[0]));
+    profile_snapshots.push_back(utils::extract_z_profile(snap.densities[0], nx, ny, nz));
     snapshot_times.push_back(snap.time);
   }
 

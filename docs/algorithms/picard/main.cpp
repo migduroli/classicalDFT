@@ -1,8 +1,11 @@
 #include "dft.hpp"
+#include "plot.hpp"
+#include "utils.hpp"
 
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 using namespace dft;
 
@@ -11,6 +14,10 @@ int main() {
   std::filesystem::current_path(DOC_SOURCE_DIR);
 #endif
   std::filesystem::create_directories("exports");
+
+#ifdef DFT_HAS_MATPLOTLIB
+  matplotlibcpp::backend("Agg");
+#endif
 
   std::cout << std::fixed << std::setprecision(6);
 
@@ -70,22 +77,11 @@ int main() {
 
   // Force function.
 
-  auto make_state = [&](const arma::vec& rho) -> State {
-    auto s = init::from_profile(model, rho);
-    s.species[0].chemical_potential = mu_bulk;
-    return s;
-  };
-
-  auto force_fn = [&](const std::vector<arma::vec>& densities)
-      -> std::pair<double, std::vector<arma::vec>> {
-    auto state = make_state(densities[0]);
-    auto result = functionals::total(model, state, weights);
-    return {result.grand_potential, result.forces};
-  };
+  auto force_fn = utils::make_force_fn(model, weights, mu_bulk);
 
   // Evaluate the initial state.
 
-  auto initial_state = make_state(rho_init);
+  auto initial_state = utils::make_state(model, rho_init, mu_bulk);
   auto initial_result = functionals::total(model, initial_state, weights);
 
   std::cout << "=== Initial state (perturbed uniform) ===\n\n";
@@ -135,4 +131,20 @@ int main() {
   std::cout << "  -P_bulk:          " << -p_bulk << "\n";
   std::cout << "  relative error:   " << std::scientific
             << std::abs(omega_per_vol + p_bulk) / p_bulk << "\n";
+
+  // Plot the initial and converged x-profiles.
+
+#ifdef DFT_HAS_MATPLOTLIB
+  {
+    auto extract_x_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
+      arma::mat rho_mat = arma::reshape(rho_3d, ny * nz, nx);
+      arma::vec profile_avg = arma::mean(rho_mat, 0).as_col();
+      return arma::conv_to<std::vector<double>>::from(profile_avg);
+    };
+    auto x_coords = arma::conv_to<std::vector<double>>::from(x_vals);
+    auto rho_init_profile = extract_x_profile(rho_init);
+    auto rho_final_profile = extract_x_profile(picard_result.densities[0]);
+    plot::density_profile(x_coords, rho_init_profile, rho_final_profile, rho_bulk);
+  }
+#endif
 }

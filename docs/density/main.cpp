@@ -1,5 +1,6 @@
 #include "dft.hpp"
 #include "plot.hpp"
+#include "utils.hpp"
 
 #include <filesystem>
 #include <iomanip>
@@ -125,32 +126,16 @@ int main() {
 
   // Extract 1D profile helper.
 
-  auto extract_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
-    arma::mat rho_mat = arma::reshape(rho_3d, ny * nz, nx);
-    arma::vec profile_avg = arma::mean(rho_mat, 0).as_col();
-    return arma::conv_to<std::vector<double>>::from(profile_avg);
-  };
-
   auto x_coords = arma::conv_to<std::vector<double>>::from(x_vals);
+  long nxl = nx, nyl = ny, nzl = nz;
 
   // Force function wrapping the full DFT functional.
 
-  auto make_state = [&](const arma::vec& rho) -> State {
-    auto s = init::from_profile(model, rho);
-    s.species[0].chemical_potential = mu_coex;
-    return s;
-  };
-
-  auto force_fn = [&](const std::vector<arma::vec>& densities)
-      -> std::pair<double, std::vector<arma::vec>> {
-    auto state = make_state(densities[0]);
-    auto result = functionals::total(model, state, weights);
-    return {result.grand_potential, result.forces};
-  };
+  auto force_fn = utils::make_force_fn(model, weights, mu_coex);
 
   // Evaluate the initial functional.
 
-  auto initial_state = make_state(slab_rho);
+  auto initial_state = utils::make_state(model, slab_rho, mu_coex);
   auto initial_result = functionals::total(model, initial_state, weights);
 
   std::cout << "=== Initial slab (tanh profile) ===\n\n";
@@ -173,14 +158,14 @@ int main() {
 
   // Collect profile snapshots from the simulation.
 
-  auto initial_profile = extract_profile(slab_rho);
+  auto initial_profile = utils::extract_profile(slab_rho, nxl, nyl, nzl);
   std::vector<std::vector<double>> profile_snapshots;
   std::vector<double> snapshot_times;
   for (const auto& snap : sim.snapshots) {
-    profile_snapshots.push_back(extract_profile(snap.densities[0]));
+    profile_snapshots.push_back(utils::extract_profile(snap.densities[0], nxl, nyl, nzl));
     snapshot_times.push_back(snap.time);
   }
-  auto final_profile = extract_profile(sim.densities[0]);
+  auto final_profile = utils::extract_profile(sim.densities[0], nxl, nyl, nzl);
 
   std::cout << "\n=== Final relaxed state ===\n\n";
   std::cout << "  Grand potential:  " << sim.energies.back() << "\n";

@@ -123,6 +123,11 @@ namespace dft::physics::eos {
     return f / T(kT);
   }
 
+  template auto LennardJonesJZG::g_integral<double>(double, int) const -> double;
+  template auto LennardJonesJZG::g_integral<math::dual>(math::dual, int) const -> math::dual;
+  template auto LennardJonesJZG::g_integral<math::dual2nd>(math::dual2nd, int) const -> math::dual2nd;
+  template auto LennardJonesJZG::g_integral<math::dual3rd>(math::dual3rd, int) const -> math::dual3rd;
+
   template auto LennardJonesJZG::excess_free_energy<double>(double) const -> double;
   template auto LennardJonesJZG::excess_free_energy<math::dual>(math::dual) const -> math::dual;
   template auto LennardJonesJZG::excess_free_energy<math::dual2nd>(math::dual2nd) const -> math::dual2nd;

@@ -1,5 +1,6 @@
 #include "dft.hpp"
 #include "plot.hpp"
+#include "utils.hpp"
 
 #include <armadillo>
 #include <filesystem>
@@ -19,13 +20,9 @@ int main() {
   matplotlibcpp::backend("Agg");
 #endif
 
-  auto to_vec = [](const arma::vec& v) {
-    return arma::conv_to<std::vector<double>>::from(v);
-  };
-
   constexpr int N = 500;
   auto r_arma = arma::linspace(0.85, 2.6, N);
-  auto r = to_vec(r_arma);
+  auto r = utils::to_vec(r_arma);
   double kT = 1.0;
 
   // Create potentials via factories.

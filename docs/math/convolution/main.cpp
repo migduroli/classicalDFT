@@ -1,13 +1,26 @@
 #include "dft.hpp"
+#include "plot.hpp"
 
 #include <armadillo>
+#include <algorithm>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <numbers>
+#include <numeric>
 
 using namespace dft;
 
 int main() {
+#ifdef DOC_SOURCE_DIR
+  std::filesystem::current_path(DOC_SOURCE_DIR);
+#endif
+  std::filesystem::create_directories("exports");
+
+#ifdef DFT_HAS_MATPLOTLIB
+  matplotlibcpp::backend("Agg");
+#endif
+
   std::cout << std::fixed;
 
   // Convolution theorem: delta * f = f.
@@ -97,6 +110,32 @@ int main() {
     }
   }
   std::cout << "\n  max error: " << std::scientific << max_error << "\n";
+
+  // Plot the Gaussian convolution: numerical vs analytical.
+
+#ifdef DFT_HAS_MATPLOTLIB
+  {
+    std::vector<double> x_plot, num_plot, ana_plot;
+    for (long i = 0; i < N_1d; ++i) {
+      double xp = i * dx;
+      if (xp > L / 2.0) xp -= L;
+      x_plot.push_back(xp);
+      num_plot.push_back(gg(static_cast<arma::uword>(i)));
+      ana_plot.push_back(norm_factor * std::exp(-xp * xp / (2.0 * sigma_out * sigma_out)));
+    }
+    // Sort by x for a clean plot.
+    std::vector<std::size_t> idx(x_plot.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) { return x_plot[a] < x_plot[b]; });
+    std::vector<double> xs(x_plot.size()), ns(x_plot.size()), as(x_plot.size());
+    for (std::size_t i = 0; i < idx.size(); ++i) {
+      xs[i] = x_plot[idx[i]];
+      ns[i] = num_plot[idx[i]];
+      as[i] = ana_plot[idx[i]];
+    }
+    plot::gaussian_convolution(xs, ns, as);
+  }
+#endif
 
   // Back-convolution symmetry.
 

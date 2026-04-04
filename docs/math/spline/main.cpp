@@ -1,6 +1,8 @@
 #include "dft.hpp"
+#include "plot.hpp"
 
 #include <armadillo>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <numbers>
@@ -8,6 +10,14 @@
 using namespace dft;
 
 int main() {
+#ifdef DOC_SOURCE_DIR
+  std::filesystem::current_path(DOC_SOURCE_DIR);
+#endif
+  std::filesystem::create_directories("exports");
+
+#ifdef DFT_HAS_MATPLOTLIB
+  matplotlibcpp::backend("Agg");
+#endif
 
   // CubicSpline: interpolating sin(x).
 
@@ -104,4 +114,39 @@ int main() {
             << "  (exact: " << -std::sin(px) * std::sin(py) << ")\n";
   std::cout << "  d2f/dxy = " << surface.deriv_xy(px, py)
             << "  (exact: " << -std::cos(px) * std::sin(py) << ")\n";
+
+  // Plots.
+
+#ifdef DFT_HAS_MATPLOTLIB
+  {
+    auto x_knots_v = arma::conv_to<std::vector<double>>::from(x);
+    auto y_knots_v = arma::conv_to<std::vector<double>>::from(y);
+
+    auto x_fine = arma::linspace(0.0, 2.0 * std::numbers::pi, 200);
+    std::vector<double> x_fine_v(x_fine.n_elem), y_spline_v(x_fine.n_elem), y_exact_v(x_fine.n_elem);
+    for (arma::uword i = 0; i < x_fine.n_elem; ++i) {
+      x_fine_v[i] = x_fine(i);
+      y_spline_v[i] = sin_spline(x_fine(i));
+      y_exact_v[i] = std::sin(x_fine(i));
+    }
+    plot::spline_interpolation(x_knots_v, y_knots_v, x_fine_v, y_spline_v, y_exact_v);
+  }
+
+  {
+    auto x_fine = arma::linspace(0.0, 2.0 * std::numbers::pi, 200);
+    std::vector<double> xv(x_fine.n_elem), fv(x_fine.n_elem), d1v(x_fine.n_elem), d2v(x_fine.n_elem);
+    std::vector<double> ef(x_fine.n_elem), ed1(x_fine.n_elem), ed2(x_fine.n_elem);
+    for (arma::uword i = 0; i < x_fine.n_elem; ++i) {
+      double xi = x_fine(i);
+      xv[i] = xi;
+      fv[i] = sin_spline(xi);
+      d1v[i] = sin_spline.derivative(xi);
+      d2v[i] = sin_spline.derivative2(xi);
+      ef[i] = std::sin(xi);
+      ed1[i] = std::cos(xi);
+      ed2[i] = -std::sin(xi);
+    }
+    plot::spline_derivatives(xv, fv, d1v, d2v, ef, ed1, ed2);
+  }
+#endif
 }

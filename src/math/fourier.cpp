@@ -9,7 +9,7 @@
 namespace dft::math {
 
   namespace {
-    std::once_flag fftw_threads_flag;
+    std::once_flag fftw_threads_flag;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
     void init_fftw_threading() {
 #ifdef DFT_FFTW_THREADS
@@ -103,9 +103,9 @@ namespace dft::math {
 
   void FourierTransform::zeros() {
     auto r = real();
-    std::fill(r.begin(), r.end(), 0.0);
+    std::ranges::fill(r, 0.0);
     auto f = fourier();
-    std::fill(f.begin(), f.end(), std::complex<double>{0.0, 0.0});
+    std::ranges::fill(f, std::complex<double>{0.0, 0.0});
   }
 
   void FourierTransform::scale(double factor) {
@@ -129,11 +129,13 @@ namespace dft::math {
 
   auto FourierTransform::real_vec() const -> arma::vec {
     auto r = real();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast, modernize-return-braced-init-list)
     return arma::vec(const_cast<double*>(r.data()), static_cast<arma::uword>(r.size()), true);
   }
 
   auto FourierTransform::fourier_vec() const -> arma::cx_vec {
     auto f = fourier();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast, modernize-return-braced-init-list)
     return arma::cx_vec(const_cast<std::complex<double>*>(f.data()), static_cast<arma::uword>(f.size()), true);
   }
 

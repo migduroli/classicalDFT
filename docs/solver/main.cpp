@@ -1,5 +1,6 @@
 #include "dft.hpp"
 #include "plot.hpp"
+#include "utils.hpp"
 
 #include <filesystem>
 #include <iomanip>
@@ -7,6 +8,8 @@
 #include <vector>
 
 using namespace dft;
+using utils::CoexData;
+using utils::SpinodalData;
 
 int main() {
 #ifdef DOC_SOURCE_DIR
@@ -45,9 +48,7 @@ int main() {
 
   // Temperature-dependent bulk weight factory.
 
-  auto weight_factory = [&](const functionals::fmt::FMTModel& fmt_model, double kT) {
-    return functionals::make_bulk_weights(fmt_model, model.interactions, kT);
-  };
+  auto weight_factory = utils::make_weight_factory(model.interactions);
 
   // Pressure isotherms using arma::linspace for the density grid.
 

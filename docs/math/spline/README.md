@@ -128,3 +128,19 @@ Evaluation uses `operator()` for natural syntax: `spline(x)` or
 ```bash
 make run-local
 ```
+
+## Output
+
+### Spline interpolation of $\sin(x)$
+
+Cubic spline through 10 knots closely follows the exact function, with errors
+on the order of $10^{-4}$.
+
+![Spline interpolation](exports/spline_interpolation.png)
+
+### Spline derivatives
+
+The spline function, first derivative, and second derivative compared with
+the exact $\sin(x)$, $\cos(x)$, and $-\sin(x)$.
+
+![Spline derivatives](exports/spline_derivatives.png)

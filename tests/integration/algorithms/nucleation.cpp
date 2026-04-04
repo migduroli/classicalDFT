@@ -172,7 +172,7 @@ namespace {
                 .f_alpha = 0.99,
                 .force_tolerance = 1e-6,
                 .max_steps = 200000},
-           .param = algorithms::parametrization::Unbounded{.rho_min = 1e-18},
+           .param = algorithms::parametrization::Unbounded{.rho_min = 1e-99},
            .homogeneous_boundary = true,
            .log_interval = 0}
       );
@@ -372,7 +372,7 @@ TEST_CASE("FIRE minimization matches legacy", "[integration][algorithms]") {
   auto& fx = get_fixture();
   REQUIRE(fx.our_fire_converged);
   REQUIRE(fx.jim_fire_converged);
-  CHECK(fx.fire_max_diff < 1e-2);
+  CHECK(fx.fire_max_diff < 1e-12);
 }
 
 TEST_CASE("Eigenvalue matches legacy", "[integration][algorithms]") {

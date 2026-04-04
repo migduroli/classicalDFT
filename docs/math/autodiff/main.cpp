@@ -1,14 +1,26 @@
 #include "dft.hpp"
+#include "plot.hpp"
 
 #include <cmath>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <numbers>
+#include <vector>
 
 using namespace dft;
 using namespace dft::math;
 
 int main() {
+#ifdef DOC_SOURCE_DIR
+  std::filesystem::current_path(DOC_SOURCE_DIR);
+#endif
+  std::filesystem::create_directories("exports");
+
+#ifdef DFT_HAS_MATPLOTLIB
+  matplotlibcpp::backend("Agg");
+#endif
+
   std::cout << std::fixed << std::setprecision(12);
 
   // First derivatives via autodiff.
@@ -144,4 +156,52 @@ int main() {
   std::cout << "  fin. diff error in f': " << std::abs(fd1 - exact_d1) << "\n";
   std::cout << "  autodiff error in f'': " << std::abs(td2 - exact_d2) << "\n";
   std::cout << "  fin. diff error in f'': " << std::abs(fd2 - exact_d2) << "\n";
+
+  // Plots.
+
+#ifdef DFT_HAS_MATPLOTLIB
+  {
+    // Plot sin(x) and its autodiff derivatives over [0, 2pi].
+    int np = 200;
+    std::vector<double> xp(np), fp(np), d1p(np), d2p(np);
+    for (int i = 0; i < np; ++i) {
+      double xi = 2.0 * std::numbers::pi * i / (np - 1);
+      xp[i] = xi;
+      auto [v, d, dd] = derivatives_up_to_2(
+          [](dual2nd t) -> dual2nd { return autodiff::detail::sin(t); }, xi);
+      fp[i] = v;
+      d1p[i] = d;
+      d2p[i] = dd;
+    }
+    plot::function_and_derivatives(
+        xp, fp, d1p, d2p,
+        R"(Autodiff derivatives of $\sin(x)$)",
+        R"($\sin(x)$)", R"($\cos(x)$)", R"($-\sin(x)$)",
+        "exports/autodiff_sin.png");
+  }
+
+  {
+    // Accuracy comparison: autodiff vs finite differences for log(1+x^2).
+    int np = 100;
+    double hf = 1e-5;
+    std::vector<double> xp(np), ae1(np), fe1(np), ae2(np), fe2(np);
+    auto f_exact = [](double x) { return std::log(1.0 + x * x); };
+    auto d1_exact = [](double x) { return 2.0 * x / (1.0 + x * x); };
+    auto d2_exact = [](double x) { return 2.0 * (1.0 - x * x) / ((1.0 + x * x) * (1.0 + x * x)); };
+
+    for (int i = 0; i < np; ++i) {
+      double xi = 0.1 + 3.0 * i / (np - 1);
+      xp[i] = xi;
+      auto [v, d, dd] = derivatives_up_to_2(
+          [](dual2nd t) -> dual2nd { return autodiff::detail::log(1.0 + t * t); }, xi);
+      double fd1_val = (f_exact(xi + hf) - f_exact(xi - hf)) / (2.0 * hf);
+      double fd2_val = (f_exact(xi + hf) - 2.0 * f_exact(xi) + f_exact(xi - hf)) / (hf * hf);
+      ae1[i] = std::max(std::abs(d - d1_exact(xi)), 1e-18);
+      fe1[i] = std::max(std::abs(fd1_val - d1_exact(xi)), 1e-18);
+      ae2[i] = std::max(std::abs(dd - d2_exact(xi)), 1e-18);
+      fe2[i] = std::max(std::abs(fd2_val - d2_exact(xi)), 1e-18);
+    }
+    plot::autodiff_vs_finite_diff(xp, ae1, fe1, ae2, fe2);
+  }
+#endif
 }

@@ -160,17 +160,31 @@ make run-checks # cross-validation against Jim's code
 
 ## Output
 
-### Droplet evolution
+### Critical cluster
 
 Cross-sectional density profile through the droplet centre. The initial
-step-function seed evolves toward a smooth equilibrium profile.
+step-function seed evolves toward a smooth equilibrium profile under the
+fixed-mass constraint.
 
-![Droplet evolution](exports/droplet_evolution.png)
+![Critical cluster](exports/critical_cluster.png)
 
-### Grand potential
+### Dissolution dynamics
 
-The grand potential $\Omega$ during DDFT dynamics. Dissolution (blue) drives
-$\Omega$ down to the uniform vapor value; growth (red) drives $\Omega$ down
-toward the liquid minimum.
+Density profiles during dissolution ($N < N^*$). The droplet shrinks back
+toward the uniform vapor.
 
-![Grand potential](exports/grand_potential.png)
+![Dissolution](exports/dissolution.png)
+
+### Growth dynamics
+
+Density profiles during growth ($N > N^*$). The droplet expands toward the
+stable liquid phase.
+
+![Growth](exports/growth.png)
+
+### Nucleation energy barrier
+
+The energy pathway $\Omega(R_{\mathrm{eff}})$ showing the saddle point at the
+critical cluster. Dissolution (blue) and growth (red) descend from the barrier.
+
+![Energy barrier](exports/energy_barrier.png)

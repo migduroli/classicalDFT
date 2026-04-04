@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils.hpp"
+
 #include "dft/functionals/bulk/phase_diagram.hpp"
 
 #include <armadillo>
@@ -7,17 +9,8 @@
 #include <string>
 #include <vector>
 
-struct CoexData {
-  std::string name;
-  arma::vec T, rho_v, rho_l;
-  double Tc{0.0};
-  double rho_c{0.0};
-};
-
-struct SpinodalData {
-  std::string name;
-  arma::vec T, rho_lo, rho_hi;
-};
+using utils::CoexData;
+using utils::SpinodalData;
 
 #ifdef DFT_HAS_MATPLOTLIB
 #include "matplotlibcpp.h"

@@ -92,3 +92,12 @@ potential into a constrained stationary point.
 ```bash
 make run-local
 ```
+
+## Output
+
+### Density equilibration
+
+The initial sinusoidal perturbation relaxes to the uniform bulk density under
+Picard iteration.
+
+![Picard density](exports/picard_density.png)

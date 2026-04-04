@@ -322,7 +322,7 @@ int main() {
            .force_tolerance = config::get<double>(cfg, "fire.force_tolerance"),
            .max_steps = config::get<int>(cfg, "fire.max_steps"),
        },
-       .param = algorithms::parametrization::Unbounded{.rho_min = 1e-18},
+       .param = algorithms::parametrization::Unbounded{.rho_min = 1e-99},
        .homogeneous_boundary = true,
        .log_interval = config::get<int>(cfg, "fire.log_interval")});
 

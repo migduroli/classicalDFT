@@ -1,6 +1,8 @@
 #include "dft/types.hpp"
 
+#include <cmath>
 #include <fstream>
+#include <numbers>
 #include <stdexcept>
 
 namespace dft {
@@ -75,8 +77,8 @@ namespace dft {
 
     auto make_unit_cell(Structure structure, Orientation orientation) -> UnitCell {
       using enum Orientation;
-      double a_bcc = 2.0 / std::sqrt(3.0);
-      double a_fcc = std::sqrt(2.0);
+      double a_bcc = 2.0 / std::numbers::sqrt3;
+      double a_fcc = std::numbers::sqrt2;
       UnitCell uc;
 
       switch (structure) {
@@ -96,16 +98,16 @@ namespace dft {
               uc.atoms = regular_fcc();
               uc.dims = {a_bcc, a_bcc, a_bcc};
               if (orientation == _110) {
-                uc.dims[0] *= std::sqrt(2.0);
-                uc.dims[1] *= std::sqrt(2.0);
+                uc.dims[0] *= std::numbers::sqrt2;
+                uc.dims[1] *= std::numbers::sqrt2;
               }
               if (orientation == _101) {
-                uc.dims[0] *= std::sqrt(2.0);
-                uc.dims[2] *= std::sqrt(2.0);
+                uc.dims[0] *= std::numbers::sqrt2;
+                uc.dims[2] *= std::numbers::sqrt2;
               }
               if (orientation == _011) {
-                uc.dims[1] *= std::sqrt(2.0);
-                uc.dims[2] *= std::sqrt(2.0);
+                uc.dims[1] *= std::numbers::sqrt2;
+                uc.dims[2] *= std::numbers::sqrt2;
               }
               scale_positions(uc.atoms, uc.dims);
               break;
@@ -125,7 +127,7 @@ namespace dft {
                   {5.0 / 6, 0.5, 1.0 / 6},
                   {2.0 / 3, 0.0, 0.5},
               };
-              uc.dims = {2.0 * std::sqrt(2.0), 2.0 * std::sqrt(2.0 / 3.0), 2.0};
+              uc.dims = {2.0 * std::numbers::sqrt2, 2.0 * std::sqrt(2.0 / 3.0), 2.0};
               scale_positions(uc.atoms, uc.dims);
               break;
             }
@@ -148,13 +150,13 @@ namespace dft {
               uc.atoms = regular_bcc();
               uc.dims = {1.0, 1.0, 1.0};
               if (orientation == _110) {
-                uc.dims[2] *= std::sqrt(2.0);
+                uc.dims[2] *= std::numbers::sqrt2;
               }
               if (orientation == _101) {
-                uc.dims[1] *= std::sqrt(2.0);
+                uc.dims[1] *= std::numbers::sqrt2;
               }
               if (orientation == _011) {
-                uc.dims[0] *= std::sqrt(2.0);
+                uc.dims[0] *= std::numbers::sqrt2;
               }
               scale_positions(uc.atoms, uc.dims);
               break;
@@ -168,7 +170,7 @@ namespace dft {
                   {0.0, 2.0 / 6, 2.0 / 3},
                   {0.5, 5.0 / 6, 2.0 / 3},
               };
-              uc.dims = {1.0, std::sqrt(3.0), std::sqrt(6.0)};
+              uc.dims = {1.0, std::numbers::sqrt3, std::sqrt(6.0)};
               scale_positions(uc.atoms, uc.dims);
               break;
             }
@@ -180,7 +182,7 @@ namespace dft {
             throw std::invalid_argument("HCP only supports orientations 001, 010, 100");
           }
           uc.atoms = hcp_001();
-          uc.dims = {1.0, std::sqrt(3.0), std::sqrt(8.0 / 3.0)};
+          uc.dims = {1.0, std::numbers::sqrt3, std::sqrt(8.0 / 3.0)};
           scale_positions(uc.atoms, uc.dims);
 
           if (orientation == _010) {
