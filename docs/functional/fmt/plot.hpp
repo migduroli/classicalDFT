@@ -8,6 +8,8 @@
 
 namespace plot {
 
+namespace detail {
+
 inline void free_energy(
     const std::vector<double>& eta,
     const std::vector<double>& f_ros,
@@ -79,6 +81,20 @@ inline void chemical_potential(
   plt::save("exports/fmt_chemical_potential.png");
   plt::close();
   std::cout << "Plot saved: exports/fmt_chemical_potential.png\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<double>& eta,
+    const std::vector<double>& f_ros, const std::vector<double>& f_wb1, const std::vector<double>& f_wb2,
+    const std::vector<double>& p_ros, const std::vector<double>& p_pyc,
+    const std::vector<double>& p_wb1, const std::vector<double>& p_cs,
+    const std::vector<double>& mu_ros, const std::vector<double>& mu_wb1, const std::vector<double>& mu_wb2
+) {
+  detail::free_energy(eta, f_ros, f_wb1, f_wb2);
+  detail::pressure(eta, p_ros, p_pyc, p_wb1, p_cs);
+  detail::chemical_potential(eta, mu_ros, mu_wb1, mu_wb2);
 }
 
 }  // namespace plot

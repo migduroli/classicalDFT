@@ -8,6 +8,8 @@
 
 namespace plot {
 
+  namespace detail {
+
   inline void convergence(
       const std::vector<double>& iterations,
       const std::vector<double>& residuals
@@ -15,8 +17,7 @@ namespace plot {
     namespace plt = matplotlibcpp;
     plt::figure_size(800, 500);
 
-    plt::semilogy(iterations, residuals,
-                  {{"color", "#008080"}, {"linewidth", "2.0"}, {"marker", "o"}, {"markersize", "4"}});
+    plt::named_semilogy("Residual", iterations, residuals, "o-");
 
     plt::xlabel("Iteration");
     plt::ylabel("Residual");
@@ -55,6 +56,17 @@ namespace plot {
     plt::save("exports/picard_density.png");
     plt::close();
     std::cout << "Plot saved: exports/picard_density.png\n";
+  }
+
+  }  // namespace detail
+
+  inline void make_plots(
+      const std::vector<double>& x,
+      const std::vector<double>& rho_initial,
+      const std::vector<double>& rho_converged,
+      double rho_bulk
+  ) {
+    detail::density_profile(x, rho_initial, rho_converged, rho_bulk);
   }
 
 }  // namespace plot

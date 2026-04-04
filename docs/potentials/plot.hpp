@@ -9,6 +9,8 @@
 
 namespace plot {
 
+namespace detail {
+
 inline void save(const std::string& path) {
   matplotlibcpp::save(path);
   matplotlibcpp::close();
@@ -79,6 +81,22 @@ inline void potential_with_dhs(
   plt::grid(true);
   plt::tight_layout();
   save("exports/potential_lj.png");
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<double>& r,
+    const std::vector<double>& v_lj,
+    const std::vector<double>& v_twf,
+    const std::vector<double>& v_wrdf,
+    const std::vector<double>& att_lj,
+    const std::vector<double>& rep_lj,
+    double r_min, double v_min, double d_hs
+) {
+  detail::potentials_comparison(r, v_lj, v_twf, v_wrdf);
+  detail::perturbation_decomposition(r, v_lj, att_lj, rep_lj);
+  detail::potential_with_dhs(r, v_lj, r_min, v_min, d_hs);
 }
 
 }  // namespace plot

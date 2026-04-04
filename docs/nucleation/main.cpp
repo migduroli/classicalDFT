@@ -188,24 +188,33 @@ int main() {
       .energy_offset = omega_bg,
   };
 
-  std::println(std::cout, "\nDissolution (perturb along -eigenvector):");
-  arma::vec rho_shrink = cluster.densities[0] - perturb_scale * eig.eigenvector;
-  rho_shrink = arma::clamp(rho_shrink, 1e-18, arma::datum::inf);
-  auto sim_shrink = algorithms::ddft::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
+  // Determine eigenvector sign: positive perturbation should grow the cluster.
+  // If adding the eigenvector increases the total mass, it points "outward"
+  // (growth direction); otherwise we flip it.
+
+  arma::vec ev = eig.eigenvector;
+  double delta_mass = arma::accu(ev) * model.grid.cell_volume();
+  if (delta_mass < 0.0) ev = -ev;
 
   std::println(std::cout, "\nGrowth (perturb along +eigenvector):");
-  arma::vec rho_grow = cluster.densities[0] + perturb_scale * eig.eigenvector;
+  arma::vec rho_grow = cluster.densities[0] + perturb_scale * ev;
   rho_grow = arma::clamp(rho_grow, 1e-18, arma::datum::inf);
   auto sim_grow = algorithms::ddft::simulate({rho_grow}, model.grid, ddft_force_fn, sim_cfg);
 
+  std::println(std::cout, "\nDissolution (perturb along -eigenvector):");
+  arma::vec rho_shrink = cluster.densities[0] - perturb_scale * ev;
+  rho_shrink = arma::clamp(rho_shrink, 1e-18, arma::datum::inf);
+  auto sim_shrink = algorithms::ddft::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
+
 #ifdef DFT_HAS_MATPLOTLIB
   std::println(std::cout, "\nGenerating plots...");
+  double rho_center_critical = nucleation::center_density(cluster.densities[0], model.grid);
   plot::make_plots(
       nucleation::extract_x_slice(cluster.densities[0], model.grid),
       nucleation::extract_x_slice(rho0, model.grid),
       nucleation::extract_dynamics(sim_shrink, model.grid, r, background, delta_rho),
       nucleation::extract_dynamics(sim_grow, model.grid, r, background, delta_rho),
-      {.radius = R_eff, .energy = omega_cluster},
+      {.radius = R_eff, .energy = omega_cluster, .rho_center = rho_center_critical},
       omega_bg, rho_v, rho_l);
 #endif
 

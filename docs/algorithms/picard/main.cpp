@@ -3,8 +3,8 @@
 #include "utils.hpp"
 
 #include <filesystem>
-#include <iomanip>
 #include <iostream>
+#include <print>
 #include <vector>
 
 using namespace dft;
@@ -18,8 +18,6 @@ int main() {
 #ifdef DFT_HAS_MATPLOTLIB
   matplotlibcpp::backend("Agg");
 #endif
-
-  std::cout << std::fixed << std::setprecision(6);
 
   // Define a hard-sphere fluid at moderate packing fraction.
 
@@ -46,10 +44,9 @@ int main() {
   long ny = model.grid.shape[1];
   long nz = model.grid.shape[2];
 
-  std::cout << "  Grid:        " << nx << "x" << ny << "x" << nz
-            << " (dx = " << model.grid.dx << ")\n";
-  std::cout << "  rho_bulk:    " << rho_bulk << "\n";
-  std::cout << "  eta_bulk:    " << physics::hard_spheres::packing_fraction(rho_bulk) << "\n\n";
+  std::println(std::cout, "  Grid:        {}x{}x{} (dx = {})", nx, ny, nz, model.grid.dx);
+  std::println(std::cout, "  rho_bulk:    {:.6f}", rho_bulk);
+  std::println(std::cout, "  eta_bulk:    {:.6f}\n", physics::hard_spheres::packing_fraction(rho_bulk));
 
   // Bulk chemical potential at the target density.
 
@@ -63,8 +60,8 @@ int main() {
       arma::vec{rho_bulk}, model.species, bulk_weights
   );
 
-  std::cout << "  mu_bulk:     " << mu_bulk << "\n";
-  std::cout << "  P_bulk:      " << p_bulk << "\n\n";
+  std::println(std::cout, "  mu_bulk:     {:.6f}", mu_bulk);
+  std::println(std::cout, "  P_bulk:      {:.6f}\n", p_bulk);
 
   // Initial density: uniform with a small sinusoidal perturbation.
 
@@ -84,9 +81,9 @@ int main() {
   auto initial_state = utils::make_state(model, rho_init, mu_bulk);
   auto initial_result = functionals::total(model, initial_state, weights);
 
-  std::cout << "=== Initial state (perturbed uniform) ===\n\n";
-  std::cout << "  Grand potential:  " << initial_result.grand_potential << "\n";
-  std::cout << "  Max |force|:      " << arma::max(arma::abs(initial_result.forces[0])) << "\n\n";
+  std::println(std::cout, "=== Initial state (perturbed uniform) ===\n");
+  std::println(std::cout, "  Grand potential:  {:.6f}", initial_result.grand_potential);
+  std::println(std::cout, "  Max |force|:      {:.6f}\n", arma::max(arma::abs(initial_result.forces[0])));
 
   // Picard iteration.
 
@@ -104,47 +101,44 @@ int main() {
       {rho_init}, force_fn, model.grid.cell_volume(), picard_config
   );
 
-  std::cout << "\n=== Picard result ===\n\n";
-  std::cout << "  Converged:        " << (picard_result.converged ? "true" : "false") << "\n";
-  std::cout << "  Iterations:       " << picard_result.iterations << "\n";
-  std::cout << "  Grand potential:  " << picard_result.grand_potential << "\n";
-  std::cout << "  Residual:         " << std::scientific << picard_result.residual << "\n\n";
+  std::println(std::cout, "\n=== Picard result ===\n");
+  std::println(std::cout, "  Converged:        {}", picard_result.converged ? "true" : "false");
+  std::println(std::cout, "  Iterations:       {}", picard_result.iterations);
+  std::println(std::cout, "  Grand potential:  {:.6f}", picard_result.grand_potential);
+  std::println(std::cout, "  Residual:         {:.6e}\n", picard_result.residual);
 
   // Verify that the converged density is uniform.
 
-  std::cout << std::fixed;
   double rho_min = picard_result.densities[0].min();
   double rho_max = picard_result.densities[0].max();
   double rho_mean = arma::mean(picard_result.densities[0]);
-  std::cout << "  rho_min:          " << rho_min << "\n";
-  std::cout << "  rho_max:          " << rho_max << "\n";
-  std::cout << "  rho_mean:         " << rho_mean << "\n";
-  std::cout << "  variation:        " << std::scientific << (rho_max - rho_min) << "\n\n";
+  std::println(std::cout, "  rho_min:          {:.6f}", rho_min);
+  std::println(std::cout, "  rho_max:          {:.6f}", rho_max);
+  std::println(std::cout, "  rho_mean:         {:.6f}", rho_mean);
+  std::println(std::cout, "  variation:        {:.6e}\n", rho_max - rho_min);
 
   // Verify that Omega/V = -P_bulk.
 
-  std::cout << std::fixed;
   double volume = model.grid.cell_volume()
                   * static_cast<double>(model.grid.total_points());
   double omega_per_vol = picard_result.grand_potential / volume;
-  std::cout << "  Omega/V:          " << omega_per_vol << "\n";
-  std::cout << "  -P_bulk:          " << -p_bulk << "\n";
-  std::cout << "  relative error:   " << std::scientific
-            << std::abs(omega_per_vol + p_bulk) / p_bulk << "\n";
+  std::println(std::cout, "  Omega/V:          {:.6f}", omega_per_vol);
+  std::println(std::cout, "  -P_bulk:          {:.6f}", -p_bulk);
+  std::println(std::cout, "  relative error:   {:.6e}",
+               std::abs(omega_per_vol + p_bulk) / p_bulk);
 
-  // Plot the initial and converged x-profiles.
+  // Collect plot data.
+
+  auto extract_x_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
+    arma::mat rho_mat = arma::reshape(rho_3d, ny * nz, nx);
+    arma::vec profile_avg = arma::mean(rho_mat, 0).as_col();
+    return arma::conv_to<std::vector<double>>::from(profile_avg);
+  };
+  auto x_coords = arma::conv_to<std::vector<double>>::from(x_vals);
+  auto rho_init_profile = extract_x_profile(rho_init);
+  auto rho_final_profile = extract_x_profile(picard_result.densities[0]);
 
 #ifdef DFT_HAS_MATPLOTLIB
-  {
-    auto extract_x_profile = [&](const arma::vec& rho_3d) -> std::vector<double> {
-      arma::mat rho_mat = arma::reshape(rho_3d, ny * nz, nx);
-      arma::vec profile_avg = arma::mean(rho_mat, 0).as_col();
-      return arma::conv_to<std::vector<double>>::from(profile_avg);
-    };
-    auto x_coords = arma::conv_to<std::vector<double>>::from(x_vals);
-    auto rho_init_profile = extract_x_profile(rho_init);
-    auto rho_final_profile = extract_x_profile(picard_result.densities[0]);
-    plot::density_profile(x_coords, rho_init_profile, rho_final_profile, rho_bulk);
-  }
+  plot::make_plots(x_coords, rho_init_profile, rho_final_profile, rho_bulk);
 #endif
 }

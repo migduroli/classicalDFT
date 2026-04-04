@@ -11,6 +11,8 @@
 
 namespace plot {
 
+namespace detail {
+
 constexpr int fine_grid_points = 500;
 
 // Evaluate a cubic spline on a uniform fine grid.
@@ -175,6 +177,28 @@ inline void grand_potential(
   plt::save("exports/grand_potential.png");
   plt::close();
   std::cout << "Plot saved: exports/grand_potential.png\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<double>& rho_range, const std::vector<double>& p_range,
+    const std::vector<double>& f_range, const std::vector<double>& mu_range,
+    double rho_v, double rho_l, double p_coex, double f_v, double f_l,
+    double mu_coex, double temperature,
+    const std::vector<double>& x_coords,
+    const std::vector<std::vector<double>>& profile_snapshots,
+    const std::vector<double>& snapshot_times,
+    const std::vector<double>& initial_profile,
+    const std::vector<double>& final_profile,
+    const std::vector<double>& times, const std::vector<double>& energies
+) {
+  detail::pressure_isotherm(rho_range, p_range, rho_v, rho_l, p_coex, temperature);
+  detail::free_energy(rho_range, f_range, rho_v, rho_l, f_v, f_l, temperature);
+  detail::chemical_potential(rho_range, mu_range, rho_v, rho_l, mu_coex, temperature);
+  detail::density_evolution(x_coords, profile_snapshots, snapshot_times,
+                            initial_profile, final_profile, rho_v, rho_l);
+  detail::grand_potential(times, energies);
 }
 
 }  // namespace plot

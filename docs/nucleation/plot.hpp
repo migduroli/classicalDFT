@@ -2,8 +2,6 @@
 
 #include "utils.hpp"
 
-#include "dft/math/spline.hpp"
-
 #include <algorithm>
 #include <cstdio>
 #include <format>
@@ -17,23 +15,6 @@
 namespace plot {
 
   namespace detail {
-
-    constexpr int FINE_POINTS = 200;
-
-    [[nodiscard]] inline auto spline_refine(
-        const std::vector<double>& x, const std::vector<double>& y
-    ) -> std::pair<std::vector<double>, std::vector<double>> {
-      if (x.size() < 4) return {x, y};
-      dft::math::CubicSpline spline(x, y);
-      double x0 = x.front(), x1 = x.back();
-      double dx = (x1 - x0) / (FINE_POINTS - 1);
-      std::vector<double> xf(FINE_POINTS), yf(FINE_POINTS);
-      for (int i = 0; i < FINE_POINTS; ++i) {
-        xf[i] = std::min(x0 + i * dx, x1);
-        yf[i] = spline(xf[i]);
-      }
-      return {xf, yf};
-    }
 
     [[nodiscard]] inline auto lerp_color(
         int r0, int g0, int b0, int r1, int g1, int b1, double frac
@@ -89,16 +70,29 @@ namespace plot {
 
       plt::plot(critical.x, critical.rho,
                 {{"color", "black"}, {"linestyle", "--"}, {"linewidth", "1.5"},
-                 {"label", R"($\rho^*(x)$ critical)"}});
+                 {"label", R"($\rho^*$ critical)"}});
 
       int n = static_cast<int>(snaps.size());
       for (int i = 0; i < n; ++i) {
         double frac = static_cast<double>(i) / std::max(n - 1, 1);
-        plt::plot(snaps[i].x, snaps[i].rho, {
-            {"color", lerp_color(r0, g0, b0, r1, g1, b1, frac)},
-            {"linewidth", "1.5"},
-            {"label", std::format("t = {:.3f}", snaps[i].time)},
-        });
+        std::string color = lerp_color(r0, g0, b0, r1, g1, b1, frac);
+
+        // Only label the first (initial) and last (final) curves.
+        if (i == 0) {
+          plt::plot(snaps[i].x, snaps[i].rho, {
+              {"color", color}, {"linewidth", "1.5"},
+              {"label", std::format("t = {:.3f} (initial)", snaps[i].time)},
+          });
+        } else if (i == n - 1) {
+          plt::plot(snaps[i].x, snaps[i].rho, {
+              {"color", color}, {"linewidth", "1.5"},
+              {"label", std::format("t = {:.3f} (final)", snaps[i].time)},
+          });
+        } else {
+          plt::plot(snaps[i].x, snaps[i].rho, {
+              {"color", color}, {"linewidth", "1.0"}, {"alpha", "0.5"},
+          });
+        }
       }
 
       double x_lo = critical.x.front(), x_hi = critical.x.back();
@@ -128,7 +122,7 @@ namespace plot {
       namespace plt = matplotlibcpp;
       plt::figure_size(900, 500);
 
-      auto unzip = [](const std::vector<nucleation::PathwayPoint>& pts) {
+      auto unzip_re = [](const std::vector<nucleation::PathwayPoint>& pts) {
         std::vector<double> r(pts.size()), e(pts.size());
         for (std::size_t i = 0; i < pts.size(); ++i) {
           r[i] = pts[i].radius;
@@ -137,8 +131,8 @@ namespace plot {
         return std::pair{r, e};
       };
 
-      auto [r_d, e_d] = unzip(dissolution);
-      auto [r_g, e_g] = unzip(growth);
+      auto [r_d, e_d] = unzip_re(dissolution);
+      auto [r_g, e_g] = unzip_re(growth);
 
       plt::plot(r_d, e_d, {{"color", "#00BBD5"}, {"linewidth", "1.5"}, {"marker", "o"},
                             {"markersize", "4"}, {"label", R"(Dissolution ($N < N^*$))"}});
@@ -148,7 +142,6 @@ namespace plot {
       plt::plot({critical.radius}, {critical.energy},
                 {{"color", "black"}, {"marker", "*"}, {"markersize", "14"}, {"label", R"($\Omega^*$ (saddle))"}});
 
-      // Compute axis range from all data.
       double r_min_data = critical.radius, r_max_data = critical.radius;
       double e_min_data = std::min(omega_background, critical.energy);
       double e_max_data = std::max(omega_background, critical.energy);
@@ -169,13 +162,66 @@ namespace plot {
 
       plt::xlabel(R"($R_{\mathrm{eff}} / \sigma$)");
       plt::ylabel(R"($\Omega\; [k_BT]$)");
-      plt::title(R"(Nucleation energy barrier)");
+      plt::title(R"(Nucleation energy barrier: $\Omega$ vs $R_{\mathrm{eff}}$)");
       plt::legend();
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/energy_barrier.png");
       plt::close();
       std::cout << "  exports/energy_barrier.png\n";
+    }
+
+    inline void plot_rho_center_vs_radius(
+        const std::vector<nucleation::PathwayPoint>& dissolution,
+        const std::vector<nucleation::PathwayPoint>& growth,
+        nucleation::PathwayPoint critical,
+        double rho_v, double rho_l
+    ) {
+      namespace plt = matplotlibcpp;
+      plt::figure_size(900, 500);
+
+      auto unzip_rr = [](const std::vector<nucleation::PathwayPoint>& pts) {
+        std::vector<double> r(pts.size()), rc(pts.size());
+        for (std::size_t i = 0; i < pts.size(); ++i) {
+          r[i] = pts[i].radius;
+          rc[i] = pts[i].rho_center;
+        }
+        return std::pair{r, rc};
+      };
+
+      auto [r_d, rc_d] = unzip_rr(dissolution);
+      auto [r_g, rc_g] = unzip_rr(growth);
+
+      plt::plot(r_d, rc_d, {{"color", "#00BBD5"}, {"linewidth", "1.5"}, {"marker", "o"},
+                             {"markersize", "4"}, {"label", R"(Dissolution)"}});
+      plt::plot(r_g, rc_g, {{"color", "#E25822"}, {"linewidth", "1.5"}, {"marker", "o"},
+                             {"markersize", "4"}, {"label", R"(Growth)"}});
+
+      plt::plot({critical.radius}, {critical.rho_center},
+                {{"color", "black"}, {"marker", "*"}, {"markersize", "14"},
+                 {"label", R"($\rho_0^*$ (saddle))"}});
+
+      double r_min_data = critical.radius, r_max_data = critical.radius;
+      for (double r : r_d) { r_min_data = std::min(r_min_data, r); r_max_data = std::max(r_max_data, r); }
+      for (double r : r_g) { r_min_data = std::min(r_min_data, r); r_max_data = std::max(r_max_data, r); }
+      double r_pad = std::max(0.2 * (r_max_data - r_min_data), 0.5);
+
+      plt::plot({r_min_data - r_pad, r_max_data + r_pad}, {rho_v, rho_v},
+                {{"color", "gray"}, {"linestyle", ":"}, {"linewidth", "0.8"}, {"label", R"($\rho_v$)"}});
+      plt::plot({r_min_data - r_pad, r_max_data + r_pad}, {rho_l, rho_l},
+                {{"color", "gray"}, {"linestyle", ":"}, {"linewidth", "0.8"}, {"label", R"($\rho_l$)"}});
+
+      plt::xlim(r_min_data - r_pad, r_max_data + r_pad);
+
+      plt::xlabel(R"($R_{\mathrm{eff}} / \sigma$)");
+      plt::ylabel(R"($\rho_0 \sigma^3$)");
+      plt::title(R"(Central density vs effective radius)");
+      plt::legend();
+      plt::grid(true);
+      plt::tight_layout();
+      plt::save("exports/rho_center.png");
+      plt::close();
+      std::cout << "  exports/rho_center.png\n";
     }
 
   }  // namespace detail
@@ -207,6 +253,9 @@ namespace plot {
 
     detail::plot_energy_barrier(
         dissolution.pathway, growth.pathway, critical_point, omega_background);
+
+    detail::plot_rho_center_vs_radius(
+        dissolution.pathway, growth.pathway, critical_point, rho_v, rho_l);
   }
 
 }  // namespace plot

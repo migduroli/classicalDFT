@@ -26,6 +26,7 @@ namespace nucleation {
   struct PathwayPoint {
     double radius;
     double energy;
+    double rho_center;
   };
 
   struct DynamicsResult {
@@ -131,7 +132,18 @@ namespace nucleation {
     return {.time = 0.0, .x = x_out, .rho = rho_out};
   }
 
-  // Extract x-slice snapshots and (R_eff, Omega) pathway from a DDFT simulation result.
+  // Central density: value at the box center (ix=Nx/2, iy=Ny/2, iz=Nz/2).
+
+  [[nodiscard]] inline auto center_density(
+      const arma::vec& rho, const dft::Grid& grid
+  ) -> double {
+    long ix = grid.shape[0] / 2;
+    long iy = grid.shape[1] / 2;
+    long iz = grid.shape[2] / 2;
+    return rho(static_cast<arma::uword>(grid.flat_index(ix, iy, iz)));
+  }
+
+  // Extract x-slice snapshots and (R_eff, Omega, rho_center) pathway from a DDFT simulation result.
 
   [[nodiscard]] inline auto extract_dynamics(
       const dft::algorithms::ddft::SimulationResult& sim,
@@ -147,6 +159,7 @@ namespace nucleation {
       result.pathway.push_back({
           .radius = effective_radius(snap.densities[0], rho_background, delta_rho, dv),
           .energy = snap.energy,
+          .rho_center = center_density(snap.densities[0], grid),
       });
     }
     return result;

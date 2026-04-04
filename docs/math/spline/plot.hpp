@@ -8,6 +8,8 @@
 
 namespace plot {
 
+  namespace detail {
+
   inline void spline_interpolation(
       const std::vector<double>& x_knots, const std::vector<double>& y_knots,
       const std::vector<double>& x_eval, const std::vector<double>& y_spline,
@@ -70,6 +72,19 @@ namespace plot {
     plt::save("exports/spline_derivatives.png");
     plt::close();
     std::cout << "Plot saved: exports/spline_derivatives.png\n";
+  }
+
+  }  // namespace detail
+
+  inline void make_plots(
+      const std::vector<double>& x_knots, const std::vector<double>& y_knots,
+      const std::vector<double>& x_fine, const std::vector<double>& y_spline,
+      const std::vector<double>& y_exact,
+      const std::vector<double>& y_deriv1, const std::vector<double>& y_deriv2,
+      const std::vector<double>& y_exact_d1, const std::vector<double>& y_exact_d2
+  ) {
+    detail::spline_interpolation(x_knots, y_knots, x_fine, y_spline, y_exact);
+    detail::spline_derivatives(x_fine, y_spline, y_deriv1, y_deriv2, y_exact, y_exact_d1, y_exact_d2);
   }
 
 }  // namespace plot

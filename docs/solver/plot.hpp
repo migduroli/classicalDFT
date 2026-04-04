@@ -17,6 +17,8 @@ using utils::SpinodalData;
 
 namespace plot {
 
+namespace detail {
+
 inline void isotherms(
     const std::vector<std::vector<double>>& iso_rho,
     const std::vector<std::vector<double>>& iso_p,
@@ -159,6 +161,25 @@ inline void phase_diagram_plot(
   plt::save("exports/phase_diagram.png");
   plt::close();
   std::cout << "Plot saved: exports/phase_diagram.png\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<std::vector<double>>& iso_rho,
+    const std::vector<std::vector<double>>& iso_p,
+    const std::vector<double>& isotherm_temps,
+    const std::vector<CoexData>& all_coex,
+    const std::vector<SpinodalData>& all_spin,
+    const CoexData& wb2_data,
+    const dft::functionals::bulk::SpinodalCurve& wb2_sp
+) {
+  detail::isotherms(iso_rho, iso_p, isotherm_temps);
+  detail::coexistence(all_coex, all_spin);
+  detail::binodal(wb2_data);
+  if (!wb2_sp.temperature.is_empty()) {
+    detail::phase_diagram_plot(wb2_data, wb2_sp);
+  }
 }
 
 }  // namespace plot

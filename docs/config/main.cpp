@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -25,7 +26,7 @@ int main() {
 
     console::new_line();
     console::info("File: " + path);
-    std::cout << "  StringValue = " << string_value << "\n";
-    std::cout << "  DoubleValue = " << double_value << "\n";
+    std::println(std::cout, "  StringValue = {}", string_value);
+    std::println(std::cout, "  DoubleValue = {}", double_value);
   }
 }

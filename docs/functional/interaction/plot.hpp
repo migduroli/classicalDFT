@@ -8,6 +8,8 @@
 
 namespace plot {
 
+namespace detail {
+
 inline void wca_bh_splitting(
     const std::vector<double>& r,
     const std::vector<double>& v_full,
@@ -69,6 +71,20 @@ inline void grid_convergence(
   plt::save("exports/interaction_convergence.png");
   plt::close();
   std::cout << "Plot saved: exports/interaction_convergence.png\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<double>& r, const std::vector<double>& v_full,
+    const std::vector<double>& watt_wca, const std::vector<double>& watt_bh,
+    const std::vector<double>& rho, const std::vector<double>& f,
+    const std::vector<double>& dx_vals, const std::vector<double>& a_conv,
+    double a_analytic
+) {
+  detail::wca_bh_splitting(r, v_full, watt_wca, watt_bh);
+  detail::mean_field_free_energy(rho, f);
+  detail::grid_convergence(dx_vals, a_conv, a_analytic);
 }
 
 }  // namespace plot

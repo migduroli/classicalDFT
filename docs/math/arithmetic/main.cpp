@@ -1,8 +1,8 @@
 #include "dft.hpp"
 
-#include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <print>
 #include <vector>
 
 using namespace dft;
@@ -11,24 +11,22 @@ int main() {
   std::vector<double> x1 = {1.0 + 1e-14, 2.5 + 1e-14, 3.0 + 1e-14, 4.0 + 1e-14};
   std::vector<double> x2 = {1.00100001, 2.50010002, 3.00020001, 4.00010003};
 
-  std::cout << std::setprecision(18);
-
   // Standard summation (accumulate).
 
   console::info("Standard summation");
   double trivial_1 = std::accumulate(x1.begin(), x1.end(), 0.0);
-  std::cout << "  sum(x1) = " << trivial_1 << "\n";
+  std::println(std::cout, "  sum(x1) = {:.18}", trivial_1);
 
   // Compensated summation algorithms.
 
   console::info("Kahan-Babuska sum");
-  std::cout << "  kahan_sum(x1) = " << math::kahan_sum(x1) << "\n";
+  std::println(std::cout, "  kahan_sum(x1) = {:.18}", math::kahan_sum(x1));
 
   console::info("Neumaier sum");
-  std::cout << "  neumaier_sum(x1) = " << math::neumaier_sum(x1) << "\n";
+  std::println(std::cout, "  neumaier_sum(x1) = {:.18}", math::neumaier_sum(x1));
 
   console::info("Klein sum");
-  std::cout << "  klein_sum(x1) = " << math::klein_sum(x1) << "\n";
+  std::println(std::cout, "  klein_sum(x1) = {:.18}", math::klein_sum(x1));
 
   // Combined sums.
 
@@ -38,8 +36,8 @@ int main() {
   combined.insert(combined.end(), x2.begin(), x2.end());
 
   console::info("Combined sums");
-  std::cout << "  trivial  = " << std::accumulate(combined.begin(), combined.end(), 0.0) << "\n";
-  std::cout << "  kahan    = " << math::kahan_sum(combined) << "\n";
-  std::cout << "  neumaier = " << math::neumaier_sum(combined) << "\n";
-  std::cout << "  klein    = " << math::klein_sum(combined) << "\n";
+  std::println(std::cout, "  trivial  = {:.18}", std::accumulate(combined.begin(), combined.end(), 0.0));
+  std::println(std::cout, "  kahan    = {:.18}", math::kahan_sum(combined));
+  std::println(std::cout, "  neumaier = {:.18}", math::neumaier_sum(combined));
+  std::println(std::cout, "  klein    = {:.18}", math::klein_sum(combined));
 }

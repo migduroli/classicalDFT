@@ -10,6 +10,8 @@
 
 namespace plot {
 
+namespace detail {
+
 inline void lattice(
     const dft::Lattice& lat,
     const std::string& title,
@@ -37,6 +39,16 @@ inline void lattice(
   plt::save(filename);
   plt::close();
   std::cout << "Plot saved: " << filename << "\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const dft::Lattice& fcc, const dft::Lattice& bcc, const dft::Lattice& hcp
+) {
+  detail::lattice(fcc, R"(FCC [001] ($4^3$ unit cells))", "bo", "exports/fcc_001.png");
+  detail::lattice(bcc, R"(BCC [110] ($4^3$ unit cells))", "rs", "exports/bcc_110.png");
+  detail::lattice(hcp, R"(HCP [001] ($4^3$ unit cells))", "g^", "exports/hcp_001.png");
 }
 
 }  // namespace plot

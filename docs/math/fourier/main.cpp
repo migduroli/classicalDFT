@@ -1,9 +1,9 @@
 #include "dft.hpp"
 
 #include <armadillo>
-#include <iomanip>
 #include <iostream>
 #include <numbers>
+#include <print>
 
 using namespace dft;
 
@@ -16,9 +16,9 @@ int main() {
   auto shape = std::vector<long>{8, 8, 8};
   auto plan = math::FourierTransform(shape);
 
-  std::cout << "  grid:           " << shape[0] << "x" << shape[1] << "x" << shape[2] << "\n";
-  std::cout << "  total points:   " << plan.total() << "\n";
-  std::cout << "  fourier points: " << plan.fourier_total() << "\n";
+  std::println(std::cout, "  grid:           {}x{}x{}", shape[0], shape[1], shape[2]);
+  std::println(std::cout, "  total points:   {}", plan.total());
+  std::println(std::cout, "  fourier points: {}", plan.fourier_total());
 
   auto grid_x = arma::linspace(0.0, 2.0 * std::numbers::pi * (1.0 - 1.0 / shape[0]), shape[0]);
   arma::vec sin_x = arma::sin(grid_x);
@@ -34,17 +34,16 @@ int main() {
   plan.forward();
 
   auto fk = plan.fourier();
-  std::cout << "  first 4 Fourier coefficients:\n";
+  std::println(std::cout, "  first 4 Fourier coefficients:");
   for (int n = 0; n < 4; ++n) {
-    std::cout << "    k=" << n << " -> (" << std::setprecision(4)
-              << fk[n].real() << ", " << fk[n].imag() << ")\n";
+    std::println(std::cout, "    k={} -> ({:.4}, {:.4})", n, fk[n].real(), fk[n].imag());
   }
 
   plan.backward();
   plan.scale(1.0 / static_cast<double>(plan.total()));
 
   auto roundtrip = arma::vec(plan.real().data(), plan.real().size());
-  std::cout << "  round-trip max error: " << arma::max(arma::abs(roundtrip - original)) << "\n";
+  std::println(std::cout, "  round-trip max error: {}", arma::max(arma::abs(roundtrip - original)));
 
   // Parseval's theorem.
 
@@ -58,10 +57,9 @@ int main() {
   }
   fourier_energy /= static_cast<double>(plan.total());
 
-  std::cout << std::fixed;
-  std::cout << "  real-space energy:    " << real_energy << "\n";
-  std::cout << "  fourier-space energy: " << fourier_energy << "\n";
-  std::cout << "  ratio:                " << fourier_energy / real_energy << "\n";
+  std::println(std::cout, "  real-space energy:    {:f}", real_energy);
+  std::println(std::cout, "  fourier-space energy: {:f}", fourier_energy);
+  std::println(std::cout, "  ratio:                {:f}", fourier_energy / real_energy);
 
   // FourierConvolution: delta * constant = constant.
 
@@ -80,7 +78,7 @@ int main() {
 
   auto result = conv.result();
   auto result_vec = arma::vec(result.data(), result.size());
-  std::cout << "  result range: [" << result_vec.min() << ", " << result_vec.max() << "]\n";
-  std::cout << "  expected: 3.0 everywhere\n";
-  std::cout << "  match: " << (std::abs(result_vec.min() - 3.0) < 1e-10 ? "true" : "false") << "\n";
+  std::println(std::cout, "  result range: [{}, {}]", result_vec.min(), result_vec.max());
+  std::println(std::cout, "  expected: 3.0 everywhere");
+  std::println(std::cout, "  match: {}", (std::abs(result_vec.min() - 3.0) < 1e-10 ? "true" : "false"));
 }

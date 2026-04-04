@@ -11,6 +11,8 @@
 
 namespace plot {
 
+namespace detail {
+
 constexpr int fine_grid_points = 500;
 
 inline auto spline_refine(
@@ -87,6 +89,21 @@ inline void ddft_density_profiles(
   plt::save("exports/ddft_density_profiles.png");
   plt::close();
   std::cout << "  Plot saved: exports/ddft_density_profiles.png\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<double>& fire_steps, const std::vector<double>& fire_energies,
+    const std::vector<double>& ddft_times, const std::vector<double>& ddft_variances,
+    const std::vector<double>& z_coords,
+    const std::vector<std::vector<double>>& ddft_profiles,
+    const std::vector<double>& ddft_snapshot_times,
+    double rho0
+) {
+  detail::fire2_energy(fire_steps, fire_energies);
+  detail::ddft_variance(ddft_times, ddft_variances);
+  detail::ddft_density_profiles(z_coords, ddft_profiles, ddft_snapshot_times, rho0);
 }
 
 }  // namespace plot

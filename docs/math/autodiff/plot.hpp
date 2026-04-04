@@ -9,6 +9,8 @@
 
 namespace plot {
 
+  namespace detail {
+
   inline void function_and_derivatives(
       const std::vector<double>& x,
       const std::vector<double>& f,
@@ -51,14 +53,10 @@ namespace plot {
     namespace plt = matplotlibcpp;
     plt::figure_size(900, 550);
 
-    plt::semilogy(x, ad_err1,
-                  {{"color", "#008080"}, {"linewidth", "2.0"}, {"label", R"(autodiff $|f' - f'_{\mathrm{exact}}|$)"}});
-    plt::semilogy(x, fd_err1,
-                  {{"color", "#008080"}, {"linewidth", "1.5"}, {"linestyle", "--"}, {"label", R"(finite diff $|f' - f'_{\mathrm{exact}}|$)"}});
-    plt::semilogy(x, ad_err2,
-                  {{"color", "#E25822"}, {"linewidth", "2.0"}, {"label", R"(autodiff $|f'' - f''_{\mathrm{exact}}|$)"}});
-    plt::semilogy(x, fd_err2,
-                  {{"color", "#E25822"}, {"linewidth", "1.5"}, {"linestyle", "--"}, {"label", R"(finite diff $|f'' - f''_{\mathrm{exact}}|$)"}});
+    plt::named_semilogy(R"(autodiff $|f' - f'_{\mathrm{exact}}|$)", x, ad_err1, "b-");
+    plt::named_semilogy(R"(finite diff $|f' - f'_{\mathrm{exact}}|$)", x, fd_err1, "b--");
+    plt::named_semilogy(R"(autodiff $|f'' - f''_{\mathrm{exact}}|$)", x, ad_err2, "r-");
+    plt::named_semilogy(R"(finite diff $|f'' - f''_{\mathrm{exact}}|$)", x, fd_err2, "r--");
 
     plt::xlabel(R"($x$)");
     plt::ylabel("Absolute error");
@@ -69,6 +67,23 @@ namespace plot {
     plt::save("exports/autodiff_accuracy.png");
     plt::close();
     std::cout << "Plot saved: exports/autodiff_accuracy.png\n";
+  }
+
+  }  // namespace detail
+
+  inline void make_plots(
+      const std::vector<double>& x_sin, const std::vector<double>& f_sin,
+      const std::vector<double>& d1_sin, const std::vector<double>& d2_sin,
+      const std::vector<double>& x_err, const std::vector<double>& ad_err1,
+      const std::vector<double>& fd_err1, const std::vector<double>& ad_err2,
+      const std::vector<double>& fd_err2
+  ) {
+    detail::function_and_derivatives(
+        x_sin, f_sin, d1_sin, d2_sin,
+        R"(Autodiff derivatives of $\sin(x)$)",
+        R"($\sin(x)$)", R"($\cos(x)$)", R"($-\sin(x)$)",
+        "exports/autodiff_sin.png");
+    detail::autodiff_vs_finite_diff(x_err, ad_err1, fd_err1, ad_err2, fd_err2);
   }
 
 }  // namespace plot

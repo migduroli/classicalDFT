@@ -4,10 +4,10 @@
 #include <armadillo>
 #include <algorithm>
 #include <filesystem>
-#include <iomanip>
 #include <iostream>
 #include <numbers>
 #include <numeric>
+#include <print>
 
 using namespace dft;
 
@@ -21,8 +21,6 @@ int main() {
   matplotlibcpp::backend("Agg");
 #endif
 
-  std::cout << std::fixed;
-
   // Convolution theorem: delta * f = f.
 
   console::info("Convolution: delta * constant = constant");
@@ -33,12 +31,10 @@ int main() {
   auto plan_a = math::FourierTransform(shape);
   auto plan_b = math::FourierTransform(shape);
 
-  // Real-space delta at the origin.
   auto real_a = plan_a.real();
   std::fill(real_a.begin(), real_a.end(), 0.0);
   real_a[0] = 1.0;
 
-  // Uniform function f(r) = 3.0.
   auto real_b = plan_b.real();
   std::fill(real_b.begin(), real_b.end(), 3.0);
 
@@ -48,10 +44,9 @@ int main() {
   auto result = math::convolve(plan_a.fourier(), plan_b.fourier(), shape);
   result /= static_cast<double>(N);
 
-  std::cout << "  result range: [" << result.min() << ", " << result.max() << "]\n";
-  std::cout << "  expected:     3.0 everywhere\n";
-  std::cout << "  max error:    " << std::setprecision(2) << std::scientific
-            << arma::max(arma::abs(result - 3.0)) << "\n";
+  std::println(std::cout, "  result range: [{}, {}]", result.min(), result.max());
+  std::println(std::cout, "  expected:     3.0 everywhere");
+  std::println(std::cout, "  max error:    {:.2e}", arma::max(arma::abs(result - 3.0)));
 
   // Self-convolution of a Gaussian.
 
@@ -63,7 +58,6 @@ int main() {
   long N_1d = shape_1d[0];
   double L = N_1d * dx;
 
-  // Build Gaussian g(x) = exp(-x^2 / (2*sigma^2)) on a periodic grid.
   auto plan_g = math::FourierTransform(shape_1d);
   auto real_g = plan_g.real();
   for (long i = 0; i < N_1d; ++i) {
@@ -75,22 +69,17 @@ int main() {
   plan_g.forward();
   auto g_k = plan_g.fourier();
 
-  // convolve(g, g) = IFFT[g_k .* g_k] * dx.
   auto gg = math::convolve(g_k, g_k, shape_1d);
   gg *= dx / static_cast<double>(N_1d);
 
-  // Analytical: Gaussian * Gaussian = Gaussian with sigma_out = sqrt(2) * sigma
-  // and amplitude sigma * sqrt(pi).
   double sigma_out = sigma * std::sqrt(2.0);
   double norm_factor = sigma * std::sqrt(std::numbers::pi);
 
-  std::cout << std::fixed << std::setprecision(6);
-  std::cout << "  sigma_in:   " << sigma << "\n";
-  std::cout << "  sigma_out:  " << sigma_out << " (expected: sigma * sqrt(2))\n\n";
+  std::println(std::cout, "  sigma_in:   {:.6f}", sigma);
+  std::println(std::cout, "  sigma_out:  {:.6f} (expected: sigma * sqrt(2))", sigma_out);
 
-  std::cout << std::setw(8) << "x" << std::setw(14) << "numerical"
-            << std::setw(14) << "analytical" << std::setw(14) << "error" << "\n";
-  std::cout << "  " << std::string(48, '-') << "\n";
+  std::println(std::cout, "\n  {:>8s}{:>14s}{:>14s}{:>14s}", "x", "numerical", "analytical", "error");
+  std::println(std::cout, "  {}", std::string(48, '-'));
 
   double max_error = 0.0;
   for (long i = 0; i < N_1d; i += 4) {
@@ -102,49 +91,34 @@ int main() {
     max_error = std::max(max_error, error);
 
     if (i < 24 || i >= N_1d - 8) {
-      std::cout << std::setw(8) << x
-                << std::setw(14) << numerical
-                << std::setw(14) << analytical
-                << std::scientific << std::setw(14) << error << "\n";
-      std::cout << std::fixed;
+      std::println(std::cout, "  {:>8.2f}{:>14.6f}{:>14.6f}{:>14.2e}", x, numerical, analytical, error);
     }
   }
-  std::cout << "\n  max error: " << std::scientific << max_error << "\n";
+  std::println(std::cout, "\n  max error: {:.2e}", max_error);
 
-  // Plot the Gaussian convolution: numerical vs analytical.
+  // Collect plot data (sorted by x for clean rendering).
 
-#ifdef DFT_HAS_MATPLOTLIB
-  {
-    std::vector<double> x_plot, num_plot, ana_plot;
-    for (long i = 0; i < N_1d; ++i) {
-      double xp = i * dx;
-      if (xp > L / 2.0) xp -= L;
-      x_plot.push_back(xp);
-      num_plot.push_back(gg(static_cast<arma::uword>(i)));
-      ana_plot.push_back(norm_factor * std::exp(-xp * xp / (2.0 * sigma_out * sigma_out)));
-    }
-    // Sort by x for a clean plot.
-    std::vector<std::size_t> idx(x_plot.size());
-    std::iota(idx.begin(), idx.end(), 0);
-    std::sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) { return x_plot[a] < x_plot[b]; });
-    std::vector<double> xs(x_plot.size()), ns(x_plot.size()), as(x_plot.size());
-    for (std::size_t i = 0; i < idx.size(); ++i) {
-      xs[i] = x_plot[idx[i]];
-      ns[i] = num_plot[idx[i]];
-      as[i] = ana_plot[idx[i]];
-    }
-    plot::gaussian_convolution(xs, ns, as);
+  std::vector<double> x_plot, num_plot, ana_plot;
+  for (long i = 0; i < N_1d; ++i) {
+    double xp = i * dx;
+    if (xp > L / 2.0) xp -= L;
+    x_plot.push_back(xp);
+    num_plot.push_back(gg(static_cast<arma::uword>(i)));
+    ana_plot.push_back(norm_factor * std::exp(-xp * xp / (2.0 * sigma_out * sigma_out)));
   }
-#endif
+  std::vector<std::size_t> idx(x_plot.size());
+  std::iota(idx.begin(), idx.end(), 0);
+  std::sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) { return x_plot[a] < x_plot[b]; });
+  std::vector<double> xs(x_plot.size()), ns(x_plot.size()), as(x_plot.size());
+  for (std::size_t i = 0; i < idx.size(); ++i) {
+    xs[i] = x_plot[idx[i]];
+    ns[i] = num_plot[idx[i]];
+    as[i] = ana_plot[idx[i]];
+  }
 
   // Back-convolution symmetry.
 
   console::info("Back-convolution: adjoint property");
-
-  // For a general weight w, the adjoint of convolution uses the
-  // time-reversed kernel w~(r) = w(-r), whose FFT is conj(w_k).
-  // back_convolve(w_k, d, shape, conjugate=true) implements this:
-  //   <convolve(w_k, rho_k), d> == <rho, IFFT[conj(w_k) .* FFT(d)]>
 
   auto plan_rho = math::FourierTransform(shape);
   auto plan_d = math::FourierTransform(shape);
@@ -153,39 +127,36 @@ int main() {
   arma::vec d_r = arma::randu(static_cast<arma::uword>(N));
   arma::vec w_r = arma::randu(static_cast<arma::uword>(N));
 
-  // Compute w_k.
   auto plan_w = math::FourierTransform(shape);
   plan_w.set_real(w_r);
   plan_w.forward();
   auto w_k = plan_w.fourier_vec();
 
-  // rho_k.
   plan_rho.set_real(rho_r);
   plan_rho.forward();
   auto rho_k = plan_rho.fourier();
 
-  // Forward: n = convolve(w_k, rho_k), then <n, d>.
   auto n = math::convolve(
       std::span<const std::complex<double>>{w_k.memptr(), static_cast<std::size_t>(w_k.n_elem)},
       rho_k, shape
   );
   double lhs = arma::dot(n, d_r);
 
-  // Adjoint: bc = back_convolve(w_k, d, conjugate=true), then <rho, IFFT[bc]>.
   auto bc = math::back_convolve(
       std::span<const std::complex<double>>{w_k.memptr(), static_cast<std::size_t>(w_k.n_elem)},
       d_r, shape, true
   );
-  // IFFT of bc.
   math::FourierTransform scratch(shape);
   scratch.set_fourier(bc);
   scratch.backward();
   auto bc_r = scratch.real_vec();
   double rhs = arma::dot(rho_r, bc_r);
 
-  std::cout << std::fixed << std::setprecision(10);
-  std::cout << "  <convolve(w, rho), d> = " << lhs << "\n";
-  std::cout << "  <rho, IFFT[back(w, d)]> = " << rhs << "\n";
-  std::cout << "  relative error:         " << std::scientific
-            << std::abs(lhs - rhs) / std::abs(lhs) << "\n";
+  std::println(std::cout, "  <convolve(w, rho), d>   = {:.10f}", lhs);
+  std::println(std::cout, "  <rho, IFFT[back(w, d)]> = {:.10f}", rhs);
+  std::println(std::cout, "  relative error:           {:.2e}", std::abs(lhs - rhs) / std::abs(lhs));
+
+#ifdef DFT_HAS_MATPLOTLIB
+  plot::make_plots(xs, ns, as);
+#endif
 }

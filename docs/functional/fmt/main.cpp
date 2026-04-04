@@ -2,8 +2,8 @@
 #include "plot.hpp"
 
 #include <filesystem>
-#include <iomanip>
 #include <iostream>
+#include <print>
 #include <vector>
 
 using namespace dft;
@@ -31,14 +31,8 @@ int main() {
 
   // Bulk excess free energy per particle: FMT vs EOS.
 
-  std::cout << "=== Bulk excess free energy per particle: FMT vs EOS ===\n\n";
-  std::cout << std::fixed << std::setprecision(8);
-  std::cout << std::setw(8) << "eta"
-            << std::setw(16) << "Rosenfeld"
-            << std::setw(16) << "PY(comp)"
-            << std::setw(16) << "WhiteBearI"
-            << std::setw(16) << "CS"
-            << "\n";
+  std::println(std::cout, "=== Bulk excess free energy per particle: FMT vs EOS ===\n");
+  std::println(std::cout, "{:>8s}{:>16s}{:>16s}{:>16s}{:>16s}", "eta", "Rosenfeld", "PY(comp)", "WhiteBearI", "CS");
 
   constexpr int N = 200;
   arma::vec eta_arma = arma::linspace(0.005, 0.495, N);
@@ -56,12 +50,11 @@ int main() {
     f_wb2_a(i) = fmt::phi(wb2, m) / rho;
 
     if (i % 50 == 0) {
-      std::cout << std::setw(8) << eta
-                << std::setw(16) << f_ros_a(i)
-                << std::setw(16) << physics::hard_spheres::PercusYevickCompressibility::excess_free_energy(eta)
-                << std::setw(16) << f_wb1_a(i)
-                << std::setw(16) << physics::hard_spheres::CarnahanStarling::excess_free_energy(eta)
-                << "\n";
+      std::println(std::cout, "{:>8.3f}{:>16.8f}{:>16.8f}{:>16.8f}{:>16.8f}",
+                   eta, f_ros_a(i),
+                   physics::hard_spheres::PercusYevickCompressibility::excess_free_energy(eta),
+                   f_wb1_a(i),
+                   physics::hard_spheres::CarnahanStarling::excess_free_energy(eta));
     }
   }
   auto eta_vec = arma::conv_to<std::vector<double>>::from(eta_arma);
@@ -71,7 +64,7 @@ int main() {
 
   // Chemical potentials.
 
-  std::cout << "\n=== Bulk excess chemical potential ===\n\n";
+  std::println(std::cout, "\n=== Bulk excess chemical potential ===\n");
   arma::vec mu_ros_a(N), mu_wb1_a(N), mu_wb2_a(N);
   for (arma::uword i = 0; i < eta_arma.n_elem; ++i) {
     double rho = physics::hard_spheres::density_from_eta(eta_arma(i));
@@ -85,13 +78,8 @@ int main() {
 
   // Pressure consistency: P/(rho kT) = 1 + rho*(mu_ex - f_ex).
 
-  std::cout << "\n=== Pressure: P/(rho kT) from mu - f ===\n\n";
-  std::cout << std::setw(8) << "eta"
-            << std::setw(16) << "PY(comp)"
-            << std::setw(16) << "Rosenfeld"
-            << std::setw(16) << "CS"
-            << std::setw(16) << "WhiteBearI"
-            << "\n";
+  std::println(std::cout, "\n=== Pressure: P/(rho kT) from mu - f ===\n");
+  std::println(std::cout, "{:>8s}{:>16s}{:>16s}{:>16s}{:>16s}", "eta", "PY(comp)", "Rosenfeld", "CS", "WhiteBearI");
 
   arma::vec p_ros_a(N), p_wb1_a(N), p_cs_a(N), p_pyc_a(N);
   for (arma::uword i = 0; i < eta_arma.n_elem; ++i) {
@@ -102,12 +90,8 @@ int main() {
     p_pyc_a(i) = physics::hard_spheres::pressure(pyc, eta_arma(i));
 
     if (i % 50 == 0) {
-      std::cout << std::setw(8) << eta_arma(i)
-                << std::setw(16) << p_pyc_a(i)
-                << std::setw(16) << p_ros_a(i)
-                << std::setw(16) << p_cs_a(i)
-                << std::setw(16) << p_wb1_a(i)
-                << "\n";
+      std::println(std::cout, "{:>8.3f}{:>16.8f}{:>16.8f}{:>16.8f}{:>16.8f}",
+                   eta_arma(i), p_pyc_a(i), p_ros_a(i), p_cs_a(i), p_wb1_a(i));
     }
   }
   auto p_ros = arma::conv_to<std::vector<double>>::from(p_ros_a);
@@ -118,8 +102,8 @@ int main() {
   // Plots.
 
 #ifdef DFT_HAS_MATPLOTLIB
-  plot::free_energy(eta_vec, f_ros, f_wb1, f_wb2);
-  plot::pressure(eta_vec, p_ros, p_pyc_v, p_wb1, p_cs_v);
-  plot::chemical_potential(eta_vec, mu_ros, mu_wb1, mu_wb2);
+  plot::make_plots(eta_vec, f_ros, f_wb1, f_wb2,
+                   p_ros, p_pyc_v, p_wb1, p_cs_v,
+                   mu_ros, mu_wb1, mu_wb2);
 #endif
 }

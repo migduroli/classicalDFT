@@ -8,6 +8,8 @@
 
 namespace plot {
 
+namespace detail {
+
 inline void hs_pressure(
     const std::vector<double>& eta,
     const std::vector<double>& cs,
@@ -51,6 +53,18 @@ inline void transport_viscosity(
   plt::save("exports/transport_viscosity.png");
   plt::close();
   std::cout << "Plot saved: exports/transport_viscosity.png\n";
+}
+
+}  // namespace detail
+
+inline void make_plots(
+    const std::vector<double>& eta, const std::vector<double>& cs,
+    const std::vector<double>& pyv, const std::vector<double>& pyc,
+    const std::vector<double>& rho, const std::vector<double>& shear,
+    const std::vector<double>& bulk
+) {
+  detail::hs_pressure(eta, cs, pyv, pyc);
+  detail::transport_viscosity(rho, shear, bulk);
 }
 
 }  // namespace plot

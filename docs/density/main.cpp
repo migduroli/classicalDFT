@@ -3,9 +3,9 @@
 #include "utils.hpp"
 
 #include <filesystem>
-#include <iomanip>
 #include <iostream>
 #include <numbers>
+#include <print>
 #include <vector>
 
 using namespace dft;
@@ -19,8 +19,6 @@ int main() {
 #ifdef DFT_HAS_MATPLOTLIB
   matplotlibcpp::backend("Agg");
 #endif
-
-  std::cout << std::fixed << std::setprecision(6);
 
   // Read configuration.
 
@@ -57,12 +55,11 @@ int main() {
 
   auto fmt_model = functionals::fmt::WhiteBearII{};
 
-  std::cout << "=== DFT + DDFT: LJ liquid slab relaxation ===\n\n";
-  std::cout << "  Grid:        " << model.grid.shape[0] << "x"
-            << model.grid.shape[1] << "x" << model.grid.shape[2]
-            << " (dx = " << model.grid.dx << ")\n";
-  std::cout << "  Species:     " << model.species[0].name << "\n";
-  std::cout << "  Temperature: T* = " << model.temperature << "\n\n";
+  std::println(std::cout, "=== DFT + DDFT: LJ liquid slab relaxation ===\n");
+  std::println(std::cout, "  Grid:        {}x{}x{} (dx = {})",
+               model.grid.shape[0], model.grid.shape[1], model.grid.shape[2], model.grid.dx);
+  std::println(std::cout, "  Species:     {}", model.species[0].name);
+  std::println(std::cout, "  Temperature: T* = {}\n", model.temperature);
 
   // Bulk thermodynamics.
 
@@ -99,11 +96,11 @@ int main() {
       arma::vec{coex->rho_vapor}, model.species, bulk_weights
   );
 
-  std::cout << "  Coexistence:\n";
-  std::cout << "    rho_vapor  = " << coex->rho_vapor << "\n";
-  std::cout << "    rho_liquid = " << coex->rho_liquid << "\n";
-  std::cout << "    mu_coex    = " << mu_coex << "\n";
-  std::cout << "    P_coex     = " << p_coex << "\n\n";
+  std::println(std::cout, "  Coexistence:");
+  std::println(std::cout, "    rho_vapor  = {:.6f}", coex->rho_vapor);
+  std::println(std::cout, "    rho_liquid = {:.6f}", coex->rho_liquid);
+  std::println(std::cout, "    mu_coex    = {:.6f}", mu_coex);
+  std::println(std::cout, "    P_coex     = {:.6f}\n", p_coex);
 
   // Build DFT weights (FFT-based, full functional).
 
@@ -124,8 +121,6 @@ int main() {
 
   arma::vec slab_rho = arma::repelem(profile_1d, ny * nz, 1);
 
-  // Extract 1D profile helper.
-
   auto x_coords = arma::conv_to<std::vector<double>>::from(x_vals);
   long nxl = nx, nyl = ny, nzl = nz;
 
@@ -138,14 +133,14 @@ int main() {
   auto initial_state = utils::make_state(model, slab_rho, mu_coex);
   auto initial_result = functionals::total(model, initial_state, weights);
 
-  std::cout << "=== Initial slab (tanh profile) ===\n\n";
-  std::cout << "  Free energy:      " << initial_result.free_energy << "\n";
-  std::cout << "  Grand potential:  " << initial_result.grand_potential << "\n";
-  std::cout << "  Max |force|:      " << arma::max(arma::abs(initial_result.forces[0])) << "\n\n";
+  std::println(std::cout, "=== Initial slab (tanh profile) ===\n");
+  std::println(std::cout, "  Free energy:      {:.6f}", initial_result.free_energy);
+  std::println(std::cout, "  Grand potential:  {:.6f}", initial_result.grand_potential);
+  std::println(std::cout, "  Max |force|:      {:.6f}\n", arma::max(arma::abs(initial_result.forces[0])));
 
   // DDFT relaxation via the simulate API.
 
-  std::cout << "=== DDFT relaxation (split-operator) ===\n\n";
+  std::println(std::cout, "=== DDFT relaxation (split-operator) ===\n");
 
   algorithms::ddft::SimulationConfig sim_config{
       .ddft = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
@@ -167,15 +162,15 @@ int main() {
   }
   auto final_profile = utils::extract_profile(sim.densities[0], nxl, nyl, nzl);
 
-  std::cout << "\n=== Final relaxed state ===\n\n";
-  std::cout << "  Grand potential:  " << sim.energies.back() << "\n";
-  std::cout << "  Mass initial:     " << sim.mass_initial << "\n";
-  std::cout << "  Mass final:       " << sim.mass_final << "\n";
-  std::cout << "  Rel. error:       " << std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial << "\n";
+  std::println(std::cout, "\n=== Final relaxed state ===\n");
+  std::println(std::cout, "  Grand potential:  {:.6f}", sim.energies.back());
+  std::println(std::cout, "  Mass initial:     {:.6f}", sim.mass_initial);
+  std::println(std::cout, "  Mass final:       {:.6f}", sim.mass_final);
+  std::println(std::cout, "  Rel. error:       {:.6e}",
+               std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial);
 
   // Plots.
 
-#ifdef DFT_HAS_MATPLOTLIB
   auto rho_range = arma::conv_to<std::vector<double>>::from(rho_grid);
   auto p_range = arma::conv_to<std::vector<double>>::from(p_grid);
   auto f_range = arma::conv_to<std::vector<double>>::from(f_grid);
@@ -183,12 +178,12 @@ int main() {
   double f_v = functionals::bulk::free_energy_density(arma::vec{coex->rho_vapor}, model.species, bulk_weights);
   double f_l = functionals::bulk::free_energy_density(arma::vec{coex->rho_liquid}, model.species, bulk_weights);
 
-  plot::pressure_isotherm(rho_range, p_range, coex->rho_vapor, coex->rho_liquid, p_coex, model.temperature);
-  plot::free_energy(rho_range, f_range, coex->rho_vapor, coex->rho_liquid, f_v, f_l, model.temperature);
-  plot::chemical_potential(rho_range, mu_range, coex->rho_vapor, coex->rho_liquid, mu_coex, model.temperature);
-  plot::density_evolution(x_coords, profile_snapshots, snapshot_times,
-                          initial_profile, final_profile,
-                          coex->rho_vapor, coex->rho_liquid);
-  plot::grand_potential(sim.times, sim.energies);
+#ifdef DFT_HAS_MATPLOTLIB
+  plot::make_plots(rho_range, p_range, f_range, mu_range,
+                   coex->rho_vapor, coex->rho_liquid, p_coex, f_v, f_l,
+                   mu_coex, model.temperature,
+                   x_coords, profile_snapshots, snapshot_times,
+                   initial_profile, final_profile,
+                   sim.times, sim.energies);
 #endif
 }
