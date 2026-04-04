@@ -158,37 +158,53 @@ namespace dft::functionals::bulk {
 
     // Coarse scan for sign changes in dP/drho.
     double prev_dp = detail::dp_drho(step, species, weights);
-    double rho_low_guess = 0.0;
-    double rho_high_guess = 0.0;
+    double low_lo = 0.0, low_hi = 0.0;
+    double high_lo = 0.0, high_hi = 0.0;
+    bool found_low = false;
+    bool found_high = false;
 
+    double prev_rho = step;
     for (double rho = 2.0 * step; rho < max_rho; rho += step) {
       double curr_dp = detail::dp_drho(rho, species, weights);
-      if (prev_dp > 0.0 && curr_dp <= 0.0 && rho_low_guess == 0.0) {
-        rho_low_guess = rho - 0.5 * step;
-      } else if (prev_dp < 0.0 && curr_dp >= 0.0 && rho_low_guess > 0.0) {
-        rho_high_guess = rho - 0.5 * step;
+      if (prev_dp > 0.0 && curr_dp <= 0.0 && !found_low) {
+        low_lo = prev_rho;
+        low_hi = rho;
+        found_low = true;
+      } else if (prev_dp < 0.0 && curr_dp >= 0.0 && found_low) {
+        high_lo = prev_rho;
+        high_hi = rho;
+        found_high = true;
         break;
       }
       prev_dp = curr_dp;
+      prev_rho = rho;
     }
 
-    if (rho_low_guess == 0.0 || rho_high_guess == 0.0) {
+    if (!found_low || !found_high) {
       return std::nullopt;
     }
 
-    // Refine each root with Newton on dP/drho = 0.
-    auto residual = [&](const arma::vec& x) -> arma::vec {
-      return arma::vec{detail::dp_drho(x(0), species, weights)};
+    // Refine each root with bisection on dP/drho = 0.
+    // Bisection is used instead of Newton because Newton requires
+    // d²P/drho² via nested numerical differentiation, which suffers
+    // from catastrophic cancellation at small step sizes.
+    auto bisect = [&](double lo, double hi) -> double {
+      double f_lo = detail::dp_drho(lo, species, weights);
+      for (int i = 0; i < 60; ++i) {
+        double mid = 0.5 * (lo + hi);
+        double f_mid = detail::dp_drho(mid, species, weights);
+        if ((f_lo > 0.0) == (f_mid > 0.0)) {
+          lo = mid;
+          f_lo = f_mid;
+        } else {
+          hi = mid;
+        }
+      }
+      return 0.5 * (lo + hi);
     };
 
-    auto r_low = algorithms::solvers::newton(arma::vec{rho_low_guess}, residual, config.newton);
-    auto r_high = algorithms::solvers::newton(arma::vec{rho_high_guess}, residual, config.newton);
-
-    if (!r_low.converged || !r_high.converged) {
-      return std::nullopt;
-    }
-
-    return Spinodal{.rho_low = r_low.solution(0), .rho_high = r_high.solution(0)};
+    return Spinodal{.rho_low = bisect(low_lo, low_hi),
+                    .rho_high = bisect(high_lo, high_hi)};
   }
 
   // Find the vapor-liquid coexistence densities (Maxwell construction).
@@ -254,19 +270,28 @@ namespace dft::functionals::bulk {
       return std::nullopt;
     }
 
-    // Refine the 1D root delta_P(rho_v) = 0 with Newton.
-    auto residual = [&](const arma::vec& x) -> arma::vec {
-      return arma::vec{delta_p(x(0)).value_or(1e10)};
-    };
-
-    double mid = 0.5 * (rho_lo + rho_hi);
-    auto result = algorithms::solvers::newton(arma::vec{mid}, residual, config.newton);
-
-    if (!result.converged || result.solution(0) <= 0.0) {
+    // Refine the 1D root delta_P(rho_v) = 0 with bisection.
+    auto dp_lo_val = delta_p(rho_lo);
+    if (!dp_lo_val) {
       return std::nullopt;
     }
 
-    double rv = result.solution(0);
+    for (int i = 0; i < 60; ++i) {
+      double mid = 0.5 * (rho_lo + rho_hi);
+      auto dp_mid = delta_p(mid);
+      if (!dp_mid) {
+        rho_hi = mid;
+        continue;
+      }
+      if ((*dp_lo_val > 0.0) == (*dp_mid > 0.0)) {
+        rho_lo = mid;
+        dp_lo_val = dp_mid;
+      } else {
+        rho_hi = mid;
+      }
+    }
+
+    double rv = 0.5 * (rho_lo + rho_hi);
     double mu_v = chemical_potential(arma::vec{rv}, species, weights, 0);
     auto rl = density_from_chemical_potential(mu_v, rho_s2 * 1.2, species, weights, config.newton);
     if (!rl) {
@@ -347,6 +372,15 @@ namespace dft::functionals::bulk {
     }
 
     arma::uword i_max = T.index_max();
+
+    // Near Tc the continuation can swap the vapor/liquid labels.
+    // Enforce rv < rl at every point by swapping when crossed.
+    for (arma::uword i = 0; i <= i_max; ++i) {
+      if (rv(i) > rl(i)) {
+        std::swap(rv(i), rl(i));
+      }
+    }
+
     return CoexistenceCurve{
         .temperature = T.head(i_max + 1),
         .rho_vapor = rv.head(i_max + 1),

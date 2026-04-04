@@ -89,7 +89,7 @@ namespace dft::algorithms::fire {
       power += arma::dot(state.v[s], forces[s]);
     }
 
-    if (power > 0.0) {
+    if (power > 0.0 || state.iteration == 0) {
       state.n_positive++;
       state.n_negative = 0;
       if (state.n_positive > config.n_delay) {
@@ -119,10 +119,10 @@ namespace dft::algorithms::fire {
         state.backtracks = 0;
       }
 
-      // Backtrack and damp
+      // Backtrack position and kill velocity (FIRE2 convention).
       for (std::size_t s = 0; s < state.x.size(); ++s) {
         state.x[s] -= 0.5 * state.dt * state.v[s];
-        state.v[s] *= 0.1;
+        state.v[s].zeros();
       }
     }
 

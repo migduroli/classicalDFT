@@ -28,7 +28,7 @@ lint() {
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
       -DDFT_BUILD_TESTS=ON \
-      -DDFT_BUILD_EXAMPLES=OFF \
+      -DDFT_BUILD_DOCS=OFF \
       -DDFT_USE_GRACE=OFF
     cmake --build "$BUILD_DIR" --parallel
   fi

@@ -11,7 +11,6 @@
 #include "dft/types.hpp"
 
 #include <armadillo>
-#include <cmath>
 #include <numbers>
 #include <vector>
 

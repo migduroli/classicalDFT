@@ -4,9 +4,9 @@
 
 ### What happened
 
-My last merged PR was **#30** (`9747248`, 25 April 2021), which completed the refactoring of `Lattice.h` into `geometry/mesh` with proper 2D/3D abstractions, full test coverage, and examples. At that point, the repository had a clean separation:
+My last merged PR was **#30** (`9747248`, 25 April 2021), which completed the refactoring of `Lattice.h` into `geometry/mesh` with proper 2D/3D abstractions, full test coverage, and docs. At that point, the repository had a clean separation:
 
-- `dft_lib/` — my modern C++14 library (`dft` namespace, GTest coverage, examples, Doxygen-ready doc-strings)
+- `dft_lib/` — my modern C++14 library (`dft` namespace, GTest coverage, docs, Doxygen-ready doc-strings)
 - `legacy_lib/` — Jim's original code, untouched, serving as reference for future migration
 
 After my departure, Jim:
@@ -20,7 +20,7 @@ The repository now has a flat legacy structure at root level, with my clean modu
 
 ### My completed work (as of April 2021)
 
-| Module | Headers | Source | Tests | Examples | Status |
+| Module | Headers | Source | Tests | Docs | Status |
 |---|---|---|---|---|---|
 | `utils/console` | `console.h` | (header-only) | 4 tests | console example | Complete |
 | `utils/config_parser` | `config_parser.h` | `config_parser.cpp` | 7 tests | config_parser example | Complete |
@@ -298,7 +298,7 @@ classicalDFT/
 │       ├── interaction/
 │       ├── dft/
 │       └── dynamics/
-├── examples/
+├── docs/
 │   ├── console/
 │   ├── config_parser/
 │   ├── graphs/
@@ -331,7 +331,7 @@ classicalDFT/
 | 0.1 | Fork `jimlutsko/classicalDFT` to my GitHub account | `gh repo fork jimlutsko/classicalDFT --clone=false` |
 | 0.2 | Clone my fork locally | Fresh working copy |
 | 0.3 | Create `main` branch from my last clean commit (`9747248`) | `git checkout -b main 9747248` — this becomes the starting point |
-| 0.4 | Restructure: move `dft_lib/` contents to root-level `include/dft_lib/`, `src/`, `tests/`, `examples/` | Follow the target directory structure above |
+| 0.4 | Restructure: move `dft_lib/` contents to root-level `include/dft_lib/`, `src/`, `tests/`, `docs/` | Follow the target directory structure above |
 | 0.5 | Modernise CMakeLists.txt | C++20, `FetchContent` for GTest, target-based deps, install targets |
 | 0.6 | Add `.github/workflows/ci.yml` | Build + test on Ubuntu, macOS; GCC 12+, Clang 15+ |
 | 0.7 | Add `Dockerfile` updated for modern toolchain | Ubuntu 22.04+, GCC 12, CMake 3.25+, FFTW3, GSL |
@@ -581,7 +581,7 @@ classicalDFT/
 | 5.6 | `Species` tests | `tests/physics/species/species.cpp` | |
 | 5.7 | Wire build | `CMakeLists.txt`, umbrella header | |
 | 5.8 | Build + test | All 437 existing + new tests pass | |
-| 5.9 | Density example | `examples/physics/density/` (main.cpp, CMakeLists.txt, Makefile, README.md) | |
+| 5.9 | Density doc | `docs/physics/density/` (main.cpp, CMakeLists.txt, Makefile, README.md) | |
 | 5.10 | Tag `v2.0.0-alpha.6` | | |
 
 ---
@@ -843,7 +843,7 @@ Static utility. All public methods are `[[nodiscard]] static`.
 | 6.11 | `FMTSpecies` tests | `tests/physics/species/fmt_species.cpp` | |
 | 6.12 | Wire build | `CMakeLists.txt`, umbrella header | |
 | 6.13 | Build + test all | All existing + ~100 new tests pass | |
-| 6.14 | FMT example | `examples/physics/fmt/` (main.cpp, CMakeLists.txt, Makefile, README.md) | |
+| 6.14 | FMT doc | `docs/physics/fmt/` (main.cpp, CMakeLists.txt, Makefile, README.md) | |
 | 6.15 | Tag `v2.0.0-beta.1` | | |
 
 ---
@@ -889,7 +889,7 @@ Static utility. All public methods are `[[nodiscard]] static`.
 | 9.2 | `dynamics/ddft.h` | `Minimizer.h` (DDFT class) | `class DDFT : public Minimizer`: finite-difference diffusion + implicit excess forces. `enum class DiffType { Forward1, Central, Forward2, Forward3 }`. Adaptive timestep |
 | 9.3 | `dynamics/ddft_if.h` | `Minimizer.h` (DDFT_IF class) | `class DDFT_IF : public DDFT`: integrating-factor method with exact diffusion propagator via FFT. Crank-Nicholson implicit. Optional Arnoldi-based eigenvector detection |
 | 9.4 | Tests for dynamics | — | FIRE2 convergence on quadratic potential, DDFT diffusion accuracy (compare with analytic solution for free diffusion), energy decrease monotonicity |
-| 9.5 | Example: droplet nucleation | `examples/Droplet/` | Port legacy droplet example to modern API |
+| 9.5 | Doc: droplet nucleation | `docs/Droplet/` | Port legacy droplet example to modern API |
 | 9.6 | Tag `v2.0.0-beta.4` | | |
 
 **Estimated scope:** 2-3 days.
@@ -906,7 +906,7 @@ Static utility. All public methods are `[[nodiscard]] static`.
 | 10.2 | `utils/log.h` | From `Log.h`: logging to file. Integrate with `console.h` |
 | 10.3 | `utils/timestamp.h` | From `TimeStamp.h`: chrono-based timing |
 | 10.4 | Replace Grace with optional modern plotting | Consider adding a thin gnuplot or matplotlib-cpp backend as alternative to xmgrace |
-| 10.5 | Write comprehensive README.md | Installation, build, usage, examples, API overview |
+| 10.5 | Write comprehensive README.md | Installation, build, usage, docs, API overview |
 | 10.6 | Write Doxygen configuration | Generate API docs from doc-strings |
 | 10.7 | Write mathematical documentation | Markdown notes for FMT, DDFT, potentials (based and extending existing `documentation/latex-notes/` but in markdown README style) |
 | 10.8 | Performance benchmarks | Compare with legacy library on standard problems (droplet, coexistence) |
@@ -1020,4 +1020,4 @@ For each phase, before tagging a release:
 - [ ] No `using namespace std` in any header
 - [ ] No raw `new`/`delete` in new code
 - [ ] Every public method has at least one test
-- [ ] Examples compile and produce expected output
+- [ ] Docs compile and produce expected output

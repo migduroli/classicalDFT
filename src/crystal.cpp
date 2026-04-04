@@ -1,6 +1,5 @@
 #include "dft/types.hpp"
 
-#include <cmath>
 #include <fstream>
 #include <stdexcept>
 

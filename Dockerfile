@@ -28,6 +28,7 @@ RUN apt-get -qq -y update && apt-get -qq -y install --no-install-recommends \
     python3-matplotlib \
     python3-numpy \
     lcov \
+    libjson-xs-perl \
     clang-format \
     clang-tidy \
     && rm -rf /var/lib/apt/lists/*

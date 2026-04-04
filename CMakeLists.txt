@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Options
 option(DFT_BUILD_TESTS    "Build unit tests"        ON)
-option(DFT_BUILD_EXAMPLES "Build example programs"   OFF)
+option(DFT_BUILD_DOCS    "Build doc programs"        OFF)
 option(DFT_USE_GRACE      "Enable xmgrace plotting"  OFF)
 option(DFT_USE_MATPLOTLIB "Enable matplotlib-cpp"     OFF)
 option(DFT_CODE_COVERAGE  "Enable code coverage"      OFF)
@@ -23,6 +23,9 @@ find_package(Armadillo REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFTW3 REQUIRED fftw3)
 pkg_check_modules(GSL REQUIRED gsl)
+
+# FFTW3 threads (optional, enables multi-threaded FFTs)
+find_library(FFTW3_THREADS_LIBRARY NAMES fftw3_threads HINTS ${FFTW3_LIBRARY_DIRS})
 
 include(FetchContent)
 
@@ -110,6 +113,15 @@ target_link_libraries(classicaldft
         autodiff::autodiff
 )
 
+# FFTW3 multi-threaded FFTs
+if(FFTW3_THREADS_LIBRARY)
+    target_link_libraries(classicaldft PUBLIC ${FFTW3_THREADS_LIBRARY})
+    target_compile_definitions(classicaldft PUBLIC DFT_FFTW_THREADS)
+    message(STATUS "FFTW3 threads: enabled (${FFTW3_THREADS_LIBRARY})")
+else()
+    message(STATUS "FFTW3 threads: not found, single-threaded FFTs")
+endif()
+
 target_include_directories(classicaldft
     PUBLIC
         ${ARMADILLO_INCLUDE_DIRS}
@@ -139,7 +151,7 @@ if(DFT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# Examples
-if(DFT_BUILD_EXAMPLES)
-    add_subdirectory(examples)
+# Docs
+if(DFT_BUILD_DOCS)
+    add_subdirectory(docs)
 endif()

@@ -1,6 +1,5 @@
 #include "dft/physics/eos.hpp"
 
-#include <cmath>
 #include <numbers>
 
 namespace dft::physics::eos {

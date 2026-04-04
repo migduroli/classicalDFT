@@ -1,2 +1,0 @@
-add_executable(example_fourier main.cpp)
-target_link_libraries(example_fourier PRIVATE classicaldft)

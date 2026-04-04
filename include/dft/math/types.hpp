@@ -9,7 +9,7 @@ namespace dft::math {
   // Type-erased Hessian-vector product operator for eigenvalue solvers
   // and saddle-point methods.
   struct HessianOperator {
-    std::function<void(const arma::vec&, arma::vec&)> hessian_dot_v;
+    std::function<arma::vec(const arma::vec&)> hessian_dot_v;
     arma::uword dimension;
   };
 

@@ -3,7 +3,6 @@
 
 #include "dft/math/autodiff.hpp"
 
-#include <cmath>
 #include <numbers>
 #include <string_view>
 #include <variant>

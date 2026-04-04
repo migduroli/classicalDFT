@@ -44,7 +44,7 @@ namespace dft::algorithms::solvers {
 
       const arma::mat Jk = J(x);
       arma::vec delta;
-      if (!arma::solve(delta, Jk, fk)) {
+      if (!arma::solve(delta, Jk, fk, arma::solve_opts::no_approx)) {
         return SolverResult{.solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = false};
       }
       x -= delta;

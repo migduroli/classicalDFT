@@ -15,26 +15,32 @@ namespace dft::functionals::fmt {
 
   namespace detail {
 
+    // Tensor-based Phi3 for WhiteBear I/II = esFMT(A=1, B=-1).
+    // Phi3 = (1/(24pi)) * [(n2^3 - 3n2*v1v1 + 3qf - T3) - (n2^3 - 3n2*T2 + 2T3)]
+    //       = (1/(24pi)) * [3n2*T2 - 3n2*v1v1 + 3qf - 3T3]
+
     [[nodiscard]] inline auto tensor_phi3(const Measures& m) -> double {
       constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
-      return INV_24PI *
-          (0.5 * m.n2 * (m.n2 * m.n2 + m.products.trace_T2) -
-           1.5 * (m.n2 * m.products.dot_v1_v1 - m.products.quadratic_form));
+      return INV_24PI * 3.0 *
+          (m.n2 * m.products.trace_T2 - m.n2 * m.products.dot_v1_v1 +
+           m.products.quadratic_form - m.products.trace_T3);
     }
 
     [[nodiscard]] inline auto tensor_phi3_d_n2(const Measures& m) -> double {
       constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
-      return INV_24PI * (1.5 * m.n2 * m.n2 + 0.5 * m.products.trace_T2 - 1.5 * m.products.dot_v1_v1);
+      return INV_24PI * 3.0 * (m.products.trace_T2 - m.products.dot_v1_v1);
     }
 
     [[nodiscard]] inline auto tensor_phi3_d_v1(const Measures& m) -> arma::rowvec3 {
       constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
-      return INV_24PI * 3.0 * ((m.v1 * m.T) - m.n2 * m.v1);
+      return INV_24PI * (-6.0 * m.n2 * m.v1 + 3.0 * m.v1 * m.T + 3.0 * m.v1 * m.T.t());
     }
 
     [[nodiscard]] inline auto tensor_phi3_d_T(int i, int j, const Measures& m) -> double {
-      constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
-      return INV_24PI * (m.n2 * m.T(i, j) + 1.5 * m.v1(i) * m.v1(j));
+      constexpr double INV_8PI = 1.0 / (8.0 * std::numbers::pi);
+      double TT_ji = 0.0;
+      for (int k = 0; k < 3; ++k) TT_ji += m.T(j, k) * m.T(k, i);
+      return INV_8PI * (m.v1(i) * m.v1(j) + 2.0 * m.n2 * m.T(j, i) - 3.0 * TT_ji);
     }
 
   }  // namespace detail
@@ -154,7 +160,8 @@ namespace dft::functionals::fmt {
     [[nodiscard]] static auto f3(T eta) -> T {
       using std::log;
       if (autodiff::val(eta) < 1e-6) {
-        return T(1.0) + (T(2.0) / T(3.0)) * eta + T(0.5) * eta * eta;
+        // Taylor: f3(η) = 3/2 + 8η/3 + 15η²/4 + 24η³/5 + ...
+        return T(1.5) + eta * (T(8.0 / 3.0) + eta * (T(15.0 / 4.0) + T(24.0 / 5.0) * eta));
       }
       T e = T(1.0) - eta;
       return T(1.0) / (eta * e * e) + log(T(1.0) - eta) / (eta * eta);
@@ -183,22 +190,23 @@ namespace dft::functionals::fmt {
 
     template <typename T = double>
     [[nodiscard]] static auto f2(T eta) -> T {
-      T e = T(1.0) - eta;
-      return T(1.0) / e + eta * eta / (T(3.0) * e * e * e);
+      using std::log;
+      if (autodiff::val(eta) < 1e-6) {
+        return T(1.0) + eta * (T(1.0) + eta * (T(10.0 / 9.0) + T(7.0 / 6.0) * eta));
+      }
+      return T(1.0 / 3.0) + T(4.0 / 3.0) / (T(1.0) - eta) +
+             T(2.0) / (T(3.0) * eta) * log(T(1.0) - eta);
     }
 
     template <typename T = double>
     [[nodiscard]] static auto f3(T eta) -> T {
       using std::log;
       if (autodiff::val(eta) < 1e-6) {
-        return T(1.0) + (T(2.0) / T(3.0)) * eta + T(0.5) * eta * eta;
+        return T(1.5) + T(7.0 / 3.0) * eta + T(3.25) * eta * eta + T(4.2) * eta * eta * eta;
       }
       T e = T(1.0) - eta;
-      T f3_rslt = T(1.0) / (eta * e * e) + log(T(1.0) - eta) / (eta * eta);
-      T e2 = e * e;
-      T e4 = e2 * e2;
-      T df2 = T(1.0) / e2 + eta * (T(2.0) + eta) / (T(3.0) * e4);
-      return f3_rslt - eta * eta * df2 / T(3.0);
+      return -((T(1.0) - T(3.0) * eta + eta * eta) / (eta * e * e)) -
+             log(T(1.0) - eta) / (eta * eta);
     }
 
     [[nodiscard]] static auto phi3(const Measures& m) -> double { return detail::tensor_phi3(m); }
@@ -210,7 +218,62 @@ namespace dft::functionals::fmt {
     }
   };
 
-  using FMTModel = std::variant<Rosenfeld, RSLT, WhiteBearI, WhiteBearII>;
+  // Explicitly Stable FMT (Lutsko 2010)
+  // esFMT(A, B) extends Rosenfeld with a tensor-based Phi3:
+  //   Phi3 = (A/(24pi)) * (s2^3 - 3*s2*v2.v2 + 3*v.T.v - T3)
+  //        + (B/(24pi)) * (s2^3 - 3*s2*Tr(T^2) + 2*T3)
+  // Default A=1, B=0. Same f1, f2, f3 as Rosenfeld but tensor Phi3.
+
+  struct EsFMT {
+    static constexpr bool NEEDS_TENSOR = true;
+    static constexpr std::string_view NAME = "esFMT";
+    double A{1.0};
+    double B{0.0};
+
+    template <typename T = double>
+    [[nodiscard]] static auto f1(T eta) -> T { return Rosenfeld::f1(eta); }
+
+    template <typename T = double>
+    [[nodiscard]] static auto f2(T eta) -> T { return Rosenfeld::f2(eta); }
+
+    template <typename T = double>
+    [[nodiscard]] static auto f3(T eta) -> T { return Rosenfeld::f3(eta); }
+
+    [[nodiscard]] auto phi3(const Measures& m) const -> double {
+      constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+      double phi_a = m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.products.dot_v1_v1 +
+                     3.0 * m.products.quadratic_form - m.products.trace_T3;
+      double phi_b = m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.products.trace_T2 +
+                     2.0 * m.products.trace_T3;
+      return INV_24PI * (A * phi_a + B * phi_b);
+    }
+
+    [[nodiscard]] auto d_phi3_d_n2(const Measures& m) const -> double {
+      constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+      double da = 3.0 * m.n2 * m.n2 - 3.0 * m.products.dot_v1_v1;
+      double db = 3.0 * m.n2 * m.n2 - 3.0 * m.products.trace_T2;
+      return INV_24PI * (A * da + B * db);
+    }
+
+    [[nodiscard]] auto d_phi3_d_v1(const Measures& m) const -> arma::rowvec3 {
+      constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
+      // d/dv1_k of (-3*s2*v1.v1 + 3*v1.T.v1) = -6*s2*v1_k + 3*(T.v1)_k + 3*(v1.T)_k
+      arma::rowvec3 tv = m.v1 * m.T + m.v1 * m.T.t();
+      return INV_24PI * A * (-6.0 * m.n2 * m.v1 + 3.0 * tv);
+    }
+
+    [[nodiscard]] auto d_phi3_d_T(int i, int j, const Measures& m) const -> double {
+      constexpr double INV_8PI = 1.0 / (8.0 * std::numbers::pi);
+      // A-term: d/dT_ij of (3*v.T.v - T3)/(24pi) = (v_i*v_j - (T.T)_ji)/(8pi)
+      // B-term: d/dT_ij of (-3*s2*T2 + 2*T3)/(24pi) = (-s2*T_ji + (T.T)_ji)/(4pi)
+      double TT_ji = 0.0;
+      for (int k = 0; k < 3; ++k) TT_ji += m.T(j, k) * m.T(k, i);
+      return INV_8PI * A * (m.v1(i) * m.v1(j) - TT_ji) +
+             (1.0 / (4.0 * std::numbers::pi)) * B * (-m.n2 * m.T(j, i) + TT_ji);
+    }
+  };
+
+  using FMTModel = std::variant<Rosenfeld, RSLT, WhiteBearI, WhiteBearII, EsFMT>;
 
   // Queries
 

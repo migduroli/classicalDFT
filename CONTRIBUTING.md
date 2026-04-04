@@ -15,7 +15,7 @@ The steps are quite standard in the GitHub community:
 5. If your proposed change is accepted, fork the repo, develop and test your code changes.
 6. Ensure that your code adheres to the existing style in the sample to which you are contributing.
 7. Ensure that your code has an appropriate set of unit tests which all pass. This is quite important to us, so please make your maximum effort in writing a 100% unit-tested code.
-8. Create an example project where the new feature is used and explained in a Readme.md file, e.g. [this](examples/console/README.md).
+8. Create a doc project where the new feature is used and explained in a Readme.md file, e.g. [this](docs/console/README.md).
 9. Submit a a well documented pull request.
 
 ## Style

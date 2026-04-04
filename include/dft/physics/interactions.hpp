@@ -12,6 +12,7 @@ namespace dft::physics {
     InterpolationZero,
     InterpolationLinearE,
     InterpolationLinearF,
+    InterpolationQuadraticF,
     GaussE,
     GaussF,
   };
@@ -24,7 +25,7 @@ namespace dft::physics {
     int species_j{0};
     potentials::Potential potential;
     potentials::SplitScheme split{potentials::SplitScheme::WeeksChandlerAndersen};
-    WeightScheme weight_scheme{WeightScheme::InterpolationLinearF};
+    WeightScheme weight_scheme{WeightScheme::InterpolationQuadraticF};
     int gauss_order{5};
   };
 

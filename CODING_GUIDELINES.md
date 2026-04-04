@@ -1,7 +1,7 @@
 # classicalDFT style guide
 
 This document is the single source of truth for every coding convention in this
-project. All new code, refactored code, examples, and tests must follow it.
+project. All new code, refactored code, docs, and tests must follow it.
 
 See `RENOVATION.md` for the complete architectural plan.
 
@@ -91,7 +91,7 @@ src/
   <mirrors include/dft/ — only for non-inline implementations>
 tests/
   <mirrors include/dft/ — one test file per module>
-examples/
+docs/
   <module>/
     main.cpp
     CMakeLists.txt
@@ -104,7 +104,7 @@ Top-level modules: `math`, `physics`, `functionals`, `algorithms`,
 `geometry`, `config`, `plotting`. Root-level headers: `grid.hpp`,
 `types.hpp`, `console.hpp`, `exceptions.hpp`, `init.hpp`.
 
-Source tree, test tree, and example tree mirror the header tree.
+Source tree, test tree, and doc tree mirror the header tree.
 File names must not repeat the directory name.
 
 ---
@@ -701,12 +701,12 @@ static double numerical_derivative(auto f, double x, double h = 1e-6) {
 
 ---
 
-## 14. Example conventions
+## 14. Doc conventions
 
 ### File structure
 
 ```
-examples/<module>/
+docs/<module>/
   main.cpp
   CMakeLists.txt
   Makefile
@@ -717,8 +717,8 @@ examples/<module>/
 ### CMakeLists.txt (minimal)
 
 ```cmake
-add_executable(example_<name> main.cpp)
-target_link_libraries(example_<name> PRIVATE classicaldft)
+add_executable(doc_<name> main.cpp)
+target_link_libraries(doc_<name> PRIVATE classicaldft)
 ```
 
 ### main.cpp structure
@@ -781,7 +781,7 @@ int main() {
 
 ## 15. CMake conventions
 
-- Options prefixed `DFT_`: `DFT_BUILD_TESTS`, `DFT_BUILD_EXAMPLES`,
+- Options prefixed `DFT_`: `DFT_BUILD_TESTS`, `DFT_BUILD_DOCS`,
   `DFT_USE_GRACE`, `DFT_CODE_COVERAGE`.
 - Library sources listed **explicitly** (no `GLOB`) for the static library.
 - Test sources use `file(GLOB_RECURSE)`.

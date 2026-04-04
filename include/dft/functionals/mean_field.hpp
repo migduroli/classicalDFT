@@ -10,7 +10,6 @@
 #include "dft/types.hpp"
 
 #include <armadillo>
-#include <cmath>
 #include <complex>
 #include <numbers>
 #include <span>
@@ -69,6 +68,32 @@ namespace dft::functionals {
       return sum / 8.0;
     }
 
+    // Quadratic force-route (QF): 3 points per axis at offsets [-0.5, 0, +0.5]
+    // with equal weights 1/3 (27-point rule).  Matches Lutsko's
+    // Interaction_Interpolation_QF exactly.
+
+    [[nodiscard]] inline auto cell_weight_quadratic_f(
+        const physics::potentials::Potential& pot, physics::potentials::SplitScheme split,
+        double kT, double dx, long sx, long sy, long sz
+    ) -> double {
+      static constexpr double vv[] = {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
+      static constexpr double pt[] = {-0.5, 0.0, 0.5};
+
+      double sum = 0.0;
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          for (int k = 0; k < 3; ++k) {
+            double rx = (static_cast<double>(sx) + pt[i]) * dx;
+            double ry = (static_cast<double>(sy) + pt[j]) * dx;
+            double rz = (static_cast<double>(sz) + pt[k]) * dx;
+            double r = std::sqrt(rx * rx + ry * ry + rz * rz);
+            sum += vv[i] * vv[j] * vv[k] * physics::potentials::attractive(pot, r, split) / kT;
+          }
+        }
+      }
+      return sum;
+    }
+
     // Compute the cell weight for a given displacement using the specified scheme.
 
     [[nodiscard]] inline auto cell_weight(
@@ -81,9 +106,10 @@ namespace dft::functionals {
         case WeightScheme::InterpolationLinearE:
         case WeightScheme::InterpolationLinearF:
           return cell_weight_linear(inter.potential, inter.split, kT, dx, sx, sy, sz);
+        case WeightScheme::InterpolationQuadraticF:
+          return cell_weight_quadratic_f(inter.potential, inter.split, kT, dx, sx, sy, sz);
         case WeightScheme::GaussE:
         case WeightScheme::GaussF:
-          // Gauss-Legendre requires GSL; fall back to linear for now.
           return cell_weight_linear(inter.potential, inter.split, kT, dx, sx, sy, sz);
       }
       return 0.0;
@@ -112,7 +138,14 @@ namespace dft::functionals {
       double r_cutoff = std::visit(
           [](const auto& p) -> double { return p.r_cutoff; }, inter.potential
       );
-      double r_cut_sq = r_cutoff * r_cutoff;
+      // Expand the early-skip radius to account for sub-cell quadrature
+      // offsets.  The farthest sub-cell point from the cell center lies
+      // at offset sqrt(3) * 0.5 * dx (half the cell diagonal).  Any cell
+      // whose center is within r_cutoff + margin may have a sub-cell
+      // point inside r_cutoff.
+      double margin = std::sqrt(3.0) * 0.5 * dx;
+      double r_skip = r_cutoff + margin;
+      double r_skip_sq = r_skip * r_skip;
 
       math::FourierTransform ft(shape);
       auto real = ft.real();
@@ -128,7 +161,7 @@ namespace dft::functionals {
             long sz = (iz <= nz / 2) ? iz : iz - nz;
 
             double dist2 = static_cast<double>(sx * sx + sy * sy + sz * sz) * dx * dx;
-            if (r_cutoff > 0.0 && dist2 > r_cut_sq) {
+            if (r_cutoff > 0.0 && dist2 > r_skip_sq) {
               continue;
             }
 

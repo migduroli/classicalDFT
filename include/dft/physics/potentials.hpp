@@ -89,7 +89,7 @@ namespace dft::physics::potentials {
     lj.epsilon_shift = (r_cutoff > 0.0) ? vr(r_cutoff) : 0.0;
     lj.r_min = std::pow(2.0, 1.0 / 6.0) * sigma;
     lj.v_min = vr(lj.r_min) - lj.epsilon_shift;
-    lj.r_zero = sigma * std::pow(0.5 * std::sqrt(1.0 + lj.epsilon_shift / (4.0 * epsilon)) + 0.5, -1.0 / 6.0);
+    lj.r_zero = sigma * std::pow(0.5 * std::sqrt(1.0 + lj.epsilon_shift / epsilon) + 0.5, -1.0 / 6.0);
     return lj;
   }
 
@@ -363,7 +363,7 @@ namespace dft::physics::potentials {
                                                                     },
                                                                     pot
                                                                 )
-                                                              : hard_core_diameter(pot);
+                                                              : 0.0;
 
     auto kernel = [&](double r) -> double { return r * r * attractive(pot, r, scheme); };
 

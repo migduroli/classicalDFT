@@ -1,6 +1,7 @@
 #ifndef DFT_GRID_HPP
 #define DFT_GRID_HPP
 
+#include <armadillo>
 #include <array>
 #include <cmath>
 #include <numbers>
@@ -86,6 +87,59 @@ namespace dft {
         }
       }
     }
+  }
+
+  // Boundary mask: 1 for points on any face of the box, 0 for interior.
+
+  [[nodiscard]] inline auto boundary_mask(const Grid& grid) -> arma::uvec {
+    auto n = static_cast<arma::uword>(grid.total_points());
+    arma::uvec mask(n, arma::fill::zeros);
+    for (long ix = 0; ix < grid.shape[0]; ++ix) {
+      for (long iy = 0; iy < grid.shape[1]; ++iy) {
+        for (long iz = 0; iz < grid.shape[2]; ++iz) {
+          bool on_face = (ix == 0 || ix == grid.shape[0] - 1 ||
+                          iy == 0 || iy == grid.shape[1] - 1 ||
+                          iz == 0 || iz == grid.shape[2] - 1);
+          if (on_face) {
+            mask(static_cast<arma::uword>(grid.flat_index(ix, iy, iz))) = 1;
+          }
+        }
+      }
+    }
+    return mask;
+  }
+
+  // Homogeneous boundary: return forces with boundary points
+  // replaced by their average.
+
+  [[nodiscard]] inline auto homogeneous_boundary(
+      const arma::vec& forces, const arma::uvec& mask
+  ) -> arma::vec {
+    double sum = 0.0;
+    arma::uword count = 0;
+    for (arma::uword i = 0; i < forces.n_elem; ++i) {
+      if (mask(i)) { sum += forces(i); count++; }
+    }
+    arma::vec result = forces;
+    if (count > 0) {
+      double avg = sum / static_cast<double>(count);
+      for (arma::uword i = 0; i < result.n_elem; ++i) {
+        if (mask(i)) result(i) = avg;
+      }
+    }
+    return result;
+  }
+
+  // Fixed boundary: return forces with boundary points set to zero.
+
+  [[nodiscard]] inline auto fixed_boundary(
+      const arma::vec& forces, const arma::uvec& mask
+  ) -> arma::vec {
+    arma::vec result = forces;
+    for (arma::uword i = 0; i < result.n_elem; ++i) {
+      if (mask(i)) result(i) = 0.0;
+    }
+    return result;
   }
 
 }  // namespace dft

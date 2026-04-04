@@ -1,13 +1,29 @@
 #include "dft/math/fourier.hpp"
 
 #include <algorithm>
-#include <cstring>
+#include <mutex>
 #include <numeric>
 #include <stdexcept>
+#include <thread>
 
 namespace dft::math {
 
+  namespace {
+    std::once_flag fftw_threads_flag;
+
+    void init_fftw_threading() {
+#ifdef DFT_FFTW_THREADS
+      if (fftw_init_threads()) {
+        fftw_make_planner_thread_safe();
+        auto hw = std::jthread::hardware_concurrency();
+        fftw_plan_with_nthreads(static_cast<int>(hw > 0 ? hw : 1));
+      }
+#endif
+    }
+  }  // namespace
+
   FourierTransform::FourierTransform(std::vector<long> shape) : shape_(std::move(shape)) {
+    std::call_once(fftw_threads_flag, init_fftw_threading);
     if (shape_.size() != 3) {
       throw std::invalid_argument("FourierTransform: shape must have exactly 3 elements");
     }
@@ -86,8 +102,10 @@ namespace dft::math {
   }
 
   void FourierTransform::zeros() {
-    std::memset(real_data_.get(), 0, sizeof(double) * total());
-    std::memset(fourier_data_.get(), 0, sizeof(fftw_complex) * fourier_total());
+    auto r = real();
+    std::fill(r.begin(), r.end(), 0.0);
+    auto f = fourier();
+    std::fill(f.begin(), f.end(), std::complex<double>{0.0, 0.0});
   }
 
   void FourierTransform::scale(double factor) {

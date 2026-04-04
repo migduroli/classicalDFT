@@ -17,8 +17,8 @@ namespace dft::functionals {
   };
 
   // Ideal gas free energy and forces for all species in the state.
-  // F_id = kT sum_i int rho_i(r) [ln(rho_i(r)) - 1] dV
-  // force_i(r) = kT [ln(rho_i(r)) - mu_i / kT] dV
+  // beta F_id = sum_i int rho_i(r) [ln(rho_i(r)) - 1] dV
+  // force_i(r) = [ln(rho_i(r)) - mu_i / kT] dV
 
   [[nodiscard]] inline auto ideal_gas(const Grid& grid, const State& state) -> Contribution {
     double dv = grid.cell_volume();
@@ -31,9 +31,11 @@ namespace dft::functionals {
       const arma::vec& rho = sp.density.values;
       arma::vec log_rho = arma::log(arma::clamp(rho, 1e-300, arma::datum::inf));
 
-      result.free_energy += kT * arma::dot(rho, log_rho - 1.0) * dv;
+      result.free_energy += arma::dot(rho, log_rho - 1.0) * dv;
 
-      arma::vec f = (log_rho - sp.chemical_potential / kT) * dv;
+      // Force: delta(beta Omega) / delta rho_i * dV.
+      // chemical_potential is stored in dimensionless beta*mu units.
+      arma::vec f = (log_rho - sp.chemical_potential) * dv;
       result.forces.push_back(std::move(f));
     }
 

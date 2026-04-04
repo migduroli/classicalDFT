@@ -1,7 +1,6 @@
 #ifndef DFT_MATH_SPLINE_HPP
 #define DFT_MATH_SPLINE_HPP
 
-#include <cstddef>
 #include <gsl/gsl_interp2d.h>
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_spline2d.h>

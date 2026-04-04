@@ -13,13 +13,14 @@ A modern C++20 library for classical density functional theory (DFT) calculation
 ## Developer quickstart
 
 ```bash
-make check       # verify dependencies
-make build       # configure + compile
-make test        # run tests in Docker
-make test-local  # run tests locally (after build)
-make format      # clang-format
-make lint        # clang-tidy
-make clean       # remove build artifacts
+make check              # verify dependencies
+make build              # configure + compile
+make test               # run all tests in Docker (with coverage)
+make unit-tests         # run unit tests in Docker (with coverage)
+make integration-tests  # run integration tests in Docker (with coverage)
+make format             # clang-format
+make lint               # clang-tidy
+make clean              # remove build artifacts
 ```
 
 Run `make` with no arguments to see all available targets.
