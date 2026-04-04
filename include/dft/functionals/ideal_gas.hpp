@@ -1,6 +1,7 @@
 #ifndef DFT_FUNCTIONALS_IDEAL_GAS_HPP
 #define DFT_FUNCTIONALS_IDEAL_GAS_HPP
 
+#include "dft/functionals/types.hpp"
 #include "dft/grid.hpp"
 #include "dft/types.hpp"
 
@@ -9,12 +10,6 @@
 #include <vector>
 
 namespace dft::functionals {
-
-  // A single functional contribution: free energy plus per-species forces.
-  struct Contribution {
-    double free_energy{0.0};
-    std::vector<arma::vec> forces;
-  };
 
   // Ideal gas free energy and forces for all species in the state.
   // beta F_id = sum_i int rho_i(r) [ln(rho_i(r)) - 1] dV

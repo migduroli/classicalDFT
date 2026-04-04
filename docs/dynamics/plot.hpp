@@ -41,6 +41,7 @@ inline void fire2_energy(const std::vector<double>& steps, const std::vector<dou
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/fire2_energy.png");
+  plt::clf();
   plt::close();
   std::cout << "  Plot saved: exports/fire2_energy.png\n";
 }
@@ -56,6 +57,7 @@ inline void ddft_variance(const std::vector<double>& times, const std::vector<do
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/ddft_variance.png");
+  plt::clf();
   plt::close();
   std::cout << "  Plot saved: exports/ddft_variance.png\n";
 }
@@ -87,6 +89,7 @@ inline void ddft_density_profiles(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/ddft_density_profiles.png");
+  plt::clf();
   plt::close();
   std::cout << "  Plot saved: exports/ddft_density_profiles.png\n";
 }

@@ -64,6 +64,22 @@ namespace dft::functionals::fmt {
     return m;
   }
 
+  // Partial derivatives of the free energy density Phi with respect to
+  // each weighted density. Same layout as Measures but every field
+  // holds dPhi/d(field) instead of the weighted density itself.
+
+  struct MeasureDerivatives {
+    double d_eta{0.0};
+    double d_n0{0.0};
+    double d_n1{0.0};
+    double d_n2{0.0};
+
+    arma::rowvec3 d_v0 = arma::zeros<arma::rowvec>(3);
+    arma::rowvec3 d_v1 = arma::zeros<arma::rowvec>(3);
+
+    arma::mat33 d_T = arma::zeros<arma::mat>(3, 3);
+  };
+
 }  // namespace dft::functionals::fmt
 
 #endif  // DFT_FUNCTIONALS_FMT_MEASURES_HPP

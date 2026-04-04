@@ -30,6 +30,7 @@ inline void wca_bh_splitting(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/interaction_wca_bh.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/interaction_wca_bh.png\n";
 }
@@ -47,6 +48,7 @@ inline void mean_field_free_energy(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/interaction_free_energy.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/interaction_free_energy.png\n";
 }
@@ -69,6 +71,7 @@ inline void grid_convergence(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/interaction_convergence.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/interaction_convergence.png\n";
 }

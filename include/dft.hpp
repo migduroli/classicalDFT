@@ -25,6 +25,7 @@
 #include "dft/physics/model.hpp"
 
 // Functionals.
+#include "dft/functionals/types.hpp"
 #include "dft/functionals/fmt/models.hpp"
 #include "dft/functionals/fmt/measures.hpp"
 #include "dft/functionals/ideal_gas.hpp"
@@ -32,16 +33,17 @@
 #include "dft/functionals/mean_field.hpp"
 #include "dft/functionals/external_field.hpp"
 #include "dft/functionals/functionals.hpp"
+#include "dft/functionals/functional.hpp"
 #include "dft/functionals/bulk/thermodynamics.hpp"
+#include "dft/functionals/bulk/coexistence.hpp"
 #include "dft/functionals/bulk/phase_diagram.hpp"
 
 // Algorithms.
-#include "dft/algorithms/parametrization.hpp"
 #include "dft/algorithms/fire.hpp"
 #include "dft/algorithms/picard.hpp"
-#include "dft/algorithms/ddft.hpp"
-#include "dft/algorithms/simulate.hpp"
-#include "dft/algorithms/constrained_minimization.hpp"
+#include "dft/algorithms/minimization.hpp"
+#include "dft/algorithms/dynamics.hpp"
+#include "dft/algorithms/saddle_point.hpp"
 #include "dft/algorithms/solvers/newton.hpp"
 #include "dft/algorithms/solvers/jacobian.hpp"
 #include "dft/algorithms/solvers/continuation.hpp"

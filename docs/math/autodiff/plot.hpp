@@ -39,6 +39,7 @@ namespace plot {
     plt::grid(true);
     plt::tight_layout();
     plt::save(filename);
+    plt::clf();
     plt::close();
     std::cout << "Plot saved: " << filename << "\n";
   }
@@ -65,6 +66,7 @@ namespace plot {
     plt::grid(true);
     plt::tight_layout();
     plt::save("exports/autodiff_accuracy.png");
+    plt::clf();
     plt::close();
     std::cout << "Plot saved: exports/autodiff_accuracy.png\n";
   }

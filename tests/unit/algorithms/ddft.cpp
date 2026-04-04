@@ -1,5 +1,4 @@
-#include "dft/algorithms/ddft.hpp"
-
+#include "dft/algorithms/dynamics.hpp"
 #include "dft/grid.hpp"
 #include "dft/math/fourier.hpp"
 
@@ -7,7 +6,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-using namespace dft::algorithms::ddft;
+using namespace dft::algorithms::dynamics;
 
 static const dft::Grid GRID{.dx = 0.5, .box_size = {4.0, 4.0, 4.0}, .shape = {8, 8, 8}};
 
@@ -64,7 +63,7 @@ TEST_CASE("diffusion propagator decays for k>0", "[ddft]") {
 
 TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  DdftConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
+  StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
   long n = GRID.total_points();
@@ -92,7 +91,7 @@ TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
 
 TEST_CASE("split-operator step keeps density positive", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  DdftConfig config{.dt = 1e-5, .diffusion_coefficient = 1.0, .min_density = 1e-18};
+  StepConfig config{.dt = 1e-5, .diffusion_coefficient = 1.0, .min_density = 1e-18};
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
   long n = GRID.total_points();
@@ -105,7 +104,7 @@ TEST_CASE("split-operator step keeps density positive", "[ddft]") {
 
 TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  DdftConfig config{.dt = 1e-3, .diffusion_coefficient = 1.0};
+  StepConfig config{.dt = 1e-3, .diffusion_coefficient = 1.0};
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
   long n = GRID.total_points();
@@ -141,7 +140,7 @@ TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
 
 TEST_CASE("crank-nicholson step keeps density positive", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  DdftConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0, .min_density = 1e-18};
+  StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0, .min_density = 1e-18};
 
   long n = GRID.total_points();
   arma::vec rho0 = 0.1 * arma::ones(static_cast<arma::uword>(n));
@@ -153,7 +152,7 @@ TEST_CASE("crank-nicholson step keeps density positive", "[ddft]") {
 
 TEST_CASE("crank-nicholson conserves mass approximately", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  DdftConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
+  StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
 
   long n = GRID.total_points();
   arma::vec rho0 = 0.5 * arma::ones(static_cast<arma::uword>(n));

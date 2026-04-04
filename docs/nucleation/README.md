@@ -226,12 +226,12 @@ auto r = nucleation::radial_distances(model.grid);
 arma::vec rho0 = nucleation::step_function(r, R0, rho_l, rho_out);
 double target_mass = arma::accu(rho0) * model.grid.cell_volume();
 
-auto cluster = algorithms::minimize_at_fixed_mass(
+auto cluster = algorithms::minimization::fixed_mass::minimize(
     model, weights, rho0, mu_out, target_mass,
     {.fire = {.dt = 0.1, .dt_max = 1.0, .alpha_start = 0.01,
               .f_alpha = 0.99, .force_tolerance = 1e-8,
               .max_steps = 500000},
-     .param = algorithms::parametrization::Unbounded{.rho_min = 1e-99},
+     .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
      .homogeneous_boundary = true,
      .log_interval = 1000});
 ```
@@ -327,7 +327,7 @@ auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
     return {result.grand_potential, grad};
 };
 
-auto eig = algorithms::smallest_eigenvalue(
+auto eig = algorithms::saddle_point::smallest_eigenvalue(
     eig_force_fn, cluster.densities[0],
     {.tolerance = 1e-4, .max_iterations = 300,
      .hessian_eps = 1e-6, .log_interval = 20});
@@ -393,10 +393,10 @@ auto ddft_force_fn = [&](const std::vector<arma::vec>& densities)
 };
 
 arma::vec rho_grow = cluster.densities[0] + perturb_scale * ev;
-auto sim_grow = algorithms::ddft::simulate({rho_grow}, model.grid, ddft_force_fn, sim_cfg);
+auto sim_grow = algorithms::dynamics::simulate({rho_grow}, model.grid, ddft_force_fn, sim_cfg);
 
 arma::vec rho_shrink = cluster.densities[0] - perturb_scale * ev;
-auto sim_shrink = algorithms::ddft::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
+auto sim_shrink = algorithms::dynamics::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
 ```
 
 ### Tracking the pathway

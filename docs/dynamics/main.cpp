@@ -114,14 +114,14 @@ int main() {
     return {energy, {force}};
   };
 
-  algorithms::ddft::SimulationConfig sim_config{
-      .ddft = {.dt = ddft_dt, .diffusion_coefficient = D, .min_density = 1e-18},
+  algorithms::dynamics::SimulationConfig sim_config{
+      .step = {.dt = ddft_dt, .diffusion_coefficient = D, .min_density = 1e-18},
       .n_steps = n_steps,
       .snapshot_interval = snapshot_interval,
       .log_interval = snapshot_interval,
   };
 
-  auto sim = algorithms::ddft::simulate({ddft_state.species[0].density.values}, model.grid, ddft_force_fn, sim_config);
+  auto sim = algorithms::dynamics::simulate({ddft_state.species[0].density.values}, model.grid, ddft_force_fn, sim_config);
 
   // Collect z-profile snapshots.
 

@@ -30,6 +30,7 @@ inline void hs_pressure(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/hs_pressure.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/hs_pressure.png\n";
 }
@@ -51,6 +52,7 @@ inline void transport_viscosity(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/transport_viscosity.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/transport_viscosity.png\n";
 }

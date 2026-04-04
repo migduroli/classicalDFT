@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dft/algorithms/simulate.hpp"
+#include "dft/algorithms/dynamics.hpp"
 #include "dft/grid.hpp"
 #include "dft/math/spline.hpp"
 
@@ -146,7 +146,7 @@ namespace nucleation {
   // Extract x-slice snapshots and (R_eff, Omega, rho_center) pathway from a DDFT simulation result.
 
   [[nodiscard]] inline auto extract_dynamics(
-      const dft::algorithms::ddft::SimulationResult& sim,
+      const dft::algorithms::dynamics::SimulationResult& sim,
       const dft::Grid& grid, const arma::vec& r,
       double rho_background, double delta_rho
   ) -> DynamicsResult {

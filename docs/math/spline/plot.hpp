@@ -32,6 +32,7 @@ namespace plot {
     plt::grid(true);
     plt::tight_layout();
     plt::save("exports/spline_interpolation.png");
+    plt::clf();
     plt::close();
     std::cout << "Plot saved: exports/spline_interpolation.png\n";
   }
@@ -70,6 +71,7 @@ namespace plot {
     plt::grid(true);
     plt::tight_layout();
     plt::save("exports/spline_derivatives.png");
+    plt::clf();
     plt::close();
     std::cout << "Plot saved: exports/spline_derivatives.png\n";
   }

@@ -53,6 +53,7 @@ inline void pressure_isotherm(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/pressure_isotherm.png");
+  plt::clf();
   plt::close();
   std::cout << "\nPlot saved: exports/pressure_isotherm.png\n";
 }
@@ -79,6 +80,7 @@ inline void free_energy(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/free_energy.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/free_energy.png\n";
 }
@@ -105,6 +107,7 @@ inline void chemical_potential(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/chemical_potential.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/chemical_potential.png\n";
 }
@@ -156,6 +159,7 @@ inline void density_evolution(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/density_evolution.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/density_evolution.png\n";
 }
@@ -175,6 +179,7 @@ inline void grand_potential(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/grand_potential.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/grand_potential.png\n";
 }

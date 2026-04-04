@@ -37,6 +37,7 @@ inline void lattice(
   plt::grid(true);
   plt::tight_layout();
   plt::save(filename);
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: " << filename << "\n";
 }

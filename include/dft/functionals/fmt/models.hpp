@@ -349,9 +349,9 @@ namespace dft::functionals::fmt {
   // Functional derivatives dPhi/dn_alpha for all 19 weighted densities.
   // Returns a Measures struct with derivatives in the corresponding fields.
 
-  [[nodiscard]] inline auto d_phi(const FMTModel& model, const Measures& m) -> Measures {
+  [[nodiscard]] inline auto d_phi(const FMTModel& model, const Measures& m) -> MeasureDerivatives {
     return std::visit(
-        [&](const auto& func) -> Measures {
+        [&](const auto& func) -> MeasureDerivatives {
           double e = m.eta;
           auto [f1_val, df1_val] =
               math::derivatives_up_to_1([&](math::dual x) -> math::dual { return func.f1(x); }, e);
@@ -361,20 +361,20 @@ namespace dft::functionals::fmt {
               math::derivatives_up_to_1([&](math::dual x) -> math::dual { return func.f3(x); }, e);
           double p3 = func.phi3(m);
 
-          Measures dm;
-          dm.eta = -m.n0 * df1_val + (m.n1 * m.n2 - m.products.dot_v0_v1) * df2_val + p3 * df3_val;
-          dm.n0 = -f1_val;
-          dm.n1 = m.n2 * f2_val;
-          dm.n2 = m.n1 * f2_val + func.d_phi3_d_n2(m) * f3_val;
-          dm.v0 = -m.v1 * f2_val;
-          dm.v1 = -m.v0 * f2_val + func.d_phi3_d_v1(m) * f3_val;
+          MeasureDerivatives dm;
+          dm.d_eta = -m.n0 * df1_val + (m.n1 * m.n2 - m.products.dot_v0_v1) * df2_val + p3 * df3_val;
+          dm.d_n0 = -f1_val;
+          dm.d_n1 = m.n2 * f2_val;
+          dm.d_n2 = m.n1 * f2_val + func.d_phi3_d_n2(m) * f3_val;
+          dm.d_v0 = -m.v1 * f2_val;
+          dm.d_v1 = -m.v0 * f2_val + func.d_phi3_d_v1(m) * f3_val;
 
           if constexpr (std::decay_t<decltype(func)>::NEEDS_TENSOR) {
             for (int i = 0; i < 3; ++i)
               for (int j = 0; j < 3; ++j)
-                dm.T(i, j) = func.d_phi3_d_T(i, j, m) * f3_val;
+                dm.d_T(i, j) = func.d_phi3_d_T(i, j, m) * f3_val;
           } else {
-            dm.T.zeros();
+            dm.d_T.zeros();
           }
 
           return dm;
@@ -405,12 +405,12 @@ namespace dft::functionals::fmt {
     double dn1_drho = r;
     double dn0_drho = 1.0;
 
-    double mu_ex = dm.eta * dn3_drho + dm.n2 * dn2_drho + dm.n1 * dn1_drho + dm.n0 * dn0_drho;
+    double mu_ex = dm.d_eta * dn3_drho + dm.d_n2 * dn2_drho + dm.d_n1 * dn1_drho + dm.d_n0 * dn0_drho;
 
     if (needs_tensor(model)) {
       double dt_drho = std::numbers::pi * d * d / 3.0;
       for (int j = 0; j < 3; ++j) {
-        mu_ex += dm.T(j, j) * dt_drho;
+        mu_ex += dm.d_T(j, j) * dt_drho;
       }
     }
 

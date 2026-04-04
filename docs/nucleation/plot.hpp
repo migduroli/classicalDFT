@@ -53,6 +53,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/critical_cluster.png");
+      plt::clf();
       plt::close();
       std::cout << "  exports/critical_cluster.png\n";
     }
@@ -60,7 +61,8 @@ namespace plot {
     inline void plot_dynamics(
         const std::vector<nucleation::SliceSnapshot>& snaps,
         const nucleation::SliceSnapshot& critical,
-        double rho_v, double rho_l,
+        double rho_v,
+        double rho_l,
         const std::string& title,
         int r0, int g0, int b0, int r1, int g1, int b1,
         const std::string& filename
@@ -90,7 +92,7 @@ namespace plot {
           });
         } else {
           plt::plot(snaps[i].x, snaps[i].rho, {
-              {"color", color}, {"linewidth", "1.0"}, {"alpha", "0.5"},
+              {"color", color}, {"linewidth", "1.0"}
           });
         }
       }
@@ -109,6 +111,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save(filename);
+      plt::clf();
       plt::close();
       std::cout << "  " << filename << "\n";
     }
@@ -167,6 +170,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/energy_barrier.png");
+      plt::clf();
       plt::close();
       std::cout << "  exports/energy_barrier.png\n";
     }
@@ -220,6 +224,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/rho_center.png");
+      plt::clf();
       plt::close();
       std::cout << "  exports/rho_center.png\n";
     }

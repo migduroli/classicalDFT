@@ -5,6 +5,7 @@
 #include "dft/functionals/hard_sphere.hpp"
 #include "dft/functionals/ideal_gas.hpp"
 #include "dft/functionals/mean_field.hpp"
+#include "dft/functionals/types.hpp"
 #include "dft/physics/model.hpp"
 
 #include <armadillo>
@@ -56,14 +57,6 @@ namespace dft::functionals {
     }
     return Weights{.fmt_model = fmt_model, .fmt = {}, .mean_field = std::move(mf)};
   }
-
-  // Complete result of a DFT functional evaluation.
-
-  struct Result {
-    double free_energy{0.0};
-    double grand_potential{0.0};
-    std::vector<arma::vec> forces;
-  };
 
   // Evaluate the complete DFT grand potential functional.
   //

@@ -4,8 +4,8 @@
 // computed once on first access.
 
 #include "dft.hpp"
-#include "dft/algorithms/constrained_minimization.hpp"
-#include "dft/algorithms/eigenvalue.hpp"
+#include "dft/algorithms/minimization.hpp"
+#include "dft/algorithms/saddle_point.hpp"
 #include "legacy/algorithms.hpp"
 #include "legacy/classicaldft.hpp"
 
@@ -159,7 +159,7 @@ namespace {
 
       // FIRE minimization: ours.
 
-      auto cluster = algorithms::minimize_at_fixed_mass(
+      auto cluster = algorithms::minimization::fixed_mass::minimize(
           fx.model,
           fx.weights,
           fx.rho0,
@@ -172,7 +172,7 @@ namespace {
                 .f_alpha = 0.99,
                 .force_tolerance = 1e-6,
                 .max_steps = 200000},
-           .param = algorithms::parametrization::Unbounded{.rho_min = 1e-99},
+           .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
            .homogeneous_boundary = true,
            .log_interval = 0}
       );
@@ -247,7 +247,7 @@ namespace {
         return {result.grand_potential, grad};
       };
 
-      auto our_eig = algorithms::smallest_eigenvalue(
+      auto our_eig = algorithms::saddle_point::smallest_eigenvalue(
           eig_force_fn,
           fx.our_cluster,
           {.tolerance = 1e-4, .max_iterations = 300, .hessian_eps = 1e-6, .log_interval = 0}
@@ -299,8 +299,8 @@ namespace {
       rho_init = arma::clamp(rho_init, 1e-18, arma::datum::inf);
 
       // Our DDFT state.
-      auto our_ddft_st = algorithms::ddft::make_ddft_state(fx.model.grid);
-      algorithms::ddft::DdftConfig our_ddft_cfg{
+      auto our_ddft_st = algorithms::dynamics::_internal::make_if_state(fx.model.grid);
+      algorithms::dynamics::StepConfig our_ddft_cfg{
           .dt = ddft_dt,
           .diffusion_coefficient = 1.0,
           .min_density = 1e-18,
@@ -321,8 +321,9 @@ namespace {
 
       for (int step = 1; step <= fx.ddft_comparison_steps; ++step) {
         double our_dt_before = our_ddft_cfg.dt;
-        auto our_result =
-            algorithms::ddft::integrating_factor_step(our_rho, fx.model.grid, our_ddft_st, ddft_force_fn, our_ddft_cfg);
+        auto our_result = algorithms::dynamics::integrating_factor_step(
+            our_rho, fx.model.grid, our_ddft_st, ddft_force_fn, our_ddft_cfg
+        );
         our_rho = std::move(our_result.densities);
 
         if (our_result.dt_used < our_dt_before)

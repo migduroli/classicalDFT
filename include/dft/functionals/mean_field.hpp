@@ -1,7 +1,7 @@
 #ifndef DFT_FUNCTIONALS_MEAN_FIELD_HPP
 #define DFT_FUNCTIONALS_MEAN_FIELD_HPP
 
-#include "dft/functionals/ideal_gas.hpp"
+#include "dft/functionals/types.hpp"
 #include "dft/grid.hpp"
 #include "dft/math/convolution.hpp"
 #include "dft/math/fourier.hpp"
@@ -108,8 +108,9 @@ namespace dft::functionals {
           return cell_weight_linear(inter.potential, inter.split, kT, dx, sx, sy, sz);
         case WeightScheme::InterpolationQuadraticF:
           return cell_weight_quadratic_f(inter.potential, inter.split, kT, dx, sx, sy, sz);
-        case WeightScheme::GaussE:
+        case WeightScheme::GaussE: [[fallthrough]];
         case WeightScheme::GaussF:
+          // TODO: implement Gaussian quadrature; using linear interpolation as placeholder
           return cell_weight_linear(inter.potential, inter.split, kT, dx, sx, sy, sz);
       }
       return 0.0;

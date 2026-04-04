@@ -30,6 +30,7 @@ inline void free_energy(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/fmt_free_energy.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/fmt_free_energy.png\n";
 }
@@ -56,6 +57,7 @@ inline void pressure(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/fmt_pressure.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/fmt_pressure.png\n";
 }
@@ -79,6 +81,7 @@ inline void chemical_potential(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/fmt_chemical_potential.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/fmt_chemical_potential.png\n";
 }

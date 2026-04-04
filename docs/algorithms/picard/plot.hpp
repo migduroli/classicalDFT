@@ -25,6 +25,7 @@ namespace plot {
     plt::grid(true);
     plt::tight_layout();
     plt::save("exports/picard_convergence.png");
+    plt::clf();
     plt::close();
     std::cout << "Plot saved: exports/picard_convergence.png\n";
   }
@@ -54,6 +55,7 @@ namespace plot {
     plt::grid(true);
     plt::tight_layout();
     plt::save("exports/picard_density.png");
+    plt::clf();
     plt::close();
     std::cout << "Plot saved: exports/picard_density.png\n";
   }

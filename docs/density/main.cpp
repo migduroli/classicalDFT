@@ -142,14 +142,14 @@ int main() {
 
   std::println(std::cout, "=== DDFT relaxation (split-operator) ===\n");
 
-  algorithms::ddft::SimulationConfig sim_config{
-      .ddft = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
+  algorithms::dynamics::SimulationConfig sim_config{
+      .step = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
       .n_steps = n_steps,
       .snapshot_interval = snapshot_interval,
       .log_interval = log_interval,
   };
 
-  auto sim = algorithms::ddft::simulate({slab_rho}, model.grid, force_fn, sim_config);
+  auto sim = algorithms::dynamics::simulate({slab_rho}, model.grid, force_fn, sim_config);
 
   // Collect profile snapshots from the simulation.
 

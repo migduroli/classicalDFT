@@ -1,7 +1,7 @@
 #ifndef DFT_FUNCTIONALS_EXTERNAL_FIELD_HPP
 #define DFT_FUNCTIONALS_EXTERNAL_FIELD_HPP
 
-#include "dft/functionals/ideal_gas.hpp"
+#include "dft/functionals/types.hpp"
 #include "dft/grid.hpp"
 #include "dft/types.hpp"
 

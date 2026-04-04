@@ -2,11 +2,8 @@
 #define DFT_FUNCTIONALS_BULK_PHASE_DIAGRAM_HPP
 
 #include "dft/algorithms/solvers/continuation.hpp"
-#include "dft/algorithms/solvers/newton.hpp"
-#include "dft/functionals/bulk/thermodynamics.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/bulk/coexistence.hpp"
 #include "dft/math/spline.hpp"
-#include "dft/types.hpp"
 
 #include <armadillo>
 #include <cmath>
@@ -16,35 +13,6 @@
 #include <vector>
 
 namespace dft::functionals::bulk {
-
-  // Spinodal densities mark the boundaries of mechanical instability
-  // where dP/drho = 0.
-
-  struct Spinodal {
-    double rho_low;
-    double rho_high;
-  };
-
-  // Coexistence densities satisfy equal pressure and chemical potential
-  // across the vapor-liquid boundary (Maxwell construction).
-
-  struct Coexistence {
-    double rho_vapor;
-    double rho_liquid;
-  };
-
-  // Configuration for phase diagram searches.
-
-  struct PhaseSearchConfig {
-    double rho_max{1.0};
-    double rho_scan_step{0.01};
-    algorithms::solvers::NewtonConfig newton{.max_iterations = 200, .tolerance = 1e-10};
-  };
-
-  // Weight factory: produces bulk Weights at a given temperature.
-  // Used by all temperature-scanning functions.
-
-  using WeightFactory = std::function<Weights(double kT)>;
 
   // Result of tracing the full coexistence (binodal) curve from a starting
   // temperature up to the critical point. All arrays share the same length.
@@ -109,197 +77,9 @@ namespace dft::functionals::bulk {
     };
   };
 
-  namespace detail {
+  // Weight factory: produces bulk Weights at a given temperature.
 
-    // Numerical derivative of pressure w.r.t. density (central difference).
-
-    [[nodiscard]] inline auto dp_drho(
-        double rho, const std::vector<Species>& species,
-        const Weights& weights, double h = 1e-7
-    ) -> double {
-      double p_plus = pressure(arma::vec{rho + h}, species, weights);
-      double p_minus = pressure(arma::vec{rho - h}, species, weights);
-      return (p_plus - p_minus) / (2.0 * h);
-    }
-
-  }  // namespace detail
-
-  // Find the density at which the chemical potential equals a target value.
-  // Uses Newton's method from the given initial guess.
-
-  [[nodiscard]] inline auto density_from_chemical_potential(
-      double target_mu, double initial_guess,
-      const std::vector<Species>& species, const Weights& weights,
-      const algorithms::solvers::NewtonConfig& config = {.max_iterations = 200, .tolerance = 1e-10}
-  ) -> std::optional<double> {
-    auto residual = [&](const arma::vec& x) -> arma::vec {
-      return arma::vec{chemical_potential(arma::vec{x(0)}, species, weights, 0) - target_mu};
-    };
-
-    auto result = algorithms::solvers::newton(arma::vec{initial_guess}, residual, config);
-
-    if (!result.converged || result.solution(0) <= 0.0) {
-      return std::nullopt;
-    }
-    return result.solution(0);
-  }
-
-  // Find the spinodal densities where dP/drho = 0 for a single-component
-  // system. A coarse scan locates sign changes in the pressure derivative,
-  // then Newton refines each root.
-  // Returns nullopt if no van der Waals loop is found.
-
-  [[nodiscard]] inline auto find_spinodal(
-      const std::vector<Species>& species, const Weights& weights,
-      const PhaseSearchConfig& config = {}
-  ) -> std::optional<Spinodal> {
-    double step = config.rho_scan_step;
-    double max_rho = config.rho_max;
-
-    // Coarse scan for sign changes in dP/drho.
-    double prev_dp = detail::dp_drho(step, species, weights);
-    double low_lo = 0.0, low_hi = 0.0;
-    double high_lo = 0.0, high_hi = 0.0;
-    bool found_low = false;
-    bool found_high = false;
-
-    double prev_rho = step;
-    for (double rho = 2.0 * step; rho < max_rho; rho += step) {
-      double curr_dp = detail::dp_drho(rho, species, weights);
-      if (prev_dp > 0.0 && curr_dp <= 0.0 && !found_low) {
-        low_lo = prev_rho;
-        low_hi = rho;
-        found_low = true;
-      } else if (prev_dp < 0.0 && curr_dp >= 0.0 && found_low) {
-        high_lo = prev_rho;
-        high_hi = rho;
-        found_high = true;
-        break;
-      }
-      prev_dp = curr_dp;
-      prev_rho = rho;
-    }
-
-    if (!found_low || !found_high) {
-      return std::nullopt;
-    }
-
-    // Refine each root with bisection on dP/drho = 0.
-    // Bisection is used instead of Newton because Newton requires
-    // d²P/drho² via nested numerical differentiation, which suffers
-    // from catastrophic cancellation at small step sizes.
-    auto bisect = [&](double lo, double hi) -> double {
-      double f_lo = detail::dp_drho(lo, species, weights);
-      for (int i = 0; i < 60; ++i) {
-        double mid = 0.5 * (lo + hi);
-        double f_mid = detail::dp_drho(mid, species, weights);
-        if ((f_lo > 0.0) == (f_mid > 0.0)) {
-          lo = mid;
-          f_lo = f_mid;
-        } else {
-          hi = mid;
-        }
-      }
-      return 0.5 * (lo + hi);
-    };
-
-    return Spinodal{.rho_low = bisect(low_lo, low_hi),
-                    .rho_high = bisect(high_lo, high_hi)};
-  }
-
-  // Find the vapor-liquid coexistence densities (Maxwell construction).
-  //
-  // The equal-mu condition uniquely determines rho_l given rho_v,
-  // reducing the problem to a 1D root: delta_P(rho_v) = 0.
-  // A coarse scan from the spinodal brackets this root, then Newton
-  // refines it.
-  // Returns nullopt if no coexistence is found.
-
-  [[nodiscard]] inline auto find_coexistence(
-      const std::vector<Species>& species, const Weights& weights,
-      const PhaseSearchConfig& config = {}
-  ) -> std::optional<Coexistence> {
-    auto spinodal = find_spinodal(species, weights, config);
-    if (!spinodal) {
-      return std::nullopt;
-    }
-
-    double rho_s1 = spinodal->rho_low;
-    double rho_s2 = spinodal->rho_high;
-
-    // Given rho_v, find rho_l with equal mu, then return P_v - P_l.
-    auto delta_p = [&](double rho_v) -> std::optional<double> {
-      double mu_v = chemical_potential(arma::vec{rho_v}, species, weights, 0);
-      auto rho_l = density_from_chemical_potential(
-          mu_v, rho_s2 * 1.2, species, weights, config.newton
-      );
-      if (!rho_l || *rho_l <= rho_s2) {
-        return std::nullopt;
-      }
-      return pressure(arma::vec{rho_v}, species, weights)
-           - pressure(arma::vec{*rho_l}, species, weights);
-    };
-
-    // Bracket: scan downward from spinodal vapor density.
-    double rho_v = rho_s1;
-    auto dp_prev = delta_p(rho_v);
-    if (!dp_prev) {
-      return std::nullopt;
-    }
-
-    double rho_hi = rho_v;
-    double rho_lo = rho_v;
-    bool bracketed = false;
-
-    while (rho_v > 1e-12) {
-      rho_v /= 1.1;
-      auto dp = delta_p(rho_v);
-      if (!dp) {
-        continue;
-      }
-      if ((*dp < 0.0) != (*dp_prev < 0.0)) {
-        rho_lo = rho_v;
-        rho_hi = rho_v * 1.1;
-        bracketed = true;
-        break;
-      }
-      dp_prev = dp;
-    }
-
-    if (!bracketed) {
-      return std::nullopt;
-    }
-
-    // Refine the 1D root delta_P(rho_v) = 0 with bisection.
-    auto dp_lo_val = delta_p(rho_lo);
-    if (!dp_lo_val) {
-      return std::nullopt;
-    }
-
-    for (int i = 0; i < 60; ++i) {
-      double mid = 0.5 * (rho_lo + rho_hi);
-      auto dp_mid = delta_p(mid);
-      if (!dp_mid) {
-        rho_hi = mid;
-        continue;
-      }
-      if ((*dp_lo_val > 0.0) == (*dp_mid > 0.0)) {
-        rho_lo = mid;
-        dp_lo_val = dp_mid;
-      } else {
-        rho_hi = mid;
-      }
-    }
-
-    double rv = 0.5 * (rho_lo + rho_hi);
-    double mu_v = chemical_potential(arma::vec{rv}, species, weights, 0);
-    auto rl = density_from_chemical_potential(mu_v, rho_s2 * 1.2, species, weights, config.newton);
-    if (!rl) {
-      return std::nullopt;
-    }
-
-    return Coexistence{.rho_vapor = rv, .rho_liquid = *rl};
-  }
+  using WeightFactory = std::function<Weights(double kT)>;
 
   // Trace the coexistence curve as a function of temperature using
   // pseudo-arclength continuation. The weight factory produces the
@@ -404,14 +184,14 @@ namespace dft::functionals::bulk {
 
     // Bisection on dp_drho: guaranteed convergence within a bracket.
     auto bisect_root = [&](double a, double b, const Weights& w) -> std::optional<double> {
-      double fa = detail::dp_drho(a, species, w);
-      double fb = detail::dp_drho(b, species, w);
+      double fa = _internal::dp_drho(a, species, w);
+      double fb = _internal::dp_drho(b, species, w);
       if (fa * fb > 0.0) {
         return std::nullopt;
       }
       for (int i = 0; i < 60; ++i) {
         double mid = 0.5 * (a + b);
-        double fm = detail::dp_drho(mid, species, w);
+        double fm = _internal::dp_drho(mid, species, w);
         if (fa * fm <= 0.0) {
           b = mid;
         } else {
@@ -428,8 +208,8 @@ namespace dft::functionals::bulk {
       for (double delta = step; delta < 0.3; delta += step) {
         double a = std::max(guess - delta, 1e-6);
         double b = guess + delta;
-        double fa = detail::dp_drho(a, species, w);
-        double fb = detail::dp_drho(b, species, w);
+        double fa = _internal::dp_drho(a, species, w);
+        double fb = _internal::dp_drho(b, species, w);
         if (fa * fb < 0.0) {
           return std::pair{a, b};
         }

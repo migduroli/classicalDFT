@@ -1,6 +1,4 @@
 #include "dft.hpp"
-#include "dft/algorithms/eigenvalue.hpp"
-#include "dft/algorithms/hessian.hpp"
 #include "legacy/classicaldft.hpp"
 #include "legacy/algorithms.hpp"
 #include "plot.hpp"
@@ -312,7 +310,7 @@ int main() {
   std::cout << "  Initial: rho_in=" << rho_l << " rho_out=" << rho_out << " R=" << R0 << "\n";
   std::cout << "  Target mass = " << target_mass << "\n\n";
 
-  auto cluster = algorithms::minimize_at_fixed_mass(
+  auto cluster = algorithms::minimization::fixed_mass::minimize(
       model, weights, rho0, mu_rho_out, target_mass,
       {.fire = {
            .dt = config::get<double>(cfg, "fire.dt"),
@@ -322,7 +320,7 @@ int main() {
            .force_tolerance = config::get<double>(cfg, "fire.force_tolerance"),
            .max_steps = config::get<int>(cfg, "fire.max_steps"),
        },
-       .param = algorithms::parametrization::Unbounded{.rho_min = 1e-99},
+       .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
        .homogeneous_boundary = true,
        .log_interval = config::get<int>(cfg, "fire.log_interval")});
 
@@ -655,7 +653,7 @@ int main() {
     return {result.grand_potential, grad};
   };
 
-  auto eig_result = algorithms::smallest_eigenvalue(
+  auto eig_result = algorithms::saddle_point::smallest_eigenvalue(
       eig_force_fn, cluster.densities[0],
       {.tolerance = config::get<double>(cfg, "eigen.tolerance"),
        .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
@@ -875,8 +873,8 @@ int main() {
             << "  n_steps=" << comparison_steps << "\n\n";
 
   // Our DDFT state.
-  auto our_ddft_st = algorithms::ddft::make_ddft_state(model.grid);
-  algorithms::ddft::DdftConfig our_ddft_cfg{
+  auto our_ddft_st = algorithms::dynamics::_internal::make_if_state(model.grid);
+  algorithms::dynamics::StepConfig our_ddft_cfg{
       .dt = ddft_dt,
       .diffusion_coefficient = 1.0,
       .min_density = 1e-18,
@@ -910,7 +908,7 @@ int main() {
   for (int step = 1; step <= comparison_steps; ++step) {
     // Our step.
     double our_dt_before = our_ddft_cfg.dt;
-    auto our_result = algorithms::ddft::integrating_factor_step(
+    auto our_result = algorithms::dynamics::integrating_factor_step(
         our_rho, model.grid, our_ddft_st, ddft_force_fn, our_ddft_cfg);
     our_rho = std::move(our_result.densities);
     our_time += our_result.dt_used;
@@ -978,8 +976,8 @@ int main() {
 
   // Now run full dissolution and growth for plotting.
   // Display Delta_Omega = Omega - Omega_bg (positive = above saddle).
-  algorithms::ddft::SimulationConfig sim_cfg{
-      .ddft = {.dt = ddft_dt,
+  algorithms::dynamics::SimulationConfig sim_cfg{
+      .step = {.dt = ddft_dt,
                .diffusion_coefficient = 1.0,
                .min_density = 1e-18,
                .dt_max = ddft_dt_max,
@@ -994,12 +992,12 @@ int main() {
   std::cout << "\n  Dissolution (perturb along -eigenvector, Delta_Omega should decrease):\n";
   arma::vec rho_shrink = rho_cluster - perturb_scale * eig_result.eigenvector;
   rho_shrink = arma::clamp(rho_shrink, 1e-18, arma::datum::inf);
-  auto sim_shrink = algorithms::ddft::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
+  auto sim_shrink = algorithms::dynamics::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
 
   std::cout << "\n  Growth (perturb along +eigenvector, Delta_Omega should decrease):\n";
   arma::vec rho_grow = rho_cluster + perturb_scale * eig_result.eigenvector;
   rho_grow = arma::clamp(rho_grow, 1e-18, arma::datum::inf);
-  auto sim_grow = algorithms::ddft::simulate({rho_grow}, model.grid, ddft_force_fn, sim_cfg);
+  auto sim_grow = algorithms::dynamics::simulate({rho_grow}, model.grid, ddft_force_fn, sim_cfg);
 
 #ifdef DFT_HAS_MATPLOTLIB
   std::cout << "\n  Generating plots...\n";

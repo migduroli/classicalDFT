@@ -49,7 +49,7 @@ namespace dft::algorithms::picard {
   //
   // This converges to the nearest minimum of Omega. To find saddle
   // points (e.g. the critical nucleus), pass a constraint that fixes
-  // the total mass — see fixed_mass_constraint().
+  // the total mass (see minimization::fixed_mass_constraint).
   //
   // When a constraint is active, the residual may plateau at a
   // nonzero value (the Lagrange multiplier). Convergence is then
@@ -115,75 +115,6 @@ namespace dft::algorithms::picard {
         .iterations = iter,
         .converged = residual < config.tolerance
                      || (iter > 0 && std::abs(omega - omega_prev) < config.tolerance),
-    };
-  }
-
-  // Build a constraint that fixes the total mass of each species
-  // relative to a background density:
-  //
-  //   N_ex = integral (rho - rho_bg) dV = target_mass
-  //
-  // After each Picard step, the excess density (rho - rho_bg) is
-  // rescaled so the integral matches the target. This is the
-  // standard approach for finding DFT saddle points (critical
-  // nuclei): the constraint surface cuts through the saddle,
-  // turning it into a constrained stationary point.
-
-  [[nodiscard]] inline auto fixed_mass_constraint(
-      std::vector<double> target_masses,
-      std::vector<arma::vec> backgrounds,
-      double cell_volume,
-      double min_density = 1e-30
-  ) -> Constraint {
-    return [target_masses = std::move(target_masses),
-            backgrounds = std::move(backgrounds),
-            cell_volume, min_density](const std::vector<arma::vec>& densities)
-        -> std::vector<arma::vec> {
-      auto result = densities;
-      for (std::size_t s = 0; s < result.size() && s < target_masses.size(); ++s) {
-        arma::vec excess = result[s] - backgrounds[s];
-        double current_mass = arma::accu(excess) * cell_volume;
-        if (std::abs(current_mass) > 1e-30) {
-          double scale = target_masses[s] / current_mass;
-          result[s] = backgrounds[s] + scale * excess;
-          result[s] = arma::clamp(result[s], min_density, arma::datum::inf);
-        }
-      }
-      return result;
-    };
-  }
-
-  // Wrap a force function with a Householder reflection that
-  // reverses the force component along one direction per species:
-  //
-  //   f' = f - 2 (f . d) d
-  //
-  // This turns a saddle point into an effective minimum. However,
-  // the direction d must be the actual unstable eigenvector of
-  // the Hessian d^2 Omega / d rho^2. Using an approximate
-  // direction (e.g. a breathing mode guess) will generally diverge.
-  //
-  // For nucleation, prefer fixed_mass_constraint() instead.
-
-  [[nodiscard]] inline auto saddle_point_forces(
-      ForceFunction compute, std::vector<arma::vec> directions
-  ) -> ForceFunction {
-    for (auto& d : directions) {
-      double n = arma::norm(d);
-      if (n > 0.0) {
-        d /= n;
-      }
-    }
-
-    return [compute = std::move(compute), directions = std::move(directions)](
-               const std::vector<arma::vec>& densities
-           ) -> std::pair<double, std::vector<arma::vec>> {
-      auto [energy, forces] = compute(densities);
-      for (std::size_t s = 0; s < forces.size() && s < directions.size(); ++s) {
-        double proj = arma::dot(directions[s], forces[s]);
-        forces[s] -= 2.0 * proj * directions[s];
-      }
-      return {energy, std::move(forces)};
     };
   }
 

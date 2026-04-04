@@ -41,6 +41,7 @@ inline void isotherms(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/isotherms.png");
+  plt::clf();
   plt::close();
   std::cout << "\nPlot saved: exports/isotherms.png\n";
 }
@@ -94,6 +95,7 @@ inline void coexistence(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/coexistence.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/coexistence.png\n";
 }
@@ -118,6 +120,7 @@ inline void binodal(const CoexData& cd) {
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/binodal.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/binodal.png\n";
 }
@@ -159,6 +162,7 @@ inline void phase_diagram_plot(
   plt::grid(true);
   plt::tight_layout();
   plt::save("exports/phase_diagram.png");
+  plt::clf();
   plt::close();
   std::cout << "Plot saved: exports/phase_diagram.png\n";
 }

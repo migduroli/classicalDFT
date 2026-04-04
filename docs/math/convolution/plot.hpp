@@ -30,6 +30,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/gaussian_convolution.png");
+      plt::clf();
       plt::close();
       std::cout << "  exports/gaussian_convolution.png\n";
     }

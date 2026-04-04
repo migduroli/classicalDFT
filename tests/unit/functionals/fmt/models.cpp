@@ -188,24 +188,24 @@ TEST_CASE("d_phi returns non-zero derivatives for moderate packing", "[fmt][mode
   auto m = make_uniform_measures(0.5, 1.0);
   auto dm = d_phi(model, m);
 
-  CHECK(dm.eta != 0.0);
-  CHECK(dm.n0 != 0.0);
-  CHECK(dm.n1 != 0.0);
-  CHECK(dm.n2 != 0.0);
+  CHECK(dm.d_eta != 0.0);
+  CHECK(dm.d_n0 != 0.0);
+  CHECK(dm.d_n1 != 0.0);
+  CHECK(dm.d_n2 != 0.0);
 }
 
 TEST_CASE("d_phi tensor derivatives vanish for non-tensor models", "[fmt][models]") {
   FMTModel model = Rosenfeld{};
   auto m = make_uniform_measures(0.5, 1.0);
   auto dm = d_phi(model, m);
-  CHECK(arma::accu(arma::abs(dm.T)) == 0.0);
+  CHECK(arma::accu(arma::abs(dm.d_T)) == 0.0);
 }
 
 TEST_CASE("d_phi tensor derivatives are nonzero for tensor models", "[fmt][models]") {
   FMTModel model = WhiteBearI{};
   auto m = make_uniform_measures(0.5, 1.0);
   auto dm = d_phi(model, m);
-  CHECK(arma::accu(arma::abs(dm.T)) > 0.0);
+  CHECK(arma::accu(arma::abs(dm.d_T)) > 0.0);
 }
 
 // RSLT phi3 zero guard for n2 ~ 0
@@ -317,7 +317,7 @@ TEST_CASE("EsFMT d_phi returns non-zero tensor derivatives", "[fmt][models]") {
   FMTModel model = EsFMT{.A = 1.0, .B = 0.0};
   auto m = make_uniform_measures(0.5, 1.0);
   auto dm = d_phi(model, m);
-  CHECK(arma::accu(arma::abs(dm.T)) > 0.0);
-  CHECK(dm.eta != 0.0);
-  CHECK(dm.n2 != 0.0);
+  CHECK(arma::accu(arma::abs(dm.d_T)) > 0.0);
+  CHECK(dm.d_eta != 0.0);
+  CHECK(dm.d_n2 != 0.0);
 }

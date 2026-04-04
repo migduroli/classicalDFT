@@ -1,12 +1,12 @@
-#include "dft/algorithms/parametrization.hpp"
-
+#include "dft/algorithms/minimization.hpp"
 #include "dft/grid.hpp"
 
 #include <armadillo>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-using namespace dft::algorithms::parametrization;
+using namespace dft::algorithms::minimization;
+using namespace dft::algorithms::minimization::_internal;
 
 // Unbounded parametrization: rho = rho_min + x^2
 
