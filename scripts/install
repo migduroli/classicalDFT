@@ -93,7 +93,7 @@ build_local() {
 # ── Main ────────────────────────────────────────────────────────────────────
 
 install() {
-  message "info" "classicalDFT local install"
+  message "info" "libclassicaldft local install"
   install_deps
   build_local
   message "success" "Done. Run docs with: cd docs/<name> && make run-local"
