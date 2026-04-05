@@ -122,7 +122,7 @@ TEST_CASE("newton verbose mode prints iteration info", "[newton]") {
     return m;
   };
 
-  auto result = Newton{ .tolerance = 1e-12, .verbose = true }.solve(arma::vec{ 0.0 }, f, J);
+  auto result = Newton{ .tolerance = 1e-12 }.solve(arma::vec{ 0.0 }, f, J);
 
   REQUIRE(result.converged);
 }

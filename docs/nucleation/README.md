@@ -468,8 +468,6 @@ decreases as the dissolving droplet relaxes toward $\rho_v$, and increases as
 the growing droplet approaches $\rho_l$. The critical cluster (star) separates
 the two regimes.
 
-![Central density](exports/rho_center.png)
-
 ---
 
 ## 5. Cross-validation (`check/`)

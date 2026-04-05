@@ -1,9 +1,7 @@
-# classicalDFT style guide
+# Modern classicalDFT style guide
 
 This document is the single source of truth for every coding convention in this
 project. All new code, refactored code, docs, and tests must follow it.
-
-See `RENOVATION.md` for the complete architectural plan.
 
 The guiding principle is **readability through simplicity**: code should read
 almost like a high-level scripting language while retaining zero-cost C++23

@@ -1,23 +1,27 @@
-# How to contribute to classicalDFT
+# How to contribute to Modern classicalDFT
 
-Given the academic character of this repository, we hope researchers in need of a consistent toolbox for classical DFT calculations to come around and start playing with the code. After some warm up, maybe you feel confident enough to improve this or that bit of code, or extend a given module, or even better, to start contributing with new DFT energy models which will be likely published in scientific journals later. We also hope this translates in an improvement of the library to be shared with the community, and **we'll thank you for this!**
+We hope researchers working in classical DFT find this library useful. Whether you fix a bug, improve performance, extend a module, or contribute a new energy model, **we'll thank you for it!**
 
-However, before we can take your changes/improvements, we need you to follow the procedure explained below so that everything can be properly tracked by every contributor in the easiest and most standard way. It is just a set of systematic steps, which we encourage everyone to embrace.
+Please follow the procedure below so that changes are properly tracked.
 
 ## Contribution procedure
 
-The steps are quite standard in the GitHub community:
-
-1. Submit an issue describing your proposed change or improvement to the [issue tracker](https://github.com/jimlutsko/classicalDFT/issues) of this project.
-2. Before submitting the issue where the new change is explained, please make sure this change is not being already developed or listed. You can always ask team members in case of doubt.
-3. Please don't mix more than one logical change per issue. This would make the repository history hard to follow.
-4. Coordinate with team members that are listed on the issue in question, as suggested in point 2. This will remove any potential redundancy, besides allowing for a better planning which should result in better code.
-5. If your proposed change is accepted, fork the repo, develop and test your code changes.
-6. Ensure that your code adheres to the existing style in the sample to which you are contributing.
-7. Ensure that your code has an appropriate set of unit tests which all pass. This is quite important to us, so please make your maximum effort in writing a 100% unit-tested code.
-8. Create a doc project where the new feature is used and explained in a Readme.md file, e.g. [this](docs/console/README.md).
-9. Submit a a well documented pull request.
+1. Submit an issue describing your proposed change to the [issue tracker](https://github.com/migduroli/classicalDFT/issues). Check that it is not already being worked on.
+2. One logical change per issue. Do not mix unrelated changes.
+3. Coordinate with team members listed on the issue to avoid redundancy.
+4. Fork the repo, develop and test your code changes.
+5. Ensure your code follows [`CODING_GUIDELINES.md`](CODING_GUIDELINES.md) — naming, formatting, value semantics, test conventions, etc.
+6. Run `make format` and `make lint` before committing.
+7. Write Catch2 tests for all new functionality. All existing tests must continue to pass.
+8. Add a doc example under `docs/` with a `README.md`, `main.cpp`, and `Makefile` (see existing examples).
+9. Submit a well-documented pull request.
 
 ## Style
 
-Our style of code adheres to Google's standards ([google-styleguide](https://github.com/google/styleguide)). We want to keep the source consistent, readable and easy to merge. For this reason we use rigid coding style and we expect all contributors to conform [this](https://google.github.io/styleguide/cppguide.html) guidelines. Please, use [.clang-format](.clang-format) to check your formatting.
+All coding conventions are defined in [`CODING_GUIDELINES.md`](CODING_GUIDELINES.md). Key points:
+
+- C++23, formatted with `.clang-format` (PEP8-like, 120 col, 2-space indent)
+- `struct` for data and configuration, `class` only when encapsulation serves the user
+- Value semantics: functions return results, never mutate arguments
+- `[[nodiscard]]` on every function that returns a value
+- Catch2 v3 for testing, one test file per module

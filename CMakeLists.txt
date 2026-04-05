@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(classicalDFT
+project(libclassicaldft
     VERSION 3.0.0
-    DESCRIPTION "Classical Density Functional Theory library"
+    DESCRIPTION "Modern classicalDFT — a C++23 library for classical density functional theory"
     LANGUAGES CXX
 )
 
@@ -43,6 +43,10 @@ set(AUTODIFF_BUILD_PYTHON OFF CACHE BOOL "" FORCE)
 set(AUTODIFF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(AUTODIFF_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(autodiff)
+
+# Suppress warnings from autodiff headers (third-party code).
+get_target_property(_autodiff_dirs autodiff INTERFACE_INCLUDE_DIRECTORIES)
+set_target_properties(autodiff PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_autodiff_dirs}")
 
 # matplotlib-cpp (header-only, fetched automatically)
 if(DFT_USE_MATPLOTLIB)
