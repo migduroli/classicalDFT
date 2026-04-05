@@ -47,7 +47,9 @@ int main() {
       .temperature = kT,
   };
 
-  auto func = functionals::make_functional(functionals::fmt::RSLT{}, model);
+  auto fmt_name = config::get<std::string>(cfg, "model.fmt_model");
+  auto func = functionals::make_functional(
+      functionals::fmt::FMTModel::from_name(fmt_name), model);
   auto eos = func.bulk();
 
   auto coex = functionals::bulk::PhaseSearch{
@@ -62,14 +64,12 @@ int main() {
 
   double rho_v = coex->rho_vapor;
   double rho_l = coex->rho_liquid;
-  double rho_out = config::get<double>(cfg, "droplet.density_outside");
 
-  // Ensure supersaturation (rho_out > rho_v).
-  double S = rho_out / rho_v;
-  if (S < 1.0) {
-    rho_out = 1.1 * rho_v;
-    S = 1.1;
-  }
+  // Supersaturation from config (default 1.1).
+  double S = cfg["droplet"].contains("supersaturation")
+                 ? cfg["droplet"]["supersaturation"].get<double>()
+                 : 1.1;
+  double rho_out = S * rho_v;
 
   double mu_out = eos.chemical_potential(
       arma::vec{rho_out}, 0);
@@ -118,17 +118,25 @@ int main() {
 
   double delta_omega = omega_cluster - omega_bg;
 
-  double R_eff = nucleation::equimolar_radius(cluster.densities[0], func.model.grid, r);
+  // Effective radius using Jim's mass-based definition:
+  // R_e = (3 Delta_N / (4 pi (rho_l - rho_v)))^(1/3)
+  double dv = func.model.grid.cell_volume();
+  double R_eff = nucleation::effective_radius(
+      cluster.densities[0], background, rho_l - rho_v, dv, r);
 
-  // Metastable vapor density at mu_bg (dissolution endpoint).
+  // Metastable densities at mu_bg (the actual initial/final states).
   auto rho_v_meta_opt = functionals::bulk::density_from_chemical_potential(
       mu_bg, rho_v * 0.9, eos);
   double rho_v_meta = rho_v_meta_opt.value_or(background);
 
+  auto rho_l_meta_opt = functionals::bulk::density_from_chemical_potential(
+      mu_bg, rho_l * 1.1, eos);
+  double rho_l_meta = rho_l_meta_opt.value_or(rho_l);
+
   std::println(std::cout, "\nCritical cluster:");
   std::println(std::cout, "  converged={} ({} iters)", cluster.converged, cluster.iterations);
   std::println(std::cout, "  R_eff={:.4f}  background={:.6f}", R_eff, background);
-  std::println(std::cout, "  rho_v(mu)={:.6f}  (metastable vapor at mu_bg)", rho_v_meta);
+  std::println(std::cout, "  rho_v(mu)={:.6f}  rho_l(mu)={:.6f}", rho_v_meta, rho_l_meta);
   std::println(std::cout, "  Delta_Omega={:.6f}  (barrier height)", delta_omega);
 
   if (R_eff < 0.5 || cluster.densities[0].max() < 2.0 * background) {
@@ -161,7 +169,7 @@ int main() {
 
   double perturb_scale = config::get<double>(cfg, "ddft.perturb_scale");
 
-  algorithms::dynamics::Simulation ddft_cfg{
+  algorithms::dynamics::Simulation ddft{
       .step = {
           .dt = config::get<double>(cfg, "ddft.dt"),
           .diffusion_coefficient = config::get<double>(cfg, "ddft.diffusion_coefficient"),
@@ -177,6 +185,22 @@ int main() {
       .boundary = algorithms::dynamics::reservoir_boundary(bdry, background),
   };
 
+  // Early-stop for dissolution: once Delta_Omega drops below a
+  // threshold (droplet fully dissolved), further integration is
+  // wasted.  Stop when |Delta_E| < tol for a few consecutive checks.
+  double early_stop_tol = 0.01;  // kT
+  int early_stop_count = 0;
+  constexpr int early_stop_patience = 3;
+
+  auto dissolution_stop = [&](int /*step*/, double /*time*/, double energy) -> bool {
+    if (std::abs(energy - omega_bg) < early_stop_tol) {
+      ++early_stop_count;
+    } else {
+      early_stop_count = 0;
+    }
+    return early_stop_count >= early_stop_patience;
+  };
+
   // Determine eigenvector sign: positive perturbation should grow the cluster.
 
   arma::vec ev = eig.eigenvector;
@@ -186,27 +210,38 @@ int main() {
   std::println(std::cout, "\nGrowth (perturb along +eigenvector):");
   arma::vec rho_grow = cluster.densities[0] + perturb_scale * ev;
   rho_grow = arma::clamp(rho_grow, 1e-18, arma::datum::inf);
-  auto sim_grow = ddft_cfg.run(
+  auto sim_grow = ddft.run(
       {rho_grow}, func.model.grid, gc_force_fn);
 
   std::println(std::cout, "\nDissolution (perturb along -eigenvector):");
   arma::vec rho_shrink = cluster.densities[0] - perturb_scale * ev;
   rho_shrink = arma::clamp(rho_shrink, 1e-18, arma::datum::inf);
-  auto sim_shrink = ddft_cfg.run(
+  early_stop_count = 0;
+  auto ddft_dissolve = ddft;
+  ddft_dissolve.stop_condition = dissolution_stop;
+  auto sim_shrink = ddft_dissolve.run(
       {rho_shrink}, func.model.grid, gc_force_fn);
 
-  auto dyn_grow = nucleation::extract_dynamics(sim_grow, func.model.grid, r);
-  auto dyn_shrink = nucleation::extract_dynamics(sim_shrink, func.model.grid, r);
+  // Use mass-based effective radius:
+  // R_e = (3 Delta_N / (4 pi (rho_l - rho_v)))^(1/3)
+  // In grand-canonical DDFT with reservoir boundary, mass is NOT conserved,
+  // so Delta_N changes and R_e tracks the growing/dissolving droplet.
+  double delta_rho = rho_l - rho_v;
+
+  auto dyn_grow = nucleation::extract_dynamics(sim_grow, func.model.grid, r, background, delta_rho);
+  auto dyn_shrink = nucleation::extract_dynamics(sim_shrink, func.model.grid, r, background, delta_rho);
 
 #ifdef DFT_HAS_MATPLOTLIB
   std::println(std::cout, "\nGenerating plots...");
+  std::string export_dir = std::string("exports/") + fmt_name;
+  std::filesystem::create_directories(export_dir);
   double rho_center_critical = nucleation::center_density(cluster.densities[0], func.model.grid);
   plot::make_plots(
       nucleation::extract_x_slice(cluster.densities[0], func.model.grid),
       nucleation::extract_x_slice(rho0, func.model.grid),
       dyn_shrink, dyn_grow,
       {.radius = R_eff, .energy = omega_cluster, .rho_center = rho_center_critical},
-      omega_bg, rho_v, rho_l, rho_v_meta);
+      omega_bg, rho_v_meta, rho_l_meta, fmt_name, export_dir);
 #endif
 
   std::println(std::cout, "\nDone.");

@@ -558,6 +558,9 @@ namespace dft::algorithms::dynamics {
     };
   }
 
+  // Optional callback checked after each step; return true to stop early.
+  using StopCondition = std::function<bool(int step, double time, double energy)>;
+
   // Configuration for a full DDFT simulation run.
 
   struct Simulation {
@@ -567,6 +570,7 @@ namespace dft::algorithms::dynamics {
     int log_interval{50};
     double energy_offset{0.0};
     BoundaryCondition boundary{};
+    StopCondition stop_condition{};
 
     // Run a DDFT simulation using Lutsko's integrating-factor scheme
     // with implicit fixed-point iteration and adaptive timestep.
@@ -665,6 +669,13 @@ namespace dft::algorithms::dynamics {
             .energy = e_step,
             .densities = densities,
         });
+      }
+
+      if (stop_condition && stop_condition(step, time, e_step)) {
+        if (log_interval > 0) {
+          std::cout << std::format("  Early stop at step {} (t={:.6f})\n", step, time);
+        }
+        break;
       }
     }
 

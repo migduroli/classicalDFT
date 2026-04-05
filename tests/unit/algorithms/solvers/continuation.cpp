@@ -251,3 +251,95 @@ TEST_CASE("trace grows step after successful steps", "[continuation]") {
   CHECK(curve.size() >= 2);
   CHECK(curve.back().x(0) > 0.3);
 }
+
+TEST_CASE("matrix-free continuation step advances along unit circle", "[continuation]") {
+  CurvePoint start{
+      .x = arma::vec{0.0},
+      .lambda = 1.0,
+      .dx_ds = arma::vec{1.0},
+      .dlambda_ds = 0.0,
+  };
+
+  MatrixFreeContinuation config{
+      .initial_step = 0.1,
+      .newton = {.max_iterations = 50, .tolerance = 1e-10,
+                 .gmres = {.tolerance = 1e-12}},
+  };
+
+  auto next = config.step(start, circle_residual, 0.1);
+
+  REQUIRE(next.has_value());
+
+  double r2 = next->x(0) * next->x(0) + next->lambda * next->lambda;
+  CHECK(r2 == Catch::Approx(1.0).margin(1e-6));
+  CHECK(next->x(0) > 0.0);
+  CHECK(next->lambda < 1.0);
+}
+
+TEST_CASE("matrix-free continuation traces quarter circle", "[continuation]") {
+  CurvePoint start{
+      .x = arma::vec{0.0},
+      .lambda = 1.0,
+      .dx_ds = arma::vec{1.0},
+      .dlambda_ds = 0.0,
+  };
+
+  MatrixFreeContinuation config{
+      .initial_step = 0.05,
+      .max_step = 0.2,
+      .min_step = 1e-4,
+      .newton = {.max_iterations = 50, .tolerance = 1e-8,
+                 .gmres = {.tolerance = 1e-10}},
+  };
+
+  auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.lambda < 0.05; });
+
+  REQUIRE(curve.size() > 2);
+
+  for (const auto& p : curve) {
+    double r2 = p.x(0) * p.x(0) + p.lambda * p.lambda;
+    CHECK(r2 == Catch::Approx(1.0).margin(1e-5));
+  }
+
+  CHECK(curve.back().x(0) == Catch::Approx(1.0).margin(0.1));
+}
+
+TEST_CASE("matrix-free continuation handles turning point", "[continuation]") {
+  auto cubic_residual = [](const arma::vec& x, double lambda) -> arma::vec {
+    return arma::vec{lambda - x(0) * x(0) * x(0) + x(0)};
+  };
+
+  CurvePoint start{
+      .x = arma::vec{0.0},
+      .lambda = 0.0,
+      .dx_ds = arma::vec{0.0},
+      .dlambda_ds = 1.0,
+  };
+
+  MatrixFreeContinuation config{
+      .initial_step = 0.05,
+      .max_step = 0.1,
+      .min_step = 1e-4,
+      .newton = {.max_iterations = 50, .tolerance = 1e-8,
+                 .gmres = {.tolerance = 1e-10}},
+  };
+
+  double prev_lambda = start.lambda;
+  bool passed_turning = false;
+  int steps_taken = 0;
+  auto curve = config.trace(start, cubic_residual, [&](const CurvePoint& p) {
+    ++steps_taken;
+    if (steps_taken > 5 && p.lambda < prev_lambda) {
+      passed_turning = true;
+    }
+    prev_lambda = p.lambda;
+    return passed_turning;
+  });
+
+  REQUIRE(curve.size() > 3);
+
+  for (const auto& p : curve) {
+    double res = p.lambda - p.x(0) * p.x(0) * p.x(0) + p.x(0);
+    CHECK(std::abs(res) < 1e-5);
+  }
+}

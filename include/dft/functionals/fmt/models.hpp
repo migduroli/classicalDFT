@@ -423,6 +423,15 @@ namespace dft::functionals::fmt {
       return std::visit([](const auto& f) -> std::string_view { return f.NAME; }, data_);
     }
 
+    [[nodiscard]] static auto from_name(std::string_view name) -> FMTModel {
+      if (name == "Rosenfeld") return Rosenfeld{};
+      if (name == "RSLT") return RSLT{};
+      if (name == "WhiteBearI") return WhiteBearI{};
+      if (name == "WhiteBearII") return WhiteBearII{};
+      if (name == "esFMT") return EsFMT{};
+      throw std::invalid_argument(std::string("Unknown FMT model: ") + std::string(name));
+    }
+
     // Access underlying variant for rare type-specific inspection
     using VariantType = std::variant<Rosenfeld, RSLT, WhiteBearI, WhiteBearII, EsFMT>;
     [[nodiscard]] auto variant() const -> const VariantType& { return data_; }

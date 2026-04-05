@@ -119,3 +119,40 @@ TEST_CASE("newton returns non-converged for singular jacobian", "[newton]") {
 
   CHECK(!result.converged);
 }
+
+TEST_CASE("newton-gmres solves nonlinear system with auto JVP", "[newton]") {
+  auto f = [](const arma::vec& x) -> arma::vec { return arma::vec{x(0) * x(0) - 4.0, x(1) * x(1) - 9.0}; };
+
+  auto result = Newton{.tolerance = 1e-8}.solve_matrix_free(arma::vec{1.0, 2.0}, f);
+
+  REQUIRE(result.converged);
+  CHECK(result.solution(0) == Catch::Approx(2.0).margin(1e-6));
+  CHECK(result.solution(1) == Catch::Approx(3.0).margin(1e-6));
+}
+
+TEST_CASE("newton-gmres solves linear system with custom JVP factory", "[newton]") {
+  arma::mat A = {{2.0, 1.0}, {1.0, 3.0}};
+  arma::vec b = {5.0, 7.0};
+
+  auto f = [&](const arma::vec& x) -> arma::vec { return A * x - b; };
+
+  // JVP factory: J(x) * v = A * v (exact, since f is linear)
+  auto jvp_factory = [&A](const arma::vec&) {
+    return [&A](const arma::vec& v) -> arma::vec { return A * v; };
+  };
+
+  auto result = Newton{.tolerance = 1e-12}.solve_matrix_free(arma::vec{0.0, 0.0}, f, jvp_factory);
+
+  REQUIRE(result.converged);
+  arma::vec expected = arma::solve(A, b);
+  CHECK(result.solution(0) == Catch::Approx(expected(0)).margin(1e-8));
+  CHECK(result.solution(1) == Catch::Approx(expected(1)).margin(1e-8));
+}
+
+TEST_CASE("newton-gmres reports non-convergence", "[newton]") {
+  auto f = [](const arma::vec& x) -> arma::vec { return arma::vec{std::exp(x(0)) - 1.0}; };
+
+  auto result = Newton{.max_iterations = 2, .tolerance = 1e-15}.solve_matrix_free(arma::vec{50.0}, f);
+
+  CHECK(!result.converged);
+}

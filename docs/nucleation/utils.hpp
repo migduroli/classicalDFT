@@ -80,11 +80,10 @@ namespace nucleation {
 
   // Effective droplet radius from excess particle number:
   // R_eff = (3 Delta_N / (4 pi delta_rho))^(1/3)
-  // NOTE: This definition gives a constant R when total mass is conserved
-  // (as in DDFT). Use equimolar_radius for dynamics tracking.
 
   [[nodiscard]] inline auto effective_radius(
-      const arma::vec& rho, double rho_background, double delta_rho, double dv
+      const arma::vec& rho, double rho_background, double delta_rho, double dv,
+      const arma::vec& /*r*/ = {}
   ) -> double {
     double delta_N = (arma::accu(rho) - static_cast<double>(rho.n_elem) * rho_background) * dv;
     if (delta_N <= 0.0) return 0.0;
@@ -172,7 +171,9 @@ namespace nucleation {
     return {.time = 0.0, .x = x_out, .rho = rho_out};
   }
 
-  // Central density: value at the box center (ix=Nx/2, iy=Ny/2, iz=Nz/2).
+  // Center density rho_0 = rho(r=0): the density at the box center.
+  // Smooth and parameter-free — avoids the binning artifacts of
+  // volume-weighted averages.
 
   [[nodiscard]] inline auto center_density(
       const arma::vec& rho, const dft::Grid& grid
@@ -184,7 +185,7 @@ namespace nucleation {
   }
 
   // Extract x-slice snapshots and (R_eff, Omega, rho_center) pathway from a DDFT simulation result.
-  // Overload with explicit rho_background / delta_rho (mass-based radius, kept for check tool).
+  // Overload with explicit rho_background / delta_rho (mass-based radius).
 
   [[nodiscard]] inline auto extract_dynamics(
       const dft::algorithms::dynamics::SimulationResult& sim,
@@ -197,8 +198,9 @@ namespace nucleation {
       auto prof = extract_x_slice(snap.densities[0], grid);
       prof.time = snap.time;
       result.profiles.push_back(std::move(prof));
+      double R = effective_radius(snap.densities[0], rho_background, delta_rho, dv, r);
       result.pathway.push_back({
-          .radius = effective_radius(snap.densities[0], rho_background, delta_rho, dv),
+          .radius = R,
           .energy = snap.energy,
           .rho_center = center_density(snap.densities[0], grid),
       });
@@ -217,8 +219,9 @@ namespace nucleation {
       auto prof = extract_x_slice(snap.densities[0], grid);
       prof.time = snap.time;
       result.profiles.push_back(std::move(prof));
+      double R = equimolar_radius(snap.densities[0], grid, r);
       result.pathway.push_back({
-          .radius = equimolar_radius(snap.densities[0], grid, r),
+          .radius = R,
           .energy = snap.energy,
           .rho_center = center_density(snap.densities[0], grid),
       });
