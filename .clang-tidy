@@ -21,25 +21,25 @@ Checks: >
   readability-redundant-*,
   readability-simplify-*,
 
-WarningsAsErrors: ''
+WarningsAsErrors: ""
 
-HeaderFilterRegex: 'include/classicaldft_bits/.*'
+HeaderFilterRegex: "include/dft/.*"
 
 CheckOptions:
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
   - key: readability-identifier-naming.ClassIgnoredRegexp
-    value: '^tenWoldeFrenkel$'
+    value: "^tenWoldeFrenkel$"
   - key: readability-identifier-naming.PrivateMemberSuffix
-    value: '_'
+    value: "_"
   - key: readability-identifier-naming.ProtectedMemberSuffix
-    value: '_'
+    value: "_"
   - key: readability-identifier-naming.FunctionCase
     value: lower_case
   - key: readability-identifier-naming.MethodIgnoredRegexp
-    value: '^_|_$'
+    value: "^_|_$"
   - key: readability-identifier-naming.FunctionIgnoredRegexp
-    value: '^_'
+    value: "^_"
   - key: readability-identifier-naming.VariableCase
     value: lower_case
   - key: readability-identifier-naming.NamespaceCase

@@ -1,0 +1,90 @@
+#ifndef DFT_TYPES_HPP
+#define DFT_TYPES_HPP
+
+#include <armadillo>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace dft {
+
+  // Density
+
+  // Pure data: the density profile and optional external field on a grid.
+  // No methods, no FFT, no derived quantities. All logic lives in free
+  // functions elsewhere.
+  struct Density {
+    arma::vec values;
+    arma::vec external_field;
+  };
+
+  // Species
+
+  // Immutable physical identity of a species. Does not change during a
+  // simulation. Multiple species in a mixture are distinguished by index.
+  struct Species {
+    std::string name;
+    double hard_sphere_diameter;
+  };
+
+  // Mutable simulation state for one species: its density profile, the
+  // accumulated functional derivative (force), chemical potential, and
+  // an optional fixed-mass constraint.
+  struct SpeciesState {
+    Density density;
+    arma::vec force;
+    double chemical_potential{0.0};
+    std::optional<double> fixed_mass;
+  };
+
+  // State
+
+  // Aggregate of all mutable state in a DFT calculation: one SpeciesState
+  // per component plus the thermodynamic temperature.
+  struct State {
+    std::vector<SpeciesState> species;
+    double temperature;
+  };
+
+  // Crystal
+
+  enum class Structure : std::uint8_t {
+    BCC,
+    FCC,
+    HCP
+  };
+
+  enum class Orientation : std::uint8_t {
+    _001,
+    _010,
+    _100,
+    _110,
+    _101,
+    _011,
+    _111
+  };
+
+  enum class ExportFormat : std::uint8_t {
+    XYZ,
+    CSV
+  };
+
+  struct Lattice {
+    Structure structure;
+    Orientation orientation;
+    std::vector<long> shape;
+    arma::rowvec3 dimensions;
+    arma::mat positions;
+
+    [[nodiscard]] auto scaled_positions(double dnn) const -> arma::mat;
+    [[nodiscard]] auto scaled_positions(const arma::rowvec3& box) const -> arma::mat;
+    void export_to(const std::string& filename, ExportFormat format = ExportFormat::XYZ) const;
+  };
+
+  [[nodiscard]] auto
+  build_lattice(Structure structure, Orientation orientation, const std::vector<long>& shape = {1, 1, 1}) -> Lattice;
+
+} // namespace dft
+
+#endif // DFT_TYPES_HPP

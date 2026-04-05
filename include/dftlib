@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: MIT
+// Extension-less umbrella header for the classicalDFT library.
+// Usage: #include <dftlib>
+#include "dft.hpp"

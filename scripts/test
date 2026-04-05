@@ -19,6 +19,9 @@ else
 fi
 
 test_coverage() {
+  local test_cmd="${1:-ctest --test-dir $BUILD_DIR --output-on-failure}"
+  local build_target="${2:-}"
+
   for tool in cmake lcov genhtml; do
     if ! command -v "$tool" &>/dev/null; then
       message "error" "$tool is not available"
@@ -31,14 +34,18 @@ test_coverage() {
   cmake -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Debug \
     -DDFT_BUILD_TESTS=ON \
-    -DDFT_BUILD_EXAMPLES=OFF \
+    -DDFT_BUILD_DOCS=OFF \
     -DDFT_USE_GRACE=OFF \
     -DDFT_CODE_COVERAGE=ON
   message "success" "Configure completed"
 
   # Build
   message "info" "Build (coverage)"
-  cmake --build "$BUILD_DIR" --parallel
+  if [[ -n "$build_target" ]]; then
+    cmake --build "$BUILD_DIR" --parallel --target "$build_target"
+  else
+    cmake --build "$BUILD_DIR" --parallel
+  fi
   message "success" "Build completed"
 
   # Zero counters
@@ -46,7 +53,7 @@ test_coverage() {
 
   # Run tests
   message "info" "Tests"
-  ctest --test-dir "$BUILD_DIR" --output-on-failure
+  eval "$test_cmd"
   message "success" "Tests completed"
 
   # Capture coverage
@@ -59,8 +66,16 @@ test_coverage() {
 
   # Filter: keep only project sources (include/ and src/)
   lcov --extract "$BUILD_DIR/coverage.info" \
-    "*/include/classicaldft_bits/*" \
+    "*/include/dft/*" \
     "*/src/*" \
+    --output-file "$BUILD_DIR/coverage_filtered.info" \
+    --quiet \
+    $LCOV_IGNORE_UNUSED \
+    $LCOV_IGNORE
+
+  # Remove third-party code that slipped through (Catch2, autodiff, etc.)
+  lcov --remove "$BUILD_DIR/coverage_filtered.info" \
+    "*/_deps/*" \
     --output-file "$BUILD_DIR/coverage_filtered.info" \
     --quiet \
     $LCOV_IGNORE_UNUSED \

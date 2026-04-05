@@ -1,14 +1,29 @@
-#include "dft/math/fourier.h"
+#include "dft/math/fourier.hpp"
 
 #include <algorithm>
-#include <cstring>
+#include <mutex>
 #include <numeric>
+#include <stdexcept>
+#include <thread>
 
-namespace dft::math::fourier {
+namespace dft::math {
 
-  // ── FourierTransform ─────────────────────────────────────────────────
+  namespace {
+    std::once_flag fftw_threads_flag; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+    void init_fftw_threading() {
+#ifdef DFT_FFTW_THREADS
+      if (fftw_init_threads()) {
+        fftw_make_planner_thread_safe();
+        auto hw = std::jthread::hardware_concurrency();
+        fftw_plan_with_nthreads(static_cast<int>(hw > 0 ? hw : 1));
+      }
+#endif
+    }
+  } // namespace
 
   FourierTransform::FourierTransform(std::vector<long> shape) : shape_(std::move(shape)) {
+    std::call_once(fftw_threads_flag, init_fftw_threading);
     if (shape_.size() != 3) {
       throw std::invalid_argument("FourierTransform: shape must have exactly 3 elements");
     }
@@ -45,38 +60,38 @@ namespace dft::math::fourier {
   }
 
   FourierTransform::~FourierTransform() = default;
+  FourierTransform::FourierTransform(FourierTransform&&) noexcept = default;
+  FourierTransform& FourierTransform::operator=(FourierTransform&&) noexcept = default;
 
-  FourierTransform::FourierTransform(FourierTransform&& other) noexcept = default;
-
-  FourierTransform& FourierTransform::operator=(FourierTransform&& other) noexcept = default;
-
-  const std::vector<long>& FourierTransform::shape() const {
+  auto FourierTransform::shape() const -> const std::vector<long>& {
     return shape_;
   }
 
-  long FourierTransform::total() const {
-    return std::accumulate(begin(shape_), end(shape_), 1L, std::multiplies<>());
+  auto FourierTransform::total() const -> long {
+    return std::accumulate(shape_.begin(), shape_.end(), 1L, std::multiplies<>());
   }
 
-  long FourierTransform::fourier_total() const {
+  auto FourierTransform::fourier_total() const -> long {
     return shape_[0] * shape_[1] * (shape_[2] / 2 + 1);
   }
 
-  std::span<double> FourierTransform::real() {
+  auto FourierTransform::real() -> std::span<double> {
     return {real_data_.get(), static_cast<std::size_t>(total())};
   }
 
-  std::span<const double> FourierTransform::real() const {
+  auto FourierTransform::real() const -> std::span<const double> {
     return {real_data_.get(), static_cast<std::size_t>(total())};
   }
 
-  std::span<std::complex<double>> FourierTransform::fourier() {
+  auto FourierTransform::fourier() -> std::span<std::complex<double>> {
     return {reinterpret_cast<std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())};
   }
 
-  std::span<const std::complex<double>> FourierTransform::fourier() const {
+  auto FourierTransform::fourier() const -> std::span<const std::complex<double>> {
     return {
-        reinterpret_cast<const std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())};
+        reinterpret_cast<const std::complex<double>*>(fourier_data_.get()),
+        static_cast<std::size_t>(fourier_total())
+    };
   }
 
   void FourierTransform::forward() {
@@ -88,8 +103,10 @@ namespace dft::math::fourier {
   }
 
   void FourierTransform::zeros() {
-    std::memset(real_data_.get(), 0, sizeof(double) * total());
-    std::memset(fourier_data_.get(), 0, sizeof(fftw_complex) * fourier_total());
+    auto r = real();
+    std::ranges::fill(r, 0.0);
+    auto f = fourier();
+    std::ranges::fill(f, std::complex<double>{0.0, 0.0});
   }
 
   void FourierTransform::scale(double factor) {
@@ -99,19 +116,43 @@ namespace dft::math::fourier {
     }
   }
 
-  // ── FourierConvolution ────────────────────────────────────────────────────
+  void FourierTransform::set_real(const arma::vec& v) {
+    auto r = real();
+    auto n = std::min(v.n_elem, static_cast<arma::uword>(r.size()));
+    std::copy_n(v.memptr(), n, r.data());
+  }
+
+  void FourierTransform::set_fourier(const arma::cx_vec& v) {
+    auto f = fourier();
+    auto n = std::min(v.n_elem, static_cast<arma::uword>(f.size()));
+    std::copy_n(reinterpret_cast<const std::complex<double>*>(v.memptr()), n, f.data());
+  }
+
+  auto FourierTransform::real_vec() const -> arma::vec {
+    auto r = real();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast, modernize-return-braced-init-list)
+    return arma::vec(const_cast<double*>(r.data()), static_cast<arma::uword>(r.size()), true);
+  }
+
+  auto FourierTransform::fourier_vec() const -> arma::cx_vec {
+    auto f = fourier();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast, modernize-return-braced-init-list)
+    return arma::cx_vec(const_cast<std::complex<double>*>(f.data()), static_cast<arma::uword>(f.size()), true);
+  }
+
+  // FourierConvolution
 
   FourierConvolution::FourierConvolution(std::vector<long> shape) : a_(shape), b_(shape), c_(std::move(shape)) {}
 
-  std::span<double> FourierConvolution::input_a() {
+  auto FourierConvolution::input_a() -> std::span<double> {
     return a_.real();
   }
 
-  std::span<double> FourierConvolution::input_b() {
+  auto FourierConvolution::input_b() -> std::span<double> {
     return b_.real();
   }
 
-  std::span<const double> FourierConvolution::result() const {
+  auto FourierConvolution::result() const -> std::span<const double> {
     return c_.real();
   }
 
@@ -119,23 +160,19 @@ namespace dft::math::fourier {
     a_.forward();
     b_.forward();
 
-    auto fa = a_.fourier();
-    auto fb = b_.fourier();
-    auto fc = c_.fourier();
-    for (std::size_t i = 0; i < fc.size(); ++i) {
-      fc[i] = fa[i] * fb[i];
-    }
+    arma::cx_vec fc = a_.fourier_vec() % b_.fourier_vec();
+    c_.set_fourier(fc);
 
     c_.backward();
     c_.scale(1.0 / static_cast<double>(c_.total()));
   }
 
-  const std::vector<long>& FourierConvolution::shape() const {
+  auto FourierConvolution::shape() const -> const std::vector<long>& {
     return a_.shape();
   }
 
-  long FourierConvolution::total() const {
+  auto FourierConvolution::total() const -> long {
     return a_.total();
   }
 
-}  // namespace dft::math::fourier
+} // namespace dft::math

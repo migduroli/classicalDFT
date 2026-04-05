@@ -1,12 +1,9 @@
-#include "dft/math/spline.h"
+#include "dft/math/spline.hpp"
 
 #include <stdexcept>
 #include <string>
-#include <utility>
 
-namespace dft::math::spline {
-
-  // ── CubicSpline ─────────────────────────────────────────────────────────────
+namespace dft::math {
 
   CubicSpline::CubicSpline(std::span<const double> x, std::span<const double> y) {
     if (x.size() != y.size()) {
@@ -27,35 +24,35 @@ namespace dft::math::spline {
     gsl_spline_init(spline_.get(), x.data(), y.data(), size_);
   }
 
-  double CubicSpline::operator()(double x) const {
+  auto CubicSpline::operator()(double x) const -> double {
     return gsl_spline_eval(spline_.get(), x, accel_.get());
   }
 
-  double CubicSpline::derivative(double x) const {
+  auto CubicSpline::derivative(double x) const -> double {
     return gsl_spline_eval_deriv(spline_.get(), x, accel_.get());
   }
 
-  double CubicSpline::derivative2(double x) const {
+  auto CubicSpline::derivative2(double x) const -> double {
     return gsl_spline_eval_deriv2(spline_.get(), x, accel_.get());
   }
 
-  double CubicSpline::integrate(double a, double b) const {
+  auto CubicSpline::integrate(double a, double b) const -> double {
     return gsl_spline_eval_integ(spline_.get(), a, b, accel_.get());
   }
 
-  double CubicSpline::x_min() const {
+  auto CubicSpline::x_min() const -> double {
     return spline_->x[0];
   }
 
-  double CubicSpline::x_max() const {
+  auto CubicSpline::x_max() const -> double {
     return spline_->x[size_ - 1];
   }
 
-  std::size_t CubicSpline::size() const {
+  auto CubicSpline::size() const -> std::size_t {
     return size_;
   }
 
-  // ── BivariateSpline ─────────────────────────────────────────────────────────
+  // BivariateSpline
 
   BivariateSpline::BivariateSpline(std::span<const double> x, std::span<const double> y, std::span<const double> z) {
     if (x.empty() || y.empty()) {
@@ -63,8 +60,8 @@ namespace dft::math::spline {
     }
     if (z.size() != x.size() * y.size()) {
       throw std::invalid_argument(
-          "BivariateSpline: z size (" + std::to_string(z.size()) + ") must equal nx*ny (" +
-          std::to_string(x.size() * y.size()) + ")"
+          "BivariateSpline: z size (" + std::to_string(z.size()) + ") must equal nx*ny ("
+          + std::to_string(x.size() * y.size()) + ")"
       );
     }
 
@@ -79,28 +76,28 @@ namespace dft::math::spline {
     gsl_spline2d_init(spline_.get(), x.data(), y.data(), z.data(), x.size(), y.size());
   }
 
-  double BivariateSpline::operator()(double x, double y) const {
+  auto BivariateSpline::operator()(double x, double y) const -> double {
     return gsl_spline2d_eval(spline_.get(), x, y, xacc_.get(), yacc_.get());
   }
 
-  double BivariateSpline::deriv_x(double x, double y) const {
+  auto BivariateSpline::deriv_x(double x, double y) const -> double {
     return gsl_spline2d_eval_deriv_x(spline_.get(), x, y, xacc_.get(), yacc_.get());
   }
 
-  double BivariateSpline::deriv_y(double x, double y) const {
+  auto BivariateSpline::deriv_y(double x, double y) const -> double {
     return gsl_spline2d_eval_deriv_y(spline_.get(), x, y, xacc_.get(), yacc_.get());
   }
 
-  double BivariateSpline::deriv_xx(double x, double y) const {
+  auto BivariateSpline::deriv_xx(double x, double y) const -> double {
     return gsl_spline2d_eval_deriv_xx(spline_.get(), x, y, xacc_.get(), yacc_.get());
   }
 
-  double BivariateSpline::deriv_yy(double x, double y) const {
+  auto BivariateSpline::deriv_yy(double x, double y) const -> double {
     return gsl_spline2d_eval_deriv_yy(spline_.get(), x, y, xacc_.get(), yacc_.get());
   }
 
-  double BivariateSpline::deriv_xy(double x, double y) const {
+  auto BivariateSpline::deriv_xy(double x, double y) const -> double {
     return gsl_spline2d_eval_deriv_xy(spline_.get(), x, y, xacc_.get(), yacc_.get());
   }
 
-}  // namespace dft::math::spline
+} // namespace dft::math

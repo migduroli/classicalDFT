@@ -1,2 +1,0 @@
-add_executable(example_plotting main.cpp)
-target_link_libraries(example_plotting PRIVATE classicaldft)

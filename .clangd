@@ -1,0 +1,5 @@
+CompileFlags:
+  CompilationDatabase: build-local
+  Add:
+    - "-std=c++23"
+    - "-Iinclude"

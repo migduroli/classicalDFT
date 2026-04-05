@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+source scripts/test
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  if [[ -f /.dockerenv ]]; then
+    test_coverage "$BUILD_DIR/tests/classicaldft_unit_tests" "classicaldft_unit_tests"
+  else
+    docker compose run --rm -T -e DFT_COV_FAIL_UNDER="${DFT_COV_FAIL_UNDER:-95}" app scripts/unit-tests "$@"
+  fi
+fi

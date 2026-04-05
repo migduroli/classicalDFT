@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+build() {
+  message "info" "Building Docker image"
+  docker compose build
+  message "success" "Docker image built: classicaldft:local"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  build "$@"
+fi
