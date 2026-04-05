@@ -201,14 +201,77 @@ $w_{ij}$ are precomputed via sub-cell quadrature, and
 $a_{\mathrm{vdw,grid}} = \sum_{ij} w_{ij} (\Delta x)^3 / k_BT$.
 This discrete sum converges to the continuum value as $\Delta x \to 0$.
 
-## What the code does
+---
 
-1. Constructs all three potentials via `make_lennard_jones`, `make_ten_wolde_frenkel`, `make_wang_ramirez_dobnikar_frenkel`.
-2. Evaluates $v(r)$ on a 500-point radial grid from $0.85\sigma$ to $2.6\sigma$.
-3. Splits the LJ potential into WCA attractive and repulsive parts.
-4. Computes $d_{\mathrm{HS}}$ for each potential at $kT = 1$.
-5. Computes $a_{\mathrm{vdw}}$ for LJ under WCA splitting.
-6. Produces comparison plots.
+## Step-by-step code walkthrough
+
+### Step 1: Create potentials via factory functions
+
+Three pair potentials are constructed using the library's factory functions:
+
+```cpp
+namespace pot = physics::potentials;
+auto lj = pot::make_lennard_jones(1.0, 1.0, 2.5);
+auto twf = pot::make_ten_wolde_frenkel(1.0, 1.0, -1.0);
+auto wrdf = pot::make_wang_ramirez_dobnikar_frenkel(1.0, 1.0, 3.0);
+```
+
+Each factory returns a type-erased `Potential` object with methods `energy(r)`,
+`attractive(r, split)`, `repulsive(r, split)`, `hard_sphere_diameter(kT, split)`,
+and `vdw_integral(kT, split)`.
+
+### Step 2: Evaluate potentials on a radial grid
+
+All three potentials are sampled on 500 points from $r = 0.85\sigma$ to
+$r = 2.6\sigma$:
+
+```cpp
+for (arma::uword i = 0; i < r_arma.n_elem; ++i) {
+    v_lj_a(i) = pot::energy(plj, r_arma(i));
+    v_twf_a(i) = pot::energy(ptwf, r_arma(i));
+    v_wrdf_a(i) = pot::energy(pwrdf, r_arma(i));
+}
+```
+
+### Step 3: WCA decomposition of the LJ potential
+
+The LJ potential is split into its repulsive core and attractive tail under
+WCA splitting:
+
+```cpp
+att_lj_a(i) = pot::attractive(plj, r_arma(i), pot::SplitScheme::WeeksChandlerAndersen);
+rep_lj_a(i) = pot::repulsive(plj, r_arma(i), pot::SplitScheme::WeeksChandlerAndersen);
+```
+
+The identity $v(r) = v_0(r) + w_{\mathrm{att}}(r)$ is satisfied at every point.
+
+### Step 4: Hard-sphere diameters
+
+The Barker-Henderson integral is evaluated for each potential at $kT = 1$:
+
+```cpp
+double d_lj = plj.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
+double d_twf = ptwf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
+double d_wrdf = pwrdf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
+```
+
+The integration uses GSL adaptive quadrature (QAGS) to $\varepsilon_{\mathrm{abs}} = 10^{-12}$.
+
+### Step 5: Van der Waals integral
+
+The analytical vdW parameter $a_{\mathrm{vdw}} = 2\int w_{\mathrm{att}}(r)\,4\pi r^2\,dr$
+is computed:
+
+```cpp
+double a_lj = plj.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen);
+```
+
+This value enters the mean-field free energy functional as
+$F_{\mathrm{mf}} = \frac{1}{2}a_{\mathrm{vdw}}\int\rho^2\,d\mathbf{r}$
+in the bulk limit and as the normalisation of the convolution kernel in the
+inhomogeneous case.
+
+---
 
 ## Cross-validation (`check/`)
 

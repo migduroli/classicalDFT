@@ -55,54 +55,54 @@ TEST_CASE("PY compressibility excess free energy is zero at eta=0", "[hard_spher
 // Variant-based free functions
 
 TEST_CASE("excess_free_energy dispatches correctly", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
+  CarnahanStarling cs{};
   double eta = 0.3;
   double expected = CarnahanStarling::excess_free_energy(eta);
 
-  CHECK(excess_free_energy(cs, eta) == Catch::Approx(expected).margin(1e-14));
+  CHECK(cs.excess_free_energy(eta) == Catch::Approx(expected).margin(1e-14));
 }
 
 // Autodiff derivatives
 
 TEST_CASE("d_excess_free_energy matches numerical derivative for CS", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
+  CarnahanStarling cs{};
   double eta = 0.3;
   double h = 1e-6;
 
-  double numerical = (excess_free_energy(cs, eta + h) - excess_free_energy(cs, eta - h)) / (2.0 * h);
-  double analytic = d_excess_free_energy(cs, eta);
+  double numerical = (cs.excess_free_energy(eta + h) - cs.excess_free_energy(eta - h)) / (2.0 * h);
+  double analytic = cs.d_excess_free_energy(eta);
 
   CHECK(analytic == Catch::Approx(numerical).margin(1e-5));
 }
 
 TEST_CASE("d2_excess_free_energy matches numerical second derivative", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
+  CarnahanStarling cs{};
   double eta = 0.3;
   double h = 1e-5;
 
   double numerical =
-      (excess_free_energy(cs, eta + h) - 2.0 * excess_free_energy(cs, eta) + excess_free_energy(cs, eta - h)) / (h * h);
-  double analytic = d2_excess_free_energy(cs, eta);
+      (cs.excess_free_energy(eta + h) - 2.0 * cs.excess_free_energy(eta) + cs.excess_free_energy(eta - h)) / (h * h);
+  double analytic = cs.d2_excess_free_energy(eta);
 
   CHECK(analytic == Catch::Approx(numerical).margin(1e-4));
 }
 
 TEST_CASE("d3_excess_free_energy is finite", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
-  CHECK(std::isfinite(d3_excess_free_energy(cs, 0.3)));
+  CarnahanStarling cs{};
+  CHECK(std::isfinite(cs.d3_excess_free_energy(0.3)));
 }
 
 // Pressure
 
 TEST_CASE("pressure is 1 at eta=0 (ideal gas limit)", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
-  CHECK(pressure(cs, 0.0) == Catch::Approx(1.0).margin(1e-12));
+  CarnahanStarling cs{};
+  CHECK(cs.pressure(0.0) == Catch::Approx(1.0).margin(1e-12));
 }
 
 TEST_CASE("CS pressure at eta=0.3 matches known value", "[hard_spheres]") {
   // P = 1 + eta f'(eta)
   // CS: f' = (8 - 2eta)/(1-eta)^3 at eta = 0.3
-  HardSphereModel cs = CarnahanStarling{};
+  CarnahanStarling cs{};
   double eta = 0.3;
   double e = 1.0 - eta;
   double df = (8.0 * eta - 2.0 * eta * eta) / (e * e * e);
@@ -112,34 +112,34 @@ TEST_CASE("CS pressure at eta=0.3 matches known value", "[hard_spheres]") {
   double fp = ((4.0 - 6.0 * eta) * (1.0 - eta) + 2.0 * eta * (4.0 - 3.0 * eta)) / (e * e * e);
   double expected = 1.0 + eta * fp;
 
-  CHECK(pressure(cs, eta) == Catch::Approx(expected).margin(1e-10));
+  CHECK(cs.pressure(eta) == Catch::Approx(expected).margin(1e-10));
 }
 
 // Free energy and chemical potential
 
 TEST_CASE("free_energy at low density approaches ideal gas", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
+  CarnahanStarling cs{};
   double rho = 1e-6;
 
-  double f = free_energy(cs, rho);
+  double f = cs.free_energy(rho);
   double f_ideal = std::log(rho) - 1.0;
 
   CHECK(f == Catch::Approx(f_ideal).margin(1e-4));
 }
 
 TEST_CASE("chemical_potential exceeds free_energy", "[hard_spheres]") {
-  HardSphereModel cs = CarnahanStarling{};
+  CarnahanStarling cs{};
   double rho = 0.5;
 
-  CHECK(chemical_potential(cs, rho) > free_energy(cs, rho));
+  CHECK(cs.chemical_potential(rho) > cs.free_energy(rho));
 }
 
 // Model name
 
 TEST_CASE("name returns correct model name", "[hard_spheres]") {
-  CHECK(name(HardSphereModel{CarnahanStarling{}}) == "CarnahanStarling");
-  CHECK(name(HardSphereModel{PercusYevickVirial{}}) == "PercusYevickVirial");
-  CHECK(name(HardSphereModel{PercusYevickCompressibility{}}) == "PercusYevickCompressibility");
+  CHECK(CarnahanStarling::NAME == "CarnahanStarling");
+  CHECK(PercusYevickVirial::NAME == "PercusYevickVirial");
+  CHECK(PercusYevickCompressibility::NAME == "PercusYevickCompressibility");
 }
 
 // Transport coefficients

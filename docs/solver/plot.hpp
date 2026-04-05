@@ -127,28 +127,50 @@ inline void binodal(const CoexData& cd) {
 
 inline void phase_diagram_plot(
     const CoexData& cd,
-    const dft::functionals::bulk::SpinodalCurve& sp
+    const dft::functionals::bulk::SpinodalCurve& sp,
+    const utils::JimCoexPoints& jim = {},
+    const utils::JimSpinodalPoints& jim_sp = {}
 ) {
   namespace plt = matplotlibcpp;
   plt::figure_size(900, 650);
 
-  // Binodal dome.
+  // Binodal dome (continuation).
   if (!cd.T.is_empty()) {
     arma::vec rho_dome = arma::join_cols(cd.rho_v, arma::reverse(cd.rho_l));
     arma::vec T_dome = arma::join_cols(cd.T, arma::reverse(cd.T));
     auto rho_vec = arma::conv_to<std::vector<double>>::from(rho_dome);
     auto T_vec = arma::conv_to<std::vector<double>>::from(T_dome);
-    plt::plot(rho_vec, T_vec, {{"color", "k"}, {"linestyle", "-"}, {"label", "Binodal"}});
+    plt::plot(rho_vec, T_vec, {{"color", "k"}, {"linestyle", "-"}, {"linewidth", "1.5"}, {"label", "Binodal (continuation)"}});
   }
 
-  // Spinodal dome.
+  // Spinodal dome (continuation).
   if (!sp.temperature.is_empty()) {
     arma::vec rho_sp = arma::join_cols(sp.rho_low, arma::reverse(sp.rho_high));
     arma::vec T_sp = arma::join_cols(sp.temperature, arma::reverse(sp.temperature));
     auto rho_vec = arma::conv_to<std::vector<double>>::from(rho_sp);
     auto T_vec = arma::conv_to<std::vector<double>>::from(T_sp);
     plt::plot(rho_vec, T_vec,
-              {{"color", "#d6272899"}, {"linestyle", "--"}, {"label", "Spinodal"}});
+              {{"color", "#d62728"}, {"linestyle", "--"}, {"linewidth", "1.5"}, {"label", "Spinodal (T-stepping)"}});
+  }
+
+  // Jim's single-temperature coexistence points.
+  if (!jim.T.empty()) {
+    plt::plot(jim.rho_v, jim.T,
+              {{"color", "#2ca02c"}, {"marker", "o"}, {"linestyle", "none"},
+               {"markersize", "4"}, {"label", "Coex (scan+bisect)"}});
+    plt::plot(jim.rho_l, jim.T,
+              {{"color", "#2ca02c"}, {"marker", "o"}, {"linestyle", "none"},
+               {"markersize", "4"}});
+  }
+
+  // Jim's single-temperature spinodal points.
+  if (!jim_sp.T.empty()) {
+    plt::plot(jim_sp.rho_lo, jim_sp.T,
+              {{"color", "#ff7f0e"}, {"marker", "x"}, {"linestyle", "none"},
+               {"markersize", "4"}, {"label", "Spinodal (scan+bisect)"}});
+    plt::plot(jim_sp.rho_hi, jim_sp.T,
+              {{"color", "#ff7f0e"}, {"marker", "x"}, {"linestyle", "none"},
+               {"markersize", "4"}});
   }
 
   if (cd.Tc > 0) {
@@ -176,13 +198,15 @@ inline void make_plots(
     const std::vector<CoexData>& all_coex,
     const std::vector<SpinodalData>& all_spin,
     const CoexData& wb2_data,
-    const dft::functionals::bulk::SpinodalCurve& wb2_sp
+    const dft::functionals::bulk::SpinodalCurve& wb2_sp,
+    const utils::JimCoexPoints& jim_pts = {},
+    const utils::JimSpinodalPoints& jim_sp = {}
 ) {
   detail::isotherms(iso_rho, iso_p, isotherm_temps);
   detail::coexistence(all_coex, all_spin);
   detail::binodal(wb2_data);
   if (!wb2_sp.temperature.is_empty()) {
-    detail::phase_diagram_plot(wb2_data, wb2_sp);
+    detail::phase_diagram_plot(wb2_data, wb2_sp, jim_pts, jim_sp);
   }
 }
 

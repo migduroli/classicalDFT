@@ -9,20 +9,6 @@
 
 namespace dft::algorithms::fire {
 
-  struct FireConfig {
-    double dt{1e-3};
-    double dt_max{1e-2};
-    double dt_min{1e-8};
-    double alpha_start{0.1};
-    double f_inc{1.1};
-    double f_dec{0.5};
-    double f_alpha{0.99};
-    int n_delay{5};
-    int max_uphill{20};
-    double force_tolerance{0.1};
-    int max_steps{10000};
-  };
-
   // Complete state of a FIRE2 minimizer at one instant.
   // Returned after each step and passed to the next.
 
@@ -46,11 +32,42 @@ namespace dft::algorithms::fire {
       const std::vector<arma::vec>&
   )>;
 
-  // Initialize a FIRE state from starting positions.
+  struct Fire {
+    double dt{1e-3};
+    double dt_max{1e-2};
+    double dt_min{1e-8};
+    double alpha_start{0.1};
+    double f_inc{1.1};
+    double f_dec{0.5};
+    double f_alpha{0.99};
+    int n_delay{5};
+    int max_uphill{20};
+    double force_tolerance{0.1};
+    int max_steps{10000};
 
-  [[nodiscard]] inline auto initialize(
-      std::vector<arma::vec> x0, const ForceFunction& compute, const FireConfig& config
-  ) -> FireState {
+    // Initialize a FIRE state from starting positions.
+
+    [[nodiscard]] auto initialize(
+        std::vector<arma::vec> x0, const ForceFunction& compute
+    ) const -> FireState;
+
+    // Perform one FIRE2 step. Returns the updated state and forces.
+
+    [[nodiscard]] auto step(
+        FireState state, const std::vector<arma::vec>& forces,
+        const ForceFunction& compute
+    ) const -> std::pair<FireState, std::vector<arma::vec>>;
+
+    // Run FIRE2 to convergence or max_steps.
+
+    [[nodiscard]] auto minimize(
+        std::vector<arma::vec> x0, const ForceFunction& compute
+    ) const -> FireState;
+  };
+
+  [[nodiscard]] inline auto Fire::initialize(
+      std::vector<arma::vec> x0, const ForceFunction& compute
+  ) const -> FireState {
     auto [energy, forces] = compute(x0);
 
     double total_dof = 0.0;
@@ -67,20 +84,18 @@ namespace dft::algorithms::fire {
     return FireState{
         .x = std::move(x0),
         .v = std::move(v),
-        .dt = config.dt,
-        .alpha = config.alpha_start,
+        .dt = dt,
+        .alpha = alpha_start,
         .energy = energy,
         .rms_force = rms,
-        .converged = rms < config.force_tolerance,
+        .converged = rms < force_tolerance,
     };
   }
 
-  // Perform one FIRE2 step. Returns the updated state and forces.
-
-  [[nodiscard]] inline auto step(
+  [[nodiscard]] inline auto Fire::step(
       FireState state, const std::vector<arma::vec>& forces,
-      const ForceFunction& compute, const FireConfig& config
-  ) -> std::pair<FireState, std::vector<arma::vec>> {
+      const ForceFunction& compute
+  ) const -> std::pair<FireState, std::vector<arma::vec>> {
     // Power: P = v . f  (f is negative gradient, so P > 0 means downhill)
     double power = 0.0;
     for (std::size_t s = 0; s < state.x.size(); ++s) {
@@ -90,15 +105,15 @@ namespace dft::algorithms::fire {
     if (power > 0.0 || state.iteration == 0) {
       state.n_positive++;
       state.n_negative = 0;
-      if (state.n_positive > config.n_delay) {
-        state.dt = std::min(state.dt * config.f_inc, config.dt_max);
-        state.alpha *= config.f_alpha;
+      if (state.n_positive > n_delay) {
+        state.dt = std::min(state.dt * f_inc, dt_max);
+        state.alpha *= f_alpha;
       }
     } else {
       state.n_positive = 0;
       state.n_negative++;
 
-      if (state.n_negative > config.max_uphill) {
+      if (state.n_negative > max_uphill) {
         throw std::runtime_error("fire::step: exceeded max uphill steps");
       }
 
@@ -109,9 +124,9 @@ namespace dft::algorithms::fire {
         state.v[s].zeros();
       }
 
-      if (state.iteration > config.n_delay) {
-        state.dt = std::max(state.dt * config.f_dec, config.dt_min);
-        state.alpha = config.alpha_start;
+      if (state.iteration > n_delay) {
+        state.dt = std::max(state.dt * f_dec, dt_min);
+        state.alpha = alpha_start;
       }
     }
 
@@ -154,22 +169,19 @@ namespace dft::algorithms::fire {
     }
     state.rms_force = std::sqrt(sum_f2 / total_dof);
     state.iteration++;
-    state.converged = state.rms_force < config.force_tolerance;
+    state.converged = state.rms_force < force_tolerance;
 
     return {std::move(state), std::move(new_forces)};
   }
 
-  // Run FIRE2 to convergence or max_steps.
-
-  [[nodiscard]] inline auto minimize(
-      std::vector<arma::vec> x0, const ForceFunction& compute,
-      const FireConfig& config = {}
-  ) -> FireState {
-    auto state = initialize(std::move(x0), compute, config);
+  [[nodiscard]] inline auto Fire::minimize(
+      std::vector<arma::vec> x0, const ForceFunction& compute
+  ) const -> FireState {
+    auto state = initialize(std::move(x0), compute);
     auto [energy, forces] = compute(state.x);
 
-    for (int i = 0; i < config.max_steps && !state.converged; ++i) {
-      auto [new_state, new_forces] = step(std::move(state), forces, compute, config);
+    for (int i = 0; i < max_steps && !state.converged; ++i) {
+      auto [new_state, new_forces] = step(std::move(state), forces, compute);
       state = std::move(new_state);
       forces = std::move(new_forces);
     }

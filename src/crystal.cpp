@@ -244,34 +244,34 @@ namespace dft {
     };
   }
 
-  auto scaled_positions(const Lattice& lattice, double dnn) -> arma::mat {
-    return lattice.positions * dnn;
+  auto Lattice::scaled_positions(double dnn) const -> arma::mat {
+    return positions * dnn;
   }
 
-  auto scaled_positions(const Lattice& lattice, const arma::rowvec3& box) -> arma::mat {
-    arma::mat result = lattice.positions;
-    result.each_row() %= box / lattice.dimensions;
+  auto Lattice::scaled_positions(const arma::rowvec3& box) const -> arma::mat {
+    arma::mat result = positions;
+    result.each_row() %= box / dimensions;
     return result;
   }
 
-  void export_lattice(const Lattice& lattice, const std::string& filename, ExportFormat format) {
+  void Lattice::export_to(const std::string& filename, ExportFormat format) const {
     std::ofstream out(filename);
     if (!out) {
       throw std::runtime_error("Cannot open file for writing: " + filename);
     }
     switch (format) {
       case ExportFormat::XYZ:
-        out << lattice.positions.n_rows << "\n";
+        out << positions.n_rows << "\n";
         out << "Crystal lattice\n";
-        for (arma::uword i = 0; i < lattice.positions.n_rows; ++i) {
-          out << "Ar " << lattice.positions(i, 0) << " " << lattice.positions(i, 1) << " " << lattice.positions(i, 2)
+        for (arma::uword i = 0; i < positions.n_rows; ++i) {
+          out << "Ar " << positions(i, 0) << " " << positions(i, 1) << " " << positions(i, 2)
               << "\n";
         }
         break;
       case ExportFormat::CSV:
         out << "x,y,z\n";
-        for (arma::uword i = 0; i < lattice.positions.n_rows; ++i) {
-          out << lattice.positions(i, 0) << "," << lattice.positions(i, 1) << "," << lattice.positions(i, 2) << "\n";
+        for (arma::uword i = 0; i < positions.n_rows; ++i) {
+          out << positions(i, 0) << "," << positions(i, 1) << "," << positions(i, 2) << "\n";
         }
         break;
     }

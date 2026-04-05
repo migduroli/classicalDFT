@@ -29,19 +29,19 @@ namespace dft::functionals::fmt {
     arma::mat33 T = arma::zeros<arma::mat>(3, 3);
 
     InnerProducts products;
-  };
 
-  // Computes all inner products from the primary fields and returns the result.
-  [[nodiscard]] inline auto inner_products(const Measures& m) -> InnerProducts {
-    InnerProducts p;
-    p.dot_v0_v1 = arma::dot(m.v0, m.v1);
-    p.dot_v1_v1 = arma::dot(m.v1, m.v1);
-    arma::mat33 T2 = m.T * m.T;
-    p.trace_T2 = arma::trace(T2);
-    p.trace_T3 = arma::trace(T2 * m.T);
-    p.quadratic_form = arma::as_scalar(m.v1 * m.T * m.v1.t());
-    return p;
-  }
+    // Computes all inner products from the primary fields.
+    [[nodiscard]] auto inner_products() const -> InnerProducts {
+      InnerProducts p;
+      p.dot_v0_v1 = arma::dot(v0, v1);
+      p.dot_v1_v1 = arma::dot(v1, v1);
+      arma::mat33 T2 = T * T;
+      p.trace_T2 = arma::trace(T2);
+      p.trace_T3 = arma::trace(T2 * T);
+      p.quadratic_form = arma::as_scalar(v1 * T * v1.t());
+      return p;
+    }
+  };
 
   // Factory for a uniform (homogeneous) fluid with given density and diameter.
   // eta = (pi/6) rho d^3, n2 = pi rho d^2, n1 = rho d/2, n0 = rho.
@@ -60,7 +60,7 @@ namespace dft::functionals::fmt {
     m.v0.zeros();
     m.v1.zeros();
     m.T = arma::diagmat(arma::rowvec3{t_diag, t_diag, t_diag});
-    m.products = inner_products(m);
+    m.products = m.inner_products();
     return m;
   }
 

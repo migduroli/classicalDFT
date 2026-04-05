@@ -18,12 +18,16 @@ namespace dft::geometry {
     double length;
     std::vector<double> origin;
     std::vector<Vertex> vertices;
+
+    [[nodiscard]] auto volume() const -> double { return length * length; }
   };
 
   struct SquareBox3D {
     double length;
     std::vector<double> origin;
     std::vector<Vertex> vertices;
+
+    [[nodiscard]] auto volume() const -> double { return length * length * length; }
   };
 
   using ElementVariant = std::variant<Element, SquareBox2D, SquareBox3D>;
@@ -63,44 +67,6 @@ namespace dft::geometry {
                 Vertex{{x, y, z + length}},
             },
     };
-  }
-
-  [[nodiscard]] inline auto volume(const SquareBox2D& box) -> double { return box.length * box.length; }
-
-  [[nodiscard]] inline auto volume(const SquareBox3D& box) -> double {
-    return box.length * box.length * box.length;
-  }
-
-  [[nodiscard]] inline auto volume(const ElementVariant& element) -> double {
-    return std::visit(
-        [](const auto& e) -> double {
-          using T = std::decay_t<decltype(e)>;
-          if constexpr (std::is_same_v<T, Element>) {
-            return 0.0;
-          } else if constexpr (std::is_same_v<T, SquareBox2D>) {
-            return e.length * e.length;
-          } else {
-            return e.length * e.length * e.length;
-          }
-        },
-        element
-    );
-  }
-
-  [[nodiscard]] inline auto dimension(const ElementVariant& element) -> int {
-    return std::visit(
-        [](const auto& e) -> int {
-          using T = std::decay_t<decltype(e)>;
-          if constexpr (std::is_same_v<T, Element>) {
-            return e.vertices.empty() ? 0 : dimension(e.vertices.front());
-          } else if constexpr (std::is_same_v<T, SquareBox2D>) {
-            return 2;
-          } else {
-            return 3;
-          }
-        },
-        element
-    );
   }
 
 }  // namespace dft::geometry

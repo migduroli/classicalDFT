@@ -61,7 +61,9 @@ $$
 \frac{\partial S}{\partial x},\quad \frac{\partial S}{\partial y},\quad \frac{\partial^2 S}{\partial x\,\partial y}
 $$
 
-## What the code does
+---
+
+## Step-by-step code walkthrough
 
 ### 1. CubicSpline: interpolating $\sin(x)$
 

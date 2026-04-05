@@ -100,15 +100,164 @@ $x_c$ is the box centre, $w$ is the half-width, and $\xi$ is the interface
 width. DDFT relaxation sharpens the interface toward the equilibrium DFT
 solution.
 
-## What the code does
+---
 
-1. Defines an LJ fluid at $T^* = 0.7$ on a $40\times20\times20$ grid
-   ($\Delta x = 0.25\sigma$) with WCA splitting and White Bear II FMT.
-2. Evaluates bulk $f(\rho)$, $\mu(\rho)$, $P(\rho)$ and finds coexistence.
-3. Constructs a tanh liquid slab profile.
-4. Evaluates the full DFT functional (free energy, grand potential, forces).
-5. Runs 500 DDFT split-operator steps. The grand potential decreases
-   monotonically and mass is conserved to machine precision.
+## Step-by-step code walkthrough
+
+### Step 1: Read configuration
+
+All model parameters are read from `config.ini` via the library's
+configuration parser:
+
+```cpp
+auto cfg = config::parse_config("config.ini", config::FileType::INI);
+double dx = config::get<double>(cfg, "model.dx");
+double temperature = config::get<double>(cfg, "model.temperature");
+// ... sigma, epsilon, cutoff, slab parameters, DDFT parameters
+```
+
+This centralises all tunable parameters in a single file, keeping the C++
+code free of magic numbers.
+
+### Step 2: Define the Lennard-Jones system
+
+The `physics::Model` struct declares the grid, species, interactions, and
+temperature in one place:
+
+```cpp
+physics::Model model{
+    .grid = make_grid(dx, {box_x, box_y, box_z}),
+    .species = {Species{.name = "LJ", .hard_sphere_diameter = sigma}},
+    .interactions = {{
+        .species_i = 0,
+        .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(sigma, epsilon, cutoff),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+    }},
+    .temperature = temperature,
+};
+```
+
+The default configuration uses a $40\times20\times20$ grid ($\Delta x = 0.25\sigma$)
+at $T^* = 0.7$ with WCA splitting.
+
+### Step 3: Build the Functional object
+
+The central API call builds all FFT convolution weights (FMT + mean-field)
+in one step:
+
+```cpp
+auto func = functionals::make_functional(functionals::fmt::WhiteBearII{}, model);
+```
+
+This creates a `Functional` object that owns:
+- `func.model` — the physics model (grid, species, interactions)
+- `func.weights` — the FFT convolution weights for the inhomogeneous functional
+- `func.bulk_weights` — the analytical bulk weights for thermodynamics
+
+All subsequent operations go through `func`.
+
+### Step 4: Bulk thermodynamics and coexistence
+
+The `Functional::bulk()` method creates a `BulkThermodynamics` object from the
+pre-computed bulk weights:
+
+```cpp
+auto eos = func.bulk();
+```
+
+This provides `eos.pressure(rho)`, `eos.chemical_potential(rho, species)`,
+and `eos.free_energy_density(rho)`. The code evaluates these on a 200-point
+density grid to produce the $f(\rho)$, $\mu(\rho)$, and $P(\rho)$ curves.
+
+Phase coexistence is found by scanning densities for equal-$P$ equal-$\mu$:
+
+```cpp
+auto coex = search_config.find_coexistence(eos);
+double mu_coex = eos.chemical_potential(arma::vec{coex->rho_vapor}, 0);
+```
+
+### Step 5: Construct the liquid slab profile
+
+A symmetric tanh profile creates a planar liquid slab centered in the box:
+
+```cpp
+arma::vec profile_1d = coex->rho_vapor
+    + 0.5 * (coex->rho_liquid - coex->rho_vapor)
+    * (arma::tanh((x_vals - center + width) / interface_width)
+     - arma::tanh((x_vals - center - width) / interface_width));
+arma::vec slab_rho = arma::repelem(profile_1d, ny * nz, 1);
+```
+
+The 1D profile is replicated along $y$ and $z$ to fill the 3D grid.
+
+### Step 6: Build the force callback
+
+The `Functional::grand_potential_callback(mu)` method returns a callable
+that evaluates the full DFT functional at a given chemical potential:
+
+```cpp
+auto force_fn = func.grand_potential_callback(mu_coex);
+```
+
+This returns a `ForceCallback` (signature
+`(const vector<vec>&) -> pair<double, vector<vec>>`) that internally:
+1. Builds a `State` from the density profiles
+2. Sets the chemical potential
+3. Evaluates the full functional (ideal + FMT + mean-field)
+4. Returns the grand potential $\Omega$ and the forces $\delta\Omega/\delta\rho$
+
+This is the callback passed to all solvers and integrators.
+
+### Step 7: Evaluate the initial functional
+
+The `Functional::evaluate(rho, mu)` convenience method evaluates the functional
+for a single density profile at a given chemical potential:
+
+```cpp
+auto initial_result = func.evaluate(slab_rho, mu_coex);
+```
+
+This returns a struct with `free_energy`, `grand_potential`, and `forces[0]`.
+
+### Step 8: DDFT relaxation
+
+The split-operator DDFT scheme relaxes the slab toward equilibrium. The
+simulation is configured and run via:
+
+```cpp
+algorithms::dynamics::Simulation sim_config{
+    .step = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
+    .n_steps = n_steps,
+    .snapshot_interval = snapshot_interval,
+    .log_interval = log_interval,
+};
+
+auto sim = sim_config.run({slab_rho}, func.model.grid, force_fn);
+```
+
+The integrator takes the initial density, the grid (for Fourier transforms),
+and the force callback. It returns a `SimulationResult` containing:
+- `sim.densities[0]` — the final density profile
+- `sim.snapshots` — intermediate density snapshots
+- `sim.energies` / `sim.times` — grand potential time series
+- `sim.mass_initial` / `sim.mass_final` — for mass conservation check
+
+The grand potential should decrease monotonically (second law), and mass
+should be conserved to machine precision ($\sim 10^{-14}$ relative error).
+
+### Step 9: Verify convergence
+
+The code prints the final grand potential, initial and final mass, and the
+relative mass error to confirm thermodynamic consistency:
+
+```cpp
+std::println(std::cout, "  Grand potential:  {:.6f}", sim.energies.back());
+std::println(std::cout, "  Rel. error:       {:.6e}",
+             std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial);
+```
+
+---
 
 ## Cross-validation (`check/`)
 

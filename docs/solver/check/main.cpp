@@ -38,14 +38,14 @@ static void section(std::string_view title) {
 }
 
 static auto make_legacy_eos(
-    const std::vector<Species>& species, const functionals::Weights& w
+    const functionals::bulk::BulkThermodynamics& eos
 ) -> legacy::solver::EOS {
   return {
-      [&species, &w](double rho) {
-        return functionals::bulk::pressure(arma::vec{rho}, species, w);
+      [&eos](double rho) {
+        return eos.pressure(arma::vec{rho});
       },
-      [&species, &w](double rho) {
-        return functionals::bulk::chemical_potential(arma::vec{rho}, species, w, 0);
+      [&eos](double rho) {
+        return eos.chemical_potential(arma::vec{rho}, 0);
       },
   };
 }
@@ -72,11 +72,13 @@ int main() {
 
   auto wb2 = functionals::fmt::WhiteBearII{};
 
-  auto weight_factory = [&](double kT) {
-    return functionals::make_bulk_weights(wb2, model.interactions, kT);
+  auto eos_factory = [&](double kT) -> functionals::bulk::BulkThermodynamics {
+    return functionals::bulk::make_bulk_thermodynamics(
+        model.species, functionals::make_bulk_weights(wb2, model.interactions, kT)
+    );
   };
 
-  functionals::bulk::PhaseSearchConfig search_config{
+  functionals::bulk::PhaseSearch search_config{
       .rho_max = 1.0,
       .rho_scan_step = 0.005,
       .newton = {.max_iterations = 300, .tolerance = 1e-10},
@@ -100,11 +102,11 @@ int main() {
     section("Step " + std::to_string(step) + ": Spinodal at kT = "
             + std::to_string(kT));
 
-    auto w = weight_factory(kT);
-    auto eos = make_legacy_eos(model.species, w);
+    auto eos = eos_factory(kT);
+    auto jim_eos = make_legacy_eos(eos);
 
-    auto jim_sp = legacy::solver::findSpinodal(eos, jim_xmax, jim_dx);
-    auto our_sp = functionals::bulk::find_spinodal(model.species, w, search_config);
+    auto jim_sp = legacy::solver::findSpinodal(jim_eos, jim_xmax, jim_dx);
+    auto our_sp = search_config.find_spinodal(eos);
 
     if (!our_sp) {
       std::cout << "  FAIL: our find_spinodal returned nullopt\n";
@@ -135,11 +137,11 @@ int main() {
     section("Step " + std::to_string(step) + ": Coexistence at kT = "
             + std::to_string(kT));
 
-    auto w = weight_factory(kT);
-    auto eos = make_legacy_eos(model.species, w);
+    auto eos = eos_factory(kT);
+    auto jim_eos = make_legacy_eos(eos);
 
-    auto jim_cx = legacy::solver::findCoex(eos, jim_xmax, jim_dx);
-    auto our_cx = functionals::bulk::find_coexistence(model.species, w, search_config);
+    auto jim_cx = legacy::solver::findCoex(jim_eos, jim_xmax, jim_dx);
+    auto our_cx = search_config.find_coexistence(eos);
 
     if (!our_cx) {
       std::cout << "  FAIL: our find_coexistence returned nullopt\n";
@@ -153,15 +155,15 @@ int main() {
 
     // Verify thermodynamic consistency: both solutions should satisfy
     // equal P and equal mu.
-    double jim_Pv = eos.pressure(jim_cx.x1);
-    double jim_Pl = eos.pressure(jim_cx.x2);
-    double jim_muv = eos.chemical_potential(jim_cx.x1);
-    double jim_mul = eos.chemical_potential(jim_cx.x2);
+    double jim_Pv = jim_eos.pressure(jim_cx.x1);
+    double jim_Pl = jim_eos.pressure(jim_cx.x2);
+    double jim_muv = jim_eos.chemical_potential(jim_cx.x1);
+    double jim_mul = jim_eos.chemical_potential(jim_cx.x2);
 
-    double our_Pv = eos.pressure(our_cx->rho_vapor);
-    double our_Pl = eos.pressure(our_cx->rho_liquid);
-    double our_muv = eos.chemical_potential(our_cx->rho_vapor);
-    double our_mul = eos.chemical_potential(our_cx->rho_liquid);
+    double our_Pv = jim_eos.pressure(our_cx->rho_vapor);
+    double our_Pl = jim_eos.pressure(our_cx->rho_liquid);
+    double our_muv = jim_eos.chemical_potential(our_cx->rho_vapor);
+    double our_mul = jim_eos.chemical_potential(our_cx->rho_liquid);
 
     std::cout << "  Jim  delta_P=" << jim_Pv - jim_Pl << "  delta_mu=" << jim_muv - jim_mul << "\n";
     std::cout << "  Ours delta_P=" << our_Pv - our_Pl << "  delta_mu=" << our_muv - our_mul << "\n";
@@ -182,16 +184,16 @@ int main() {
   ++step;
   section("Step " + std::to_string(step) + ": Binodal curve consistency");
 
-  functionals::bulk::PhaseDiagramConfig pd_config{
+  functionals::bulk::PhaseDiagramBuilder pd_config{
       .start_temperature = 0.6,
       .search = search_config,
   };
 
-  functionals::bulk::WeightFactory wf = [&](double kT) {
-    return weight_factory(kT);
+  functionals::bulk::EoSFactory eos_at = [&](double kT) -> functionals::bulk::BulkThermodynamics {
+    return eos_factory(kT);
   };
 
-  auto b = functionals::bulk::binodal(model.species, wf, pd_config);
+  auto b = pd_config.binodal(eos_at);
   if (!b) {
     std::cout << "  FAIL: binodal returned nullopt\n";
     g_failures += 3;
@@ -219,11 +221,11 @@ int main() {
     arma::uvec idxs = {0, b->temperature.n_elem / 3, 2 * b->temperature.n_elem / 3};
     for (auto idx : idxs) {
       double kT = b->temperature(idx);
-      auto w = weight_factory(kT);
-      auto eos = make_legacy_eos(model.species, w);
+      auto eos_at_T = eos_factory(kT);
+      auto jim_eos_at_T = make_legacy_eos(eos_at_T);
 
       try {
-        auto jim_cx = legacy::solver::findCoex(eos, jim_xmax, jim_dx);
+        auto jim_cx = legacy::solver::findCoex(jim_eos_at_T, jim_xmax, jim_dx);
         std::cout << "  T=" << kT
                   << " binodal: rv=" << b->rho_vapor(idx)
                   << " rl=" << b->rho_liquid(idx)

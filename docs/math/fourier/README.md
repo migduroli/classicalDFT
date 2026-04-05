@@ -74,30 +74,62 @@ In the DFT library, this is how the FMT weighted densities are computed:
 $n_\alpha(\mathbf{r}) = \rho \ast w_\alpha$ where $w_\alpha$ are the hard-sphere
 weight functions. The `FourierConvolution` class wraps this pattern.
 
-## What the code does
+---
 
-### 1. Round-trip test
+## Step-by-step code walkthrough
 
-Fills an $8^3$ grid with $\sin(x)$ replicated across the $y$-$z$ planes:
+### Step 1: Round-trip test
 
-$$
-f(i,j,k) = \sin\!\left(\frac{2\pi\,i}{N_x}\right) \quad \text{for all } j, k
-$$
+An $8^3$ grid is filled with $\sin(x)$ replicated across the $y$-$z$ planes.
+The forward and backward transforms are applied and the round-trip error
+measured:
 
-The forward transform produces Fourier coefficients concentrated at the
-$k_x = \pm 1$ modes. After backward + scale, the maximum round-trip error
-is at machine precision ($\sim 10^{-16}$).
+```cpp
+auto plan = math::FourierTransform(shape);
+arma::vec sin_3d = arma::repelem(sin_x, shape[1] * shape[2], 1);
+auto real = plan.real();
+std::copy(sin_3d.begin(), sin_3d.end(), real.begin());
 
-### 2. Parseval's theorem verification
+plan.forward();
+plan.backward();
+plan.scale(1.0 / static_cast<double>(plan.total()));
+```
 
-Computes the real-space energy $\sum |f|^2$ and the Fourier-space energy
-$(1/N)\sum|\hat{f}|^2$ and prints their ratio (should be $\approx 1$).
+The maximum error should be at machine precision ($\sim 10^{-16}$). The
+Fourier coefficients are concentrated at $k_x = \pm 1$, confirming the
+single-mode input.
 
-### 3. FFT convolution: $\delta \ast 3 = 3$
+### Step 2: Parseval's theorem verification
 
-Places a delta function in one input and a constant $3.0$ in the other.
-The convolution theorem gives $(f \ast g)(\mathbf{r}) = 3.0$ everywhere,
-and the code verifies the result range is $[3.0, 3.0]$.
+Real-space and Fourier-space energies are compared:
+
+```cpp
+double real_energy = arma::dot(roundtrip, roundtrip);
+double fourier_energy = 0.0;
+for (auto c : plan.fourier())
+    fourier_energy += std::norm(c);
+fourier_energy /= static_cast<double>(plan.total());
+```
+
+The ratio `fourier_energy / real_energy` should be $\approx 1$.
+
+### Step 3: FFT convolution ($\delta * 3 = 3$)
+
+The `FourierConvolution` class wraps the delta-constant convolution in a
+single RAII object:
+
+```cpp
+auto conv = math::FourierConvolution(shape);
+auto a = conv.input_a();
+std::fill(a.begin(), a.end(), 0.0);
+a[0] = 1.0;
+auto b = conv.input_b();
+std::fill(b.begin(), b.end(), 3.0);
+conv.execute();
+auto result = conv.result();
+```
+
+The result range must be $[3.0, 3.0]$ everywhere.
 
 ## RAII design
 

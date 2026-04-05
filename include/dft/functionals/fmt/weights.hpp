@@ -162,7 +162,7 @@ namespace dft::functionals::fmt {
       }
     }
 
-    for_each_wavevector(grid, [&](const Wavevector& q) {
+    grid.for_each_wavevector([&](const Wavevector& q) {
       double k = q.norm();
 
       fk_w3[q.idx] = detail::volume_hat(k, R) * inv_n;

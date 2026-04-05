@@ -179,7 +179,7 @@ namespace plot {
         const std::vector<nucleation::PathwayPoint>& dissolution,
         const std::vector<nucleation::PathwayPoint>& growth,
         nucleation::PathwayPoint critical,
-        double rho_v, double rho_l
+        double rho_v, double rho_l, double rho_v_meta
     ) {
       namespace plt = matplotlibcpp;
       plt::figure_size(900, 500);
@@ -212,6 +212,9 @@ namespace plot {
 
       plt::plot({r_min_data - r_pad, r_max_data + r_pad}, {rho_v, rho_v},
                 {{"color", "gray"}, {"linestyle", ":"}, {"linewidth", "0.8"}, {"label", R"($\rho_v$)"}});
+      plt::plot({r_min_data - r_pad, r_max_data + r_pad}, {rho_v_meta, rho_v_meta},
+                {{"color", "#00976E"}, {"linestyle", "--"}, {"linewidth", "1.0"},
+                 {"label", R"($\rho_v(\mu)$ metastable)"}});
       plt::plot({r_min_data - r_pad, r_max_data + r_pad}, {rho_l, rho_l},
                 {{"color", "gray"}, {"linestyle", ":"}, {"linewidth", "0.8"}, {"label", R"($\rho_l$)"}});
 
@@ -240,7 +243,7 @@ namespace plot {
       const nucleation::DynamicsResult& growth,
       nucleation::PathwayPoint critical_point,
       double omega_background,
-      double rho_v, double rho_l
+      double rho_v, double rho_l, double rho_v_meta
   ) {
     detail::plot_critical_cluster(critical_profile, initial_profile, rho_v, rho_l);
 
@@ -260,7 +263,7 @@ namespace plot {
         dissolution.pathway, growth.pathway, critical_point, omega_background);
 
     detail::plot_rho_center_vs_radius(
-        dissolution.pathway, growth.pathway, critical_point, rho_v, rho_l);
+        dissolution.pathway, growth.pathway, critical_point, rho_v, rho_l, rho_v_meta);
   }
 
 }  // namespace plot

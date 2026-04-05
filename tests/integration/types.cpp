@@ -138,7 +138,7 @@ TEST_CASE("HCP 100 lattice matches legacy", "[integration][crystal]") {
 TEST_CASE("Scaled BCC positions match legacy", "[integration][crystal]") {
   double dnn = 1.5;
   auto lattice = build_lattice(Structure::BCC, Orientation::_001, {2, 2, 2});
-  auto ours = sorted_positions(scaled_positions(lattice, dnn));
+  auto ours = sorted_positions(lattice.scaled_positions(dnn));
 
   auto jim_lat = legacy::crystal::build("BCC", "001", 2, 2, 2);
   auto jim_scaled = legacy::crystal::scaled(jim_lat, dnn);

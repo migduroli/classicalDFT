@@ -22,20 +22,25 @@ namespace dft::algorithms::picard {
 
   using Constraint = std::function<std::vector<arma::vec>(const std::vector<arma::vec>&)>;
 
-  struct PicardConfig {
-    double mixing{0.01};
-    double min_density{1e-30};
-    double tolerance{1e-6};
-    int max_iterations{5000};
-    int log_interval{500};
-  };
-
   struct PicardResult {
     std::vector<arma::vec> densities;
     double grand_potential;
     double residual;
     int iterations;
     bool converged;
+  };
+
+  struct Picard {
+    double mixing{0.01};
+    double min_density{1e-30};
+    double tolerance{1e-6};
+    int max_iterations{5000};
+    int log_interval{500};
+
+    [[nodiscard]] auto solve(
+        std::vector<arma::vec> densities, const ForceFunction& compute,
+        double cell_volume, const Constraint& constraint = {}
+    ) const -> PicardResult;
   };
 
   // Picard (self-consistent field) iteration for finding stationary
@@ -55,22 +60,21 @@ namespace dft::algorithms::picard {
   // nonzero value (the Lagrange multiplier). Convergence is then
   // detected when Omega stops changing between iterations.
 
-  [[nodiscard]] inline auto solve(
+  [[nodiscard]] inline auto Picard::solve(
       std::vector<arma::vec> densities, const ForceFunction& compute,
-      double cell_volume, const PicardConfig& config = {},
-      const Constraint& constraint = {}
-  ) -> PicardResult {
+      double cell_volume, const Constraint& constraint
+  ) const -> PicardResult {
     double residual = 0.0;
     double omega = 0.0;
     double omega_prev = std::numeric_limits<double>::max();
     int iter = 0;
 
-    if (config.log_interval > 0) {
+    if (log_interval > 0) {
       std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}\n", "iter", "Omega", "||force||");
       std::cout << "  " << std::string(38, '-') << "\n";
     }
 
-    for (iter = 0; iter < config.max_iterations; ++iter) {
+    for (iter = 0; iter < max_iterations; ++iter) {
       auto [energy, forces] = compute(densities);
       omega = energy;
 
@@ -82,16 +86,16 @@ namespace dft::algorithms::picard {
       }
       residual = std::sqrt(sum_f2 / total_dof);
 
-      if (config.log_interval > 0 && (iter % config.log_interval == 0)) {
+      if (log_interval > 0 && (iter % log_interval == 0)) {
         std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}\n", iter, omega, residual);
       }
 
       // Converged when forces vanish (unconstrained) or when Omega
       // stops changing (constrained, where residual plateaus).
-      bool force_converged = residual < config.tolerance;
-      bool omega_converged = (iter > 0) && std::abs(omega - omega_prev) < config.tolerance;
+      bool force_converged = residual < tolerance;
+      bool omega_converged = (iter > 0) && std::abs(omega - omega_prev) < tolerance;
       if (force_converged || omega_converged) {
-        if (config.log_interval > 0) {
+        if (log_interval > 0) {
           std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}\n", iter, omega, residual);
         }
         break;
@@ -99,8 +103,8 @@ namespace dft::algorithms::picard {
       omega_prev = omega;
 
       for (std::size_t s = 0; s < densities.size(); ++s) {
-        densities[s] %= arma::exp(-config.mixing * forces[s] / cell_volume);
-        densities[s] = arma::clamp(densities[s], config.min_density, arma::datum::inf);
+        densities[s] %= arma::exp(-mixing * forces[s] / cell_volume);
+        densities[s] = arma::clamp(densities[s], min_density, arma::datum::inf);
       }
 
       if (constraint) {
@@ -113,8 +117,8 @@ namespace dft::algorithms::picard {
         .grand_potential = omega,
         .residual = residual,
         .iterations = iter,
-        .converged = residual < config.tolerance
-                     || (iter > 0 && std::abs(omega - omega_prev) < config.tolerance),
+        .converged = residual < tolerance
+                     || (iter > 0 && std::abs(omega - omega_prev) < tolerance),
     };
   }
 

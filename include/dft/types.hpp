@@ -60,19 +60,15 @@ namespace dft {
     std::vector<long> shape;
     arma::rowvec3 dimensions;
     arma::mat positions;
+
+    [[nodiscard]] auto scaled_positions(double dnn) const -> arma::mat;
+    [[nodiscard]] auto scaled_positions(const arma::rowvec3& box) const -> arma::mat;
+    void export_to(const std::string& filename, ExportFormat format = ExportFormat::XYZ) const;
   };
 
   [[nodiscard]] auto build_lattice(
       Structure structure, Orientation orientation, const std::vector<long>& shape = {1, 1, 1}
   ) -> Lattice;
-
-  [[nodiscard]] auto scaled_positions(const Lattice& lattice, double dnn) -> arma::mat;
-
-  [[nodiscard]] auto scaled_positions(const Lattice& lattice, const arma::rowvec3& box) -> arma::mat;
-
-  void export_lattice(
-      const Lattice& lattice, const std::string& filename, ExportFormat format = ExportFormat::XYZ
-  );
 
 }  // namespace dft
 

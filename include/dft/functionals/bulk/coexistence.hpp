@@ -22,31 +22,55 @@ namespace dft::functionals::bulk {
     double rho_liquid;
   };
 
-  struct PhaseSearchConfig {
+  struct PhaseSearch {
     double rho_max{1.0};
     double rho_scan_step{0.01};
-    algorithms::solvers::NewtonConfig newton{.max_iterations = 200, .tolerance = 1e-10};
+    algorithms::solvers::Newton newton{.max_iterations = 200, .tolerance = 1e-10};
+
+    [[nodiscard]] auto find_spinodal(
+        const BulkThermodynamics& eos
+    ) const -> std::optional<Spinodal>;
+
+    [[nodiscard]] auto find_coexistence(
+        const BulkThermodynamics& eos
+    ) const -> std::optional<Coexistence>;
   };
+
+  // Invert mu(rho) to find rho given a target chemical potential.
+
+  [[nodiscard]] inline auto density_from_chemical_potential(
+      double target_mu, double initial_guess,
+      const BulkThermodynamics& eos,
+      const algorithms::solvers::Newton& solver = {.max_iterations = 200, .tolerance = 1e-10}
+  ) -> std::optional<double> {
+    auto residual = [&](const arma::vec& x) -> arma::vec {
+      return arma::vec{eos.chemical_potential(arma::vec{x(0)}, 0) - target_mu};
+    };
+    auto result = solver.solve(arma::vec{initial_guess}, residual);
+    if (!result.converged || result.solution(0) <= 0.0) {
+      return std::nullopt;
+    }
+    return result.solution(0);
+  }
 
   namespace _internal {
 
     [[nodiscard]] inline auto dp_drho(
-        double rho, const std::vector<Species>& species,
-        const Weights& weights, double h = 1e-7
+        double rho, const BulkThermodynamics& eos, double h = 1e-7
     ) -> double {
-      double p_plus = pressure(arma::vec{rho + h}, species, weights);
-      double p_minus = pressure(arma::vec{rho - h}, species, weights);
+      double p_plus = eos.pressure(arma::vec{rho + h});
+      double p_minus = eos.pressure(arma::vec{rho - h});
       return (p_plus - p_minus) / (2.0 * h);
     }
 
     [[nodiscard]] inline auto bisect_dp_drho(
         double lo, double hi,
-        const std::vector<Species>& species, const Weights& weights
+        const BulkThermodynamics& eos
     ) -> double {
-      double f_lo = dp_drho(lo, species, weights);
+      double f_lo = dp_drho(lo, eos);
       for (int i = 0; i < 60; ++i) {
         double mid = 0.5 * (lo + hi);
-        double f_mid = dp_drho(mid, species, weights);
+        double f_mid = dp_drho(mid, eos);
         if ((f_lo > 0.0) == (f_mid > 0.0)) {
           lo = mid;
           f_lo = f_mid;
@@ -59,37 +83,21 @@ namespace dft::functionals::bulk {
 
   }  // namespace _internal
 
-  [[nodiscard]] inline auto density_from_chemical_potential(
-      double target_mu, double initial_guess,
-      const std::vector<Species>& species, const Weights& weights,
-      const algorithms::solvers::NewtonConfig& config = {.max_iterations = 200, .tolerance = 1e-10}
-  ) -> std::optional<double> {
-    auto residual = [&](const arma::vec& x) -> arma::vec {
-      return arma::vec{chemical_potential(arma::vec{x(0)}, species, weights, 0) - target_mu};
-    };
-    auto result = algorithms::solvers::newton(arma::vec{initial_guess}, residual, config);
-    if (!result.converged || result.solution(0) <= 0.0) {
-      return std::nullopt;
-    }
-    return result.solution(0);
-  }
+  [[nodiscard]] inline auto PhaseSearch::find_spinodal(
+      const BulkThermodynamics& eos
+  ) const -> std::optional<Spinodal> {
+    double step_size = rho_scan_step;
+    double max_rho = rho_max;
 
-  [[nodiscard]] inline auto find_spinodal(
-      const std::vector<Species>& species, const Weights& weights,
-      const PhaseSearchConfig& config = {}
-  ) -> std::optional<Spinodal> {
-    double step = config.rho_scan_step;
-    double max_rho = config.rho_max;
-
-    double prev_dp = _internal::dp_drho(step, species, weights);
+    double prev_dp = _internal::dp_drho(step_size, eos);
     double low_lo = 0.0, low_hi = 0.0;
     double high_lo = 0.0, high_hi = 0.0;
     bool found_low = false;
     bool found_high = false;
 
-    double prev_rho = step;
-    for (double rho = 2.0 * step; rho < max_rho; rho += step) {
-      double curr_dp = _internal::dp_drho(rho, species, weights);
+    double prev_rho = step_size;
+    for (double rho = 2.0 * step_size; rho < max_rho; rho += step_size) {
+      double curr_dp = _internal::dp_drho(rho, eos);
       if (prev_dp > 0.0 && curr_dp <= 0.0 && !found_low) {
         low_lo = prev_rho;
         low_hi = rho;
@@ -109,16 +117,15 @@ namespace dft::functionals::bulk {
     }
 
     return Spinodal{
-        .rho_low = _internal::bisect_dp_drho(low_lo, low_hi, species, weights),
-        .rho_high = _internal::bisect_dp_drho(high_lo, high_hi, species, weights),
+        .rho_low = _internal::bisect_dp_drho(low_lo, low_hi, eos),
+        .rho_high = _internal::bisect_dp_drho(high_lo, high_hi, eos),
     };
   }
 
-  [[nodiscard]] inline auto find_coexistence(
-      const std::vector<Species>& species, const Weights& weights,
-      const PhaseSearchConfig& config = {}
-  ) -> std::optional<Coexistence> {
-    auto spinodal = find_spinodal(species, weights, config);
+  [[nodiscard]] inline auto PhaseSearch::find_coexistence(
+      const BulkThermodynamics& eos
+  ) const -> std::optional<Coexistence> {
+    auto spinodal = find_spinodal(eos);
     if (!spinodal) {
       return std::nullopt;
     }
@@ -127,15 +134,15 @@ namespace dft::functionals::bulk {
     double rho_s2 = spinodal->rho_high;
 
     auto delta_p = [&](double rho_v) -> std::optional<double> {
-      double mu_v = chemical_potential(arma::vec{rho_v}, species, weights, 0);
+      double mu_v = eos.chemical_potential(arma::vec{rho_v}, 0);
       auto rho_l = density_from_chemical_potential(
-          mu_v, rho_s2 * 1.2, species, weights, config.newton
+          mu_v, rho_s2 * 1.2, eos, newton
       );
       if (!rho_l || *rho_l <= rho_s2) {
         return std::nullopt;
       }
-      return pressure(arma::vec{rho_v}, species, weights)
-           - pressure(arma::vec{*rho_l}, species, weights);
+      return eos.pressure(arma::vec{rho_v})
+           - eos.pressure(arma::vec{*rho_l});
     };
 
     double rho_v = rho_s1;
@@ -188,8 +195,8 @@ namespace dft::functionals::bulk {
     }
 
     double rv = 0.5 * (rho_lo + rho_hi);
-    double mu_v = chemical_potential(arma::vec{rv}, species, weights, 0);
-    auto rl = density_from_chemical_potential(mu_v, rho_s2 * 1.2, species, weights, config.newton);
+    double mu_v = eos.chemical_potential(arma::vec{rv}, 0);
+    auto rl = density_from_chemical_potential(mu_v, rho_s2 * 1.2, eos, newton);
     if (!rl) {
       return std::nullopt;
     }

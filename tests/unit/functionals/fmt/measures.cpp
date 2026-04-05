@@ -21,7 +21,7 @@ TEST_CASE("measures default construction is all zero", "[fmt][measures]") {
 
 TEST_CASE("inner products default measures is all zero", "[fmt][measures]") {
   Measures m;
-  auto p = inner_products(m);
+  auto p = m.inner_products();
   CHECK(p.dot_v0_v1 == 0.0);
   CHECK(p.dot_v1_v1 == 0.0);
   CHECK(p.quadratic_form == 0.0);
@@ -29,14 +29,14 @@ TEST_CASE("inner products default measures is all zero", "[fmt][measures]") {
   CHECK(p.trace_T3 == 0.0);
 }
 
-// inner_products free function
+// inner_products method
 
 TEST_CASE("inner products with nonzero vectors", "[fmt][measures]") {
   Measures m;
   m.v0 = {1.0, 2.0, 3.0};
   m.v1 = {4.0, 5.0, 6.0};
   m.T.eye();
-  auto p = inner_products(m);
+  auto p = m.inner_products();
 
   CHECK(p.dot_v0_v1 == Catch::Approx(1.0 * 4.0 + 2.0 * 5.0 + 3.0 * 6.0));
   CHECK(p.dot_v1_v1 == Catch::Approx(4.0 * 4.0 + 5.0 * 5.0 + 6.0 * 6.0));

@@ -2,8 +2,163 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <fstream>
 
 using namespace dft;
+
+// --- Density ---
+
+TEST_CASE("density default-constructs with empty vectors", "[density]") {
+  Density d;
+  CHECK(d.values.is_empty());
+  CHECK(d.external_field.is_empty());
+}
+
+TEST_CASE("density values are directly assignable", "[density]") {
+  Density d;
+  d.values = arma::vec{1.0, 2.0, 3.0};
+  CHECK(d.values.n_elem == 3);
+  CHECK(d.values(0) == 1.0);
+  CHECK(d.values(2) == 3.0);
+}
+
+TEST_CASE("density supports designated initializer construction", "[density]") {
+  Density d{
+      .values = arma::vec(100, arma::fill::ones),
+      .external_field = arma::vec(100, arma::fill::zeros),
+  };
+  CHECK(d.values.n_elem == 100);
+  CHECK(d.external_field.n_elem == 100);
+}
+
+TEST_CASE("density is copyable", "[density]") {
+  Density original{
+      .values = arma::vec{1.0, 2.0, 3.0},
+      .external_field = arma::vec{0.1, 0.2, 0.3},
+  };
+  Density copy = original;
+  CHECK(copy.values.n_elem == 3);
+  CHECK(copy.values(1) == 2.0);
+
+  // Modifying copy does not affect original
+  copy.values(0) = 99.0;
+  CHECK(original.values(0) == 1.0);
+}
+
+TEST_CASE("density is movable", "[density]") {
+  Density original{
+      .values = arma::vec{1.0, 2.0, 3.0},
+      .external_field = arma::vec(3, arma::fill::zeros),
+  };
+  Density moved = std::move(original);
+  CHECK(moved.values.n_elem == 3);
+  CHECK(moved.values(2) == 3.0);
+}
+
+// --- Species ---
+
+TEST_CASE("species stores identity data", "[species]") {
+  Species s{.name = "Argon", .hard_sphere_diameter = 3.405};
+  CHECK(s.name == "Argon");
+  CHECK(s.hard_sphere_diameter == 3.405);
+}
+
+TEST_CASE("species supports direct field modification", "[species]") {
+  Species s{.name = "Krypton", .hard_sphere_diameter = 1.0};
+  s.hard_sphere_diameter = 3.6;
+  CHECK(s.hard_sphere_diameter == 3.6);
+}
+
+TEST_CASE("species state default-constructs with zero chemical potential", "[species]") {
+  SpeciesState ss;
+  CHECK(ss.chemical_potential == 0.0);
+  CHECK(!ss.fixed_mass.has_value());
+  CHECK(ss.density.values.is_empty());
+  CHECK(ss.force.is_empty());
+}
+
+TEST_CASE("species state supports designated initializer construction", "[species]") {
+  SpeciesState ss{
+      .density = Density{.values = arma::vec(10, arma::fill::ones), .external_field = arma::vec(10, arma::fill::zeros)},
+      .force = arma::vec(10, arma::fill::zeros),
+      .chemical_potential = -2.5,
+      .fixed_mass = 100.0,
+  };
+  CHECK(ss.density.values.n_elem == 10);
+  CHECK(ss.chemical_potential == -2.5);
+  CHECK(ss.fixed_mass.has_value());
+  CHECK(ss.fixed_mass.value() == 100.0);
+}
+
+TEST_CASE("species state fixed mass is optional", "[species]") {
+  SpeciesState ss;
+  CHECK(!ss.fixed_mass.has_value());
+  ss.fixed_mass = 42.0;
+  CHECK(ss.fixed_mass.value() == 42.0);
+  ss.fixed_mass = std::nullopt;
+  CHECK(!ss.fixed_mass.has_value());
+}
+
+// --- State ---
+
+TEST_CASE("state default-constructs with empty species list", "[state]") {
+  State s;
+  CHECK(s.species.empty());
+}
+
+TEST_CASE("state supports designated initializer construction", "[state]") {
+  State s{
+      .species = {SpeciesState{
+          .density =
+              Density{.values = arma::vec(8, arma::fill::ones), .external_field = arma::vec(8, arma::fill::zeros)},
+          .force = arma::vec(8, arma::fill::zeros),
+          .chemical_potential = -1.0,
+      }},
+      .temperature = 1.5,
+  };
+  CHECK(s.species.size() == 1);
+  CHECK(s.temperature == 1.5);
+  CHECK(s.species[0].density.values.n_elem == 8);
+  CHECK(s.species[0].chemical_potential == -1.0);
+}
+
+TEST_CASE("state with multiple species", "[state]") {
+  State s{
+      .species =
+          {
+              SpeciesState{
+                  .density = Density{.values = arma::vec(4, arma::fill::ones)},
+                  .force = arma::vec(4, arma::fill::zeros),
+                  .chemical_potential = -1.0,
+              },
+              SpeciesState{
+                  .density = Density{.values = arma::vec(4, arma::fill::zeros)},
+                  .force = arma::vec(4, arma::fill::zeros),
+                  .chemical_potential = -2.0,
+              },
+          },
+      .temperature = 0.8,
+  };
+  CHECK(s.species.size() == 2);
+  CHECK(s.species[0].chemical_potential == -1.0);
+  CHECK(s.species[1].chemical_potential == -2.0);
+}
+
+TEST_CASE("state is movable", "[state]") {
+  State original{
+      .species = {SpeciesState{
+          .density = Density{.values = arma::vec{1.0, 2.0, 3.0}},
+          .force = arma::vec(3, arma::fill::zeros),
+      }},
+      .temperature = 1.0,
+  };
+  State moved = std::move(original);
+  CHECK(moved.species.size() == 1);
+  CHECK(moved.species[0].density.values(1) == 2.0);
+  CHECK(moved.temperature == 1.0);
+}
+
+// --- Lattice ---
 
 TEST_CASE("build_lattice BCC 001 single cell has 2 atoms", "[lattice]") {
   auto lattice = build_lattice(Structure::BCC, Orientation::_001);
@@ -73,7 +228,7 @@ TEST_CASE("build_lattice HCP rejects unsupported orientations", "[lattice]") {
 
 TEST_CASE("scaled_positions by dnn multiplies uniformly", "[lattice]") {
   auto lattice = build_lattice(Structure::BCC, Orientation::_001);
-  auto scaled = scaled_positions(lattice, 2.5);
+  auto scaled = lattice.scaled_positions(2.5);
   CHECK(scaled(0, 0) == Catch::Approx(lattice.positions(0, 0) * 2.5));
   CHECK(scaled(1, 2) == Catch::Approx(lattice.positions(1, 2) * 2.5));
 }
@@ -81,7 +236,7 @@ TEST_CASE("scaled_positions by dnn multiplies uniformly", "[lattice]") {
 TEST_CASE("scaled_positions by box rescales anisotropically", "[lattice]") {
   auto lattice = build_lattice(Structure::FCC, Orientation::_001, {2, 2, 2});
   arma::rowvec3 box = {10.0, 20.0, 30.0};
-  auto scaled = scaled_positions(lattice, box);
+  auto scaled = lattice.scaled_positions(box);
   CHECK(arma::max(scaled.col(0)) < 10.0 + 1e-10);
   CHECK(arma::max(scaled.col(1)) < 20.0 + 1e-10);
   CHECK(arma::max(scaled.col(2)) < 30.0 + 1e-10);
@@ -90,7 +245,7 @@ TEST_CASE("scaled_positions by box rescales anisotropically", "[lattice]") {
 TEST_CASE("export_lattice writes XYZ format", "[lattice]") {
   auto lattice = build_lattice(Structure::BCC, Orientation::_001);
   std::string path = "/tmp/test_lattice.xyz";
-  export_lattice(lattice, path, ExportFormat::XYZ);
+  lattice.export_to(path, ExportFormat::XYZ);
 
   std::ifstream file(path);
   REQUIRE(file.is_open());
@@ -102,7 +257,7 @@ TEST_CASE("export_lattice writes XYZ format", "[lattice]") {
 TEST_CASE("export_lattice writes CSV format", "[lattice]") {
   auto lattice = build_lattice(Structure::FCC, Orientation::_001);
   std::string path = "/tmp/test_lattice.csv";
-  export_lattice(lattice, path, ExportFormat::CSV);
+  lattice.export_to(path, ExportFormat::CSV);
 
   std::ifstream file(path);
   REQUIRE(file.is_open());

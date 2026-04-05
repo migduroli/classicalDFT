@@ -15,7 +15,7 @@ static constexpr double RCUT = 2.5;
 
 struct SolverFixture {
   physics::Model model;
-  functionals::Weights bulk_wt;
+  functionals::bulk::BulkThermodynamics eos;
   legacy::solver::EOS legacy_eos;
 
   SolverFixture(double kT)
@@ -29,13 +29,15 @@ struct SolverFixture {
             }},
             .temperature = kT,
         },
-        bulk_wt(functionals::make_bulk_weights(functionals::fmt::WhiteBearII{}, model.interactions, kT)),
+        eos(functionals::bulk::make_bulk_thermodynamics(
+            model.species,
+            functionals::make_bulk_weights(functionals::fmt::WhiteBearII{}, model.interactions, kT))),
         legacy_eos{
             .pressure = [this](double rho) {
-              return functionals::bulk::pressure(arma::vec{rho}, model.species, bulk_wt);
+              return eos.pressure(arma::vec{rho});
             },
             .chemical_potential = [this](double rho) {
-              return functionals::bulk::chemical_potential(arma::vec{rho}, model.species, bulk_wt, 0);
+              return eos.chemical_potential(arma::vec{rho}, 0);
             },
         } {}
 };
@@ -43,7 +45,7 @@ struct SolverFixture {
 TEST_CASE("Spinodal matches legacy at kT=0.7", "[integration][solver]") {
   SolverFixture fix(0.7);
   auto ours =
-      functionals::bulk::find_spinodal(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_spinodal(fix.eos);
   auto jims = legacy::solver::findSpinodal(fix.legacy_eos, 1.0, 0.005);
   REQUIRE(ours.has_value());
   CHECK(ours->rho_low == Approx(jims.xs1).epsilon(1e-6));
@@ -53,7 +55,7 @@ TEST_CASE("Spinodal matches legacy at kT=0.7", "[integration][solver]") {
 TEST_CASE("Spinodal matches legacy at kT=0.8", "[integration][solver]") {
   SolverFixture fix(0.8);
   auto ours =
-      functionals::bulk::find_spinodal(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_spinodal(fix.eos);
   auto jims = legacy::solver::findSpinodal(fix.legacy_eos, 1.0, 0.005);
   REQUIRE(ours.has_value());
   CHECK(ours->rho_low == Approx(jims.xs1).epsilon(1e-6));
@@ -63,7 +65,7 @@ TEST_CASE("Spinodal matches legacy at kT=0.8", "[integration][solver]") {
 TEST_CASE("Spinodal matches legacy at kT=0.9", "[integration][solver]") {
   SolverFixture fix(0.9);
   auto ours =
-      functionals::bulk::find_spinodal(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_spinodal(fix.eos);
   auto jims = legacy::solver::findSpinodal(fix.legacy_eos, 1.0, 0.005);
   REQUIRE(ours.has_value());
   CHECK(ours->rho_low == Approx(jims.xs1).epsilon(1e-6));
@@ -73,7 +75,7 @@ TEST_CASE("Spinodal matches legacy at kT=0.9", "[integration][solver]") {
 TEST_CASE("Coexistence matches legacy at kT=0.7", "[integration][solver]") {
   SolverFixture fix(0.7);
   auto ours =
-      functionals::bulk::find_coexistence(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_coexistence(fix.eos);
   auto jims = legacy::solver::findCoex(fix.legacy_eos, 1.0, 0.005);
   REQUIRE(ours.has_value());
   CHECK(ours->rho_vapor == Approx(jims.x1).epsilon(1e-6));
@@ -83,7 +85,7 @@ TEST_CASE("Coexistence matches legacy at kT=0.7", "[integration][solver]") {
 TEST_CASE("Coexistence matches legacy at kT=0.8", "[integration][solver]") {
   SolverFixture fix(0.8);
   auto ours =
-      functionals::bulk::find_coexistence(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_coexistence(fix.eos);
   auto jims = legacy::solver::findCoex(fix.legacy_eos, 1.0, 0.005);
   REQUIRE(ours.has_value());
   CHECK(ours->rho_vapor == Approx(jims.x1).epsilon(1e-6));
@@ -93,7 +95,7 @@ TEST_CASE("Coexistence matches legacy at kT=0.8", "[integration][solver]") {
 TEST_CASE("Coexistence matches legacy at kT=0.9", "[integration][solver]") {
   SolverFixture fix(0.9);
   auto ours =
-      functionals::bulk::find_coexistence(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_coexistence(fix.eos);
   auto jims = legacy::solver::findCoex(fix.legacy_eos, 1.0, 0.005);
   REQUIRE(ours.has_value());
   CHECK(ours->rho_vapor == Approx(jims.x1).epsilon(1e-6));
@@ -103,12 +105,12 @@ TEST_CASE("Coexistence matches legacy at kT=0.9", "[integration][solver]") {
 TEST_CASE("Coexistence has equal pressure and chemical potential", "[integration][solver]") {
   SolverFixture fix(0.8);
   auto coex =
-      functionals::bulk::find_coexistence(fix.model.species, fix.bulk_wt, {.rho_max = 1.0, .rho_scan_step = 0.005});
+      functionals::bulk::PhaseSearch{.rho_max = 1.0, .rho_scan_step = 0.005}.find_coexistence(fix.eos);
   REQUIRE(coex.has_value());
-  double p_v = functionals::bulk::pressure(arma::vec{coex->rho_vapor}, fix.model.species, fix.bulk_wt);
-  double p_l = functionals::bulk::pressure(arma::vec{coex->rho_liquid}, fix.model.species, fix.bulk_wt);
-  double mu_v = functionals::bulk::chemical_potential(arma::vec{coex->rho_vapor}, fix.model.species, fix.bulk_wt, 0);
-  double mu_l = functionals::bulk::chemical_potential(arma::vec{coex->rho_liquid}, fix.model.species, fix.bulk_wt, 0);
+  double p_v = fix.eos.pressure(arma::vec{coex->rho_vapor});
+  double p_l = fix.eos.pressure(arma::vec{coex->rho_liquid});
+  double mu_v = fix.eos.chemical_potential(arma::vec{coex->rho_vapor}, 0);
+  double mu_l = fix.eos.chemical_potential(arma::vec{coex->rho_liquid}, 0);
   CHECK(p_v == Approx(p_l).epsilon(1e-6));
   CHECK(mu_v == Approx(mu_l).epsilon(1e-6));
 }

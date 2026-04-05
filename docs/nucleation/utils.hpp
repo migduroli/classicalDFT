@@ -6,7 +6,11 @@
 
 #include <armadillo>
 #include <cmath>
+#include <format>
+#include <functional>
+#include <iostream>
 #include <numbers>
+#include <string>
 #include <vector>
 
 namespace nucleation {
@@ -76,6 +80,8 @@ namespace nucleation {
 
   // Effective droplet radius from excess particle number:
   // R_eff = (3 Delta_N / (4 pi delta_rho))^(1/3)
+  // NOTE: This definition gives a constant R when total mass is conserved
+  // (as in DDFT). Use equimolar_radius for dynamics tracking.
 
   [[nodiscard]] inline auto effective_radius(
       const arma::vec& rho, double rho_background, double delta_rho, double dv
@@ -113,6 +119,40 @@ namespace nucleation {
     return {.time = 0.0, .r = r_out, .rho = rho_out};
   }
 
+  // Equimolar radius from the radial density profile.
+  // Finds where the radially-averaged profile crosses the midpoint
+  // between the center density and the far-field density.
+
+  [[nodiscard]] inline auto equimolar_radius(
+      const arma::vec& rho, const dft::Grid& grid, const arma::vec& r
+  ) -> double {
+    auto profile = extract_radial(rho, grid, r);
+    if (profile.r.size() < 4) return 0.0;
+
+    double rho_in = profile.rho.front();
+
+    // Far-field density: average of last quarter of radial bins.
+    std::size_t n = profile.r.size();
+    std::size_t n_far = std::max<std::size_t>(n / 4, 1);
+    double rho_out = 0.0;
+    for (std::size_t i = n - n_far; i < n; ++i) rho_out += profile.rho[i];
+    rho_out /= static_cast<double>(n_far);
+
+    if (rho_in - rho_out < 0.01) return 0.0;
+
+    double rho_half = 0.5 * (rho_in + rho_out);
+
+    // Walk outward to find first crossing below rho_half.
+    for (std::size_t i = 1; i < n; ++i) {
+      if (profile.rho[i] <= rho_half && profile.rho[i - 1] > rho_half) {
+        double f = (profile.rho[i - 1] - rho_half) / (profile.rho[i - 1] - profile.rho[i]);
+        return profile.r[i - 1] + f * (profile.r[i] - profile.r[i - 1]);
+      }
+    }
+
+    return 0.0;
+  }
+
   // Extract an x-axis slice through the centre of the box (iy=Ny/2, iz=Nz/2).
 
   [[nodiscard]] inline auto extract_x_slice(
@@ -144,6 +184,7 @@ namespace nucleation {
   }
 
   // Extract x-slice snapshots and (R_eff, Omega, rho_center) pathway from a DDFT simulation result.
+  // Overload with explicit rho_background / delta_rho (mass-based radius, kept for check tool).
 
   [[nodiscard]] inline auto extract_dynamics(
       const dft::algorithms::dynamics::SimulationResult& sim,
@@ -158,6 +199,26 @@ namespace nucleation {
       result.profiles.push_back(std::move(prof));
       result.pathway.push_back({
           .radius = effective_radius(snap.densities[0], rho_background, delta_rho, dv),
+          .energy = snap.energy,
+          .rho_center = center_density(snap.densities[0], grid),
+      });
+    }
+    return result;
+  }
+
+  // Extract dynamics using equimolar radius and SimulationResult from grand-canonical simulate.
+
+  [[nodiscard]] inline auto extract_dynamics(
+      const dft::algorithms::dynamics::SimulationResult& sim,
+      const dft::Grid& grid, const arma::vec& r
+  ) -> DynamicsResult {
+    DynamicsResult result;
+    for (const auto& snap : sim.snapshots) {
+      auto prof = extract_x_slice(snap.densities[0], grid);
+      prof.time = snap.time;
+      result.profiles.push_back(std::move(prof));
+      result.pathway.push_back({
+          .radius = equimolar_radius(snap.densities[0], grid, r),
           .energy = snap.energy,
           .rho_center = center_density(snap.densities[0], grid),
       });

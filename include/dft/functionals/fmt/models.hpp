@@ -43,11 +43,124 @@ namespace dft::functionals::fmt {
       return INV_8PI * (m.v1(i) * m.v1(j) + 2.0 * m.n2 * m.T(j, i) - 3.0 * TT_ji);
     }
 
+    // Common phi/d_phi/excess_chemical_potential for any FMT model type.
+
+    template <typename Model>
+    [[nodiscard]] auto compute_phi(const Model& func, const Measures& m) -> double {
+      double e = m.eta;
+      return -m.n0 * static_cast<double>(func.f1(e)) +
+          (m.n1 * m.n2 - m.products.dot_v0_v1) * static_cast<double>(func.f2(e)) +
+          func.phi3(m) * static_cast<double>(func.f3(e));
+    }
+
+    template <typename Model>
+    [[nodiscard]] auto compute_d_phi(const Model& func, const Measures& m) -> MeasureDerivatives {
+      double e = m.eta;
+      auto [f1_val, df1_val] =
+          math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f1(x); }, e);
+      auto [f2_val, df2_val] =
+          math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f2(x); }, e);
+      auto [f3_val, df3_val] =
+          math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f3(x); }, e);
+      double p3 = func.phi3(m);
+
+      MeasureDerivatives dm;
+      dm.d_eta = -m.n0 * df1_val + (m.n1 * m.n2 - m.products.dot_v0_v1) * df2_val + p3 * df3_val;
+      dm.d_n0 = -f1_val;
+      dm.d_n1 = m.n2 * f2_val;
+      dm.d_n2 = m.n1 * f2_val + func.d_phi3_d_n2(m) * f3_val;
+      dm.d_v0 = -m.v1 * f2_val;
+      dm.d_v1 = -m.v0 * f2_val + func.d_phi3_d_v1(m) * f3_val;
+
+      if constexpr (Model::NEEDS_TENSOR) {
+        for (int i = 0; i < 3; ++i)
+          for (int j = 0; j < 3; ++j)
+            dm.d_T(i, j) = func.d_phi3_d_T(i, j, m) * f3_val;
+      } else {
+        dm.d_T.zeros();
+      }
+
+      return dm;
+    }
+
+    template <typename Model>
+    [[nodiscard]] auto compute_excess_chemical_potential(
+        const Model& func, double density, double diameter
+    ) -> double {
+      auto m = make_uniform_measures(density, diameter);
+      auto dm = compute_d_phi(func, m);
+      double d = diameter;
+      double r = 0.5 * d;
+
+      double dn3_drho = (std::numbers::pi / 6.0) * d * d * d;
+      double dn2_drho = std::numbers::pi * d * d;
+      double dn1_drho = r;
+      double dn0_drho = 1.0;
+
+      double mu_ex =
+          dm.d_eta * dn3_drho + dm.d_n2 * dn2_drho + dm.d_n1 * dn1_drho + dm.d_n0 * dn0_drho;
+
+      if constexpr (Model::NEEDS_TENSOR) {
+        double dt_drho = std::numbers::pi * d * d / 3.0;
+        for (int j = 0; j < 3; ++j) {
+          mu_ex += dm.d_T(j, j) * dt_drho;
+        }
+      }
+
+      return mu_ex;
+    }
+
   }  // namespace detail
+
+  // CRTP base providing shared computed methods for all FMT model types.
+  // Derived must provide: f1(T), f2(T), f3(T) (static templates),
+  // phi3(Measures), d_phi3_d_n2(Measures), d_phi3_d_v1(Measures),
+  // and optionally d_phi3_d_T(int, int, Measures) for tensor models.
+  // Also: static constexpr bool NEEDS_TENSOR, std::string_view NAME.
+
+  template <typename Derived>
+  struct FMTModelBase {
+    [[nodiscard]] auto d_f1(double eta) const -> double {
+      const auto& self = static_cast<const Derived&>(*this);
+      auto [f, df] = math::derivatives_up_to_1(
+          [&self](math::dual x) -> math::dual { return self.f1(x); }, eta);
+      return df;
+    }
+
+    [[nodiscard]] auto d_f2(double eta) const -> double {
+      const auto& self = static_cast<const Derived&>(*this);
+      auto [f, df] = math::derivatives_up_to_1(
+          [&self](math::dual x) -> math::dual { return self.f2(x); }, eta);
+      return df;
+    }
+
+    [[nodiscard]] auto d_f3(double eta) const -> double {
+      const auto& self = static_cast<const Derived&>(*this);
+      auto [f, df] = math::derivatives_up_to_1(
+          [&self](math::dual x) -> math::dual { return self.f3(x); }, eta);
+      return df;
+    }
+
+    [[nodiscard]] auto phi(const Measures& m) const -> double {
+      return detail::compute_phi(static_cast<const Derived&>(*this), m);
+    }
+
+    [[nodiscard]] auto d_phi(const Measures& m) const -> MeasureDerivatives {
+      return detail::compute_d_phi(static_cast<const Derived&>(*this), m);
+    }
+
+    [[nodiscard]] auto free_energy_density(double density, double diameter) const -> double {
+      return phi(make_uniform_measures(density, diameter));
+    }
+
+    [[nodiscard]] auto excess_chemical_potential(double density, double diameter) const -> double {
+      return detail::compute_excess_chemical_potential(static_cast<const Derived&>(*this), density, diameter);
+    }
+  };
 
   // Rosenfeld (1989)
 
-  struct Rosenfeld {
+  struct Rosenfeld : FMTModelBase<Rosenfeld> {
     static constexpr bool NEEDS_TENSOR = false;
     static constexpr std::string_view NAME = "Rosenfeld";
 
@@ -86,7 +199,7 @@ namespace dft::functionals::fmt {
 
   // RSLT (Rosenfeld-Schmidt-Lowen-Tarazona)
 
-  struct RSLT {
+  struct RSLT : FMTModelBase<RSLT> {
     static constexpr bool NEEDS_TENSOR = false;
     static constexpr std::string_view NAME = "RSLT";
 
@@ -141,7 +254,7 @@ namespace dft::functionals::fmt {
 
   // White Bear Mark I (Roth et al. 2002)
 
-  struct WhiteBearI {
+  struct WhiteBearI : FMTModelBase<WhiteBearI> {
     static constexpr bool NEEDS_TENSOR = true;
     static constexpr std::string_view NAME = "WhiteBearI";
 
@@ -178,7 +291,7 @@ namespace dft::functionals::fmt {
 
   // White Bear Mark II (Hansen-Goos & Roth 2006)
 
-  struct WhiteBearII {
+  struct WhiteBearII : FMTModelBase<WhiteBearII> {
     static constexpr bool NEEDS_TENSOR = true;
     static constexpr std::string_view NAME = "WhiteBearII";
 
@@ -224,7 +337,7 @@ namespace dft::functionals::fmt {
   //        + (B/(24pi)) * (s2^3 - 3*s2*Tr(T^2) + 2*T3)
   // Default A=1, B=0. Same f1, f2, f3 as Rosenfeld but tensor Phi3.
 
-  struct EsFMT {
+  struct EsFMT : FMTModelBase<EsFMT> {
     static constexpr bool NEEDS_TENSOR = true;
     static constexpr std::string_view NAME = "esFMT";
     double A{1.0};
@@ -273,149 +386,50 @@ namespace dft::functionals::fmt {
     }
   };
 
-  using FMTModel = std::variant<Rosenfeld, RSLT, WhiteBearI, WhiteBearII, EsFMT>;
+  // FMTModel wrapper — hides variant, exposes unified interface.
+  // Constructible from any concrete FMT model type.
 
-  // Queries
+  class FMTModel {
+   public:
+    FMTModel() = default;
 
-  [[nodiscard]] inline auto name(const FMTModel& model) -> std::string_view {
-    return std::visit([](const auto& m) { return std::decay_t<decltype(m)>::NAME; }, model);
-  }
+    template <typename T>
+      requires(!std::is_same_v<std::decay_t<T>, FMTModel>)
+    FMTModel(T concrete) : data_(std::move(concrete)) {}
 
-  [[nodiscard]] inline auto needs_tensor(const FMTModel& model) -> bool {
-    return std::visit([](const auto& m) { return std::decay_t<decltype(m)>::NEEDS_TENSOR; }, model);
-  }
-
-  // Scalar f-functions evaluated at a given packing fraction
-
-  [[nodiscard]] inline auto ideal_factor(const FMTModel& model, double eta) -> double {
-    return std::visit([eta](const auto& m) { return static_cast<double>(m.f1(eta)); }, model);
-  }
-
-  [[nodiscard]] inline auto pair_factor(const FMTModel& model, double eta) -> double {
-    return std::visit([eta](const auto& m) { return static_cast<double>(m.f2(eta)); }, model);
-  }
-
-  [[nodiscard]] inline auto triplet_factor(const FMTModel& model, double eta) -> double {
-    return std::visit([eta](const auto& m) { return static_cast<double>(m.f3(eta)); }, model);
-  }
-
-  // Derivatives of the scalar f-functions via autodiff
-
-  [[nodiscard]] inline auto d_ideal_factor(const FMTModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) {
-          auto [f, df] = math::derivatives_up_to_1([&](math::dual x) -> math::dual { return m.f1(x); }, eta);
-          return df;
-        },
-        model
-    );
-  }
-
-  [[nodiscard]] inline auto d_pair_factor(const FMTModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) {
-          auto [f, df] = math::derivatives_up_to_1([&](math::dual x) -> math::dual { return m.f2(x); }, eta);
-          return df;
-        },
-        model
-    );
-  }
-
-  [[nodiscard]] inline auto d_triplet_factor(const FMTModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) {
-          auto [f, df] = math::derivatives_up_to_1([&](math::dual x) -> math::dual { return m.f3(x); }, eta);
-          return df;
-        },
-        model
-    );
-  }
-
-  // Free energy density Phi(measures) for a given FMT model.
-  // Phi = -n0 f1(eta) + (n1 n2 - v0.v1) f2(eta) + phi3(m) f3(eta)
-
-  [[nodiscard]] inline auto phi(const FMTModel& model, const Measures& m) -> double {
-    return std::visit(
-        [&](const auto& func) {
-          double e = m.eta;
-          return -m.n0 * static_cast<double>(func.f1(e)) +
-              (m.n1 * m.n2 - m.products.dot_v0_v1) * static_cast<double>(func.f2(e)) +
-              func.phi3(m) * static_cast<double>(func.f3(e));
-        },
-        model
-    );
-  }
-
-  // Functional derivatives dPhi/dn_alpha for all 19 weighted densities.
-  // Returns a Measures struct with derivatives in the corresponding fields.
-
-  [[nodiscard]] inline auto d_phi(const FMTModel& model, const Measures& m) -> MeasureDerivatives {
-    return std::visit(
-        [&](const auto& func) -> MeasureDerivatives {
-          double e = m.eta;
-          auto [f1_val, df1_val] =
-              math::derivatives_up_to_1([&](math::dual x) -> math::dual { return func.f1(x); }, e);
-          auto [f2_val, df2_val] =
-              math::derivatives_up_to_1([&](math::dual x) -> math::dual { return func.f2(x); }, e);
-          auto [f3_val, df3_val] =
-              math::derivatives_up_to_1([&](math::dual x) -> math::dual { return func.f3(x); }, e);
-          double p3 = func.phi3(m);
-
-          MeasureDerivatives dm;
-          dm.d_eta = -m.n0 * df1_val + (m.n1 * m.n2 - m.products.dot_v0_v1) * df2_val + p3 * df3_val;
-          dm.d_n0 = -f1_val;
-          dm.d_n1 = m.n2 * f2_val;
-          dm.d_n2 = m.n1 * f2_val + func.d_phi3_d_n2(m) * f3_val;
-          dm.d_v0 = -m.v1 * f2_val;
-          dm.d_v1 = -m.v0 * f2_val + func.d_phi3_d_v1(m) * f3_val;
-
-          if constexpr (std::decay_t<decltype(func)>::NEEDS_TENSOR) {
-            for (int i = 0; i < 3; ++i)
-              for (int j = 0; j < 3; ++j)
-                dm.d_T(i, j) = func.d_phi3_d_T(i, j, m) * f3_val;
-          } else {
-            dm.d_T.zeros();
-          }
-
-          return dm;
-        },
-        model
-    );
-  }
-
-  // Free energy density for a uniform fluid.
-
-  [[nodiscard]] inline auto free_energy_density(const FMTModel& model, double density, double diameter) -> double {
-    auto m = make_uniform_measures(density, diameter);
-    return phi(model, m);
-  }
-
-  // Excess chemical potential for a uniform fluid via chain rule:
-  // mu_ex = sum_alpha (dPhi/dn_alpha)(dn_alpha/drho)
-
-  [[nodiscard]] inline auto excess_chemical_potential(const FMTModel& model, double density, double diameter)
-      -> double {
-    auto m = make_uniform_measures(density, diameter);
-    auto dm = d_phi(model, m);
-    double d = diameter;
-    double r = 0.5 * d;
-
-    double dn3_drho = (std::numbers::pi / 6.0) * d * d * d;
-    double dn2_drho = std::numbers::pi * d * d;
-    double dn1_drho = r;
-    double dn0_drho = 1.0;
-
-    double mu_ex = dm.d_eta * dn3_drho + dm.d_n2 * dn2_drho + dm.d_n1 * dn1_drho + dm.d_n0 * dn0_drho;
-
-    if (needs_tensor(model)) {
-      double dt_drho = std::numbers::pi * d * d / 3.0;
-      for (int j = 0; j < 3; ++j) {
-        mu_ex += dm.d_T(j, j) * dt_drho;
-      }
+    [[nodiscard]] auto phi(const Measures& m) const -> double {
+      return std::visit([&m](const auto& f) { return f.phi(m); }, data_);
     }
 
-    return mu_ex;
-  }
+    [[nodiscard]] auto d_phi(const Measures& m) const -> MeasureDerivatives {
+      return std::visit([&m](const auto& f) { return f.d_phi(m); }, data_);
+    }
+
+    [[nodiscard]] auto free_energy_density(double density, double diameter) const -> double {
+      return std::visit([density, diameter](const auto& f) { return f.free_energy_density(density, diameter); }, data_);
+    }
+
+    [[nodiscard]] auto excess_chemical_potential(double density, double diameter) const -> double {
+      return std::visit(
+          [density, diameter](const auto& f) { return f.excess_chemical_potential(density, diameter); }, data_
+      );
+    }
+
+    [[nodiscard]] auto needs_tensor() const -> bool {
+      return std::visit([](const auto& f) { return std::decay_t<decltype(f)>::NEEDS_TENSOR; }, data_);
+    }
+
+    [[nodiscard]] auto name() const -> std::string_view {
+      return std::visit([](const auto& f) -> std::string_view { return f.NAME; }, data_);
+    }
+
+    // Access underlying variant for rare type-specific inspection
+    using VariantType = std::variant<Rosenfeld, RSLT, WhiteBearI, WhiteBearII, EsFMT>;
+    [[nodiscard]] auto variant() const -> const VariantType& { return data_; }
+
+   private:
+    VariantType data_;
+  };
 
 }  // namespace dft::functionals::fmt
 

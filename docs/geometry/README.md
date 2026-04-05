@@ -50,7 +50,9 @@ supports element-wise arithmetic (`+`, `-`) and stream output. Vertices
 are used both for grid-point positions and for general coordinate
 manipulations.
 
-## What the code does
+---
+
+## Step-by-step code walkthrough
 
 ### 1. Vertex arithmetic
 
@@ -70,8 +72,8 @@ Demonstrates periodic wrapping:
 
 ```cpp
 auto mesh2d = geometry::uniform_mesh_2d(1.0, {4.0, 4.0}, {0.0, 0.0});
-geometry::wrap(m2d, {5.5, 7.0});   // → {1.5, 3.0}
-geometry::wrap(m2d, {-1.0, -0.5}); // → {3.0, 3.5}
+mesh2d.wrap({5.5, 7.0});   // → {1.5, 3.0}
+mesh2d.wrap({-1.0, -0.5}); // → {3.0, 3.5}
 ```
 
 ### 3. 3D uniform mesh
@@ -81,20 +83,20 @@ coordinate:
 
 ```cpp
 auto mesh3d = geometry::uniform_mesh_3d(1.0, {4.0, 4.0, 4.0}, {0.0, 0.0, 0.0});
-geometry::wrap(m3d, {5.5, 7.0, 12.5}); // → {1.5, 3.0, 0.5}
+mesh3d.wrap({5.5, 7.0, 12.5}); // → {1.5, 3.0, 0.5}
 ```
 
 ### 4. Elements and volumes
 
 Constructs `SquareBox2D` and `SquareBox3D` element objects and evaluates
-their volume using the variant-based `geometry::volume()` dispatch:
+their volume using method calls:
 
 ```cpp
 auto sq = geometry::make_square_box_2d(1.0, {0.0, 0.0});
-geometry::volume(sq); // → 1.0
+sq.volume(); // → 1.0
 
 auto cb = geometry::make_square_box_3d(1.0, {0.0, 0.0, 0.0});
-geometry::volume(cb); // → 1.0
+cb.volume(); // → 1.0
 ```
 
 ## Design notes

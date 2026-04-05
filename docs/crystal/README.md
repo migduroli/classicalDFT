@@ -38,14 +38,68 @@ Lattice data can be exported to:
 - **XYZ**: standard molecular dynamics format (readable by VMD, OVITO).
 - **CSV**: comma-separated format for analysis scripts.
 
-## What the code does
+---
 
-1. Iterates over all structure/orientation combinations and prints the number
-   of atoms and box dimensions for each unit cell.
-2. Builds a $4^3$ replicated FCC [001] lattice (256 atoms).
-3. Demonstrates uniform and anisotropic position scaling.
-4. Exports the FCC lattice to XYZ and CSV formats.
-5. Plots xy-projections of FCC, BCC, and HCP lattices.
+## Step-by-step code walkthrough
+
+### Step 1: Enumerate all unit cell configurations
+
+All 9 structure/orientation combinations are iterated and their properties
+printed:
+
+```cpp
+Config configs[] = {
+    {Structure::BCC, Orientation::_001, "BCC [001]"},
+    {Structure::BCC, Orientation::_110, "BCC [110]"},
+    // ... FCC, HCP configurations
+};
+for (const auto& cfg : configs) {
+    auto lattice = build_lattice(cfg.structure, cfg.orientation);
+    // prints: label, atom count, Lx, Ly, Lz
+}
+```
+
+The `build_lattice(structure, orientation)` factory returns a `Lattice` struct
+with `.positions` (Nx3 matrix) and `.dimensions` (3-vector of box lengths).
+
+### Step 2: Build a replicated supercell
+
+A $4 \times 4 \times 4$ replication of FCC [001] produces 256 atoms:
+
+```cpp
+auto fcc = build_lattice(Structure::FCC, Orientation::_001, {4, 4, 4});
+```
+
+The optional third argument `{nx, ny, nz}` tiles the unit cell `nx` times
+along $x$, etc. Positions and dimensions scale accordingly.
+
+### Step 3: Scale positions
+
+Uniform scaling fixes the nearest-neighbour distance $d_{nn}$:
+
+```cpp
+auto scaled = bcc.scaled_positions(dnn);
+```
+
+Anisotropic scaling maps fractional coordinates into a specific box:
+
+```cpp
+arma::rowvec3 box = {10.0, 10.0, 10.0};
+auto aniso = bcc.scaled_positions(box);
+```
+
+Both methods return an Nx3 matrix of absolute positions.
+
+### Step 4: Export to file
+
+The lattice can be exported in XYZ (for VMD/OVITO) or CSV format:
+
+```cpp
+fcc.export_to("exports/fcc_4x4x4.xyz", ExportFormat::XYZ);
+fcc.export_to("exports/fcc_4x4x4.csv", ExportFormat::CSV);
+```
+
+---
 
 ## Cross-validation (`check/`)
 

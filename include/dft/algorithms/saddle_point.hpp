@@ -151,13 +151,6 @@ namespace dft::algorithms::saddle_point {
 
   // Eigenvalue result (public, needed by nucleation example).
 
-  struct EigenvalueConfig {
-    double tolerance{1e-4};
-    int max_iterations{300};
-    double hessian_eps{1e-6};
-    int log_interval{0};
-  };
-
   struct EigenvalueResult {
     arma::vec eigenvector;
     double eigenvalue{0.0};
@@ -165,20 +158,32 @@ namespace dft::algorithms::saddle_point {
     bool converged{false};
   };
 
-  // Find the smallest eigenvalue and its eigenvector of the Hessian
-  // d^2 Omega / (drho_i drho_j) using LOBPCG.
+  struct EigenvalueSolver {
+    double tolerance{1e-4};
+    int max_iterations{300};
+    double hessian_eps{1e-6};
+    int log_interval{0};
 
-  [[nodiscard]] inline auto smallest_eigenvalue(
+    // Find the smallest eigenvalue and its eigenvector of the Hessian
+    // d^2 Omega / (drho_i drho_j) using LOBPCG.
+
+    [[nodiscard]] auto solve(
+        const ForceFunction& force_fn,
+        const arma::vec& rho,
+        const arma::vec& initial_guess = {}
+    ) const -> EigenvalueResult;
+  };
+
+  [[nodiscard]] inline auto EigenvalueSolver::solve(
       const ForceFunction& force_fn,
       const arma::vec& rho,
-      const EigenvalueConfig& config = {},
-      const arma::vec& initial_guess = {}
-  ) -> EigenvalueResult {
+      const arma::vec& initial_guess
+  ) const -> EigenvalueResult {
     _internal::EigenvalueConfig internal_cfg{
-        .tolerance = config.tolerance,
-        .max_iterations = config.max_iterations,
-        .hessian_eps = config.hessian_eps,
-        .log_interval = config.log_interval,
+        .tolerance = tolerance,
+        .max_iterations = max_iterations,
+        .hessian_eps = hessian_eps,
+        .log_interval = log_interval,
     };
 
     auto [omega, forces] = force_fn(rho);
@@ -189,28 +194,28 @@ namespace dft::algorithms::saddle_point {
         : arma::randn(n);
     v /= arma::norm(v);
 
-    if (config.log_interval > 0) {
+    if (log_interval > 0) {
       std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}\n",
                                "iter", "eigenvalue", "residual");
       std::cout << "  " << std::string(40, '-') << "\n";
     }
 
-    arma::vec hv = _internal::hessian_times_vector(force_fn, rho, forces, v, config.hessian_eps);
+    arma::vec hv = _internal::hessian_times_vector(force_fn, rho, forces, v, hessian_eps);
     double lambda = arma::dot(v, hv);
     arma::vec p_raw;
 
     bool converged = false;
     int iter = 0;
 
-    for (; iter < config.max_iterations; ++iter) {
+    for (; iter < max_iterations; ++iter) {
       arma::vec residual = hv - lambda * v;
       double res_norm = arma::norm(residual);
 
-      if (config.log_interval > 0 && (iter % config.log_interval == 0 || res_norm < config.tolerance)) {
+      if (log_interval > 0 && (iter % log_interval == 0 || res_norm < tolerance)) {
         std::cout << std::format("  {:>6d}  {:>14.6e}  {:>14.6e}\n", iter, lambda, res_norm);
       }
 
-      if (res_norm < config.tolerance) {
+      if (res_norm < tolerance) {
         converged = true;
         break;
       }
@@ -224,7 +229,7 @@ namespace dft::algorithms::saddle_point {
       q1 /= q1n;
 
       arma::vec hq0 = hv;
-      arma::vec hq1 = _internal::hessian_times_vector(force_fn, rho, forces, q1, config.hessian_eps);
+      arma::vec hq1 = _internal::hessian_times_vector(force_fn, rho, forces, q1, hessian_eps);
 
       int dim = 2;
       arma::vec q2;
@@ -235,7 +240,7 @@ namespace dft::algorithms::saddle_point {
         double q2n = arma::norm(q2);
         if (q2n > 1e-10) {
           q2 /= q2n;
-          hq2 = _internal::hessian_times_vector(force_fn, rho, forces, q2, config.hessian_eps);
+          hq2 = _internal::hessian_times_vector(force_fn, rho, forces, q2, hessian_eps);
           dim = 3;
         }
       }
@@ -269,7 +274,7 @@ namespace dft::algorithms::saddle_point {
       p_raw = v_new - v;
 
       v = v_new / arma::norm(v_new);
-      hv = _internal::hessian_times_vector(force_fn, rho, forces, v, config.hessian_eps);
+      hv = _internal::hessian_times_vector(force_fn, rho, forces, v, hessian_eps);
       lambda = arma::dot(v, hv);
     }
 
@@ -280,6 +285,8 @@ namespace dft::algorithms::saddle_point {
         .converged = converged,
     };
   }
+
+  namespace _internal {
 
   // Wrap a force function with a Householder reflection that
   // reverses the force component along one direction per species:
@@ -315,10 +322,21 @@ namespace dft::algorithms::saddle_point {
     };
   }
 
+  }  // namespace _internal
+
+  struct Result {
+    arma::vec density;
+    arma::vec eigenvector;
+    double grand_potential{0.0};
+    double eigenvalue{0.0};
+    int outer_iterations{0};
+    bool converged{false};
+  };
+
   // Saddle-point search configuration.
 
-  struct Config {
-    fire::FireConfig fire{
+  struct Search {
+    fire::Fire fire{
         .dt = 1e-3,
         .dt_max = 1.0,
         .alpha_start = 0.01,
@@ -326,7 +344,7 @@ namespace dft::algorithms::saddle_point {
         .force_tolerance = 1e-4,
         .max_steps = 100000,
     };
-    EigenvalueConfig eigenvalue{
+    EigenvalueSolver eigenvalue{
         .tolerance = 1e-4,
         .max_iterations = 300,
         .hessian_eps = 1e-6,
@@ -338,15 +356,14 @@ namespace dft::algorithms::saddle_point {
     int max_outer_iterations{20};
     int eigenvalue_clear_count{2};
     int log_interval{100};
-  };
 
-  struct Result {
-    arma::vec density;
-    arma::vec eigenvector;
-    double grand_potential{0.0};
-    double eigenvalue{0.0};
-    int outer_iterations{0};
-    bool converged{false};
+    [[nodiscard]] auto find(
+        const physics::Model& model,
+        const functionals::Weights& weights,
+        const arma::vec& initial_density,
+        double chemical_potential,
+        double target_mass
+    ) const -> Result;
   };
 
   // Find the saddle point (critical cluster) of the grand potential
@@ -361,16 +378,15 @@ namespace dft::algorithms::saddle_point {
   //   2. Run FIRE2 at fixed mass with direction projection
   //   3. Check |Omega_new - Omega_old| < tol
 
-  [[nodiscard]] inline auto find(
+  [[nodiscard]] inline auto Search::find(
       const physics::Model& model,
       const functionals::Weights& weights,
       const arma::vec& initial_density,
       double chemical_potential,
-      double target_mass,
-      const Config& config = {}
-  ) -> Result {
+      double target_mass
+  ) const -> Result {
     double dv = model.grid.cell_volume();
-    arma::uvec bdry = boundary_mask(model.grid);
+    arma::uvec bdry = model.grid.boundary_mask();
 
     auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
       auto state = init::from_profile(model, rho);
@@ -384,15 +400,15 @@ namespace dft::algorithms::saddle_point {
     arma::vec rho = initial_density;
     arma::vec eigvec;
     double omega = 0.0;
-    double eigenvalue = 0.0;
+    double eigenvalue_val = 0.0;
     bool converged = false;
     int outer = 0;
-    double ftol = config.tolerance_start;
+    double ftol = tolerance_start;
 
     std::cout << "\n=== Eigenvector following: saddle-point search ===\n";
     std::cout << "  target_mass = " << target_mass << "\n\n";
 
-    for (; outer < config.max_outer_iterations; ++outer) {
+    for (; outer < max_outer_iterations; ++outer) {
       double omega_old = omega;
 
       std::cout << std::format("  --- outer iteration {} ---\n", outer);
@@ -401,22 +417,22 @@ namespace dft::algorithms::saddle_point {
 
       std::cout << "  Computing smallest eigenvalue...\n";
 
-      auto eig_result = smallest_eigenvalue(
-          eig_force_fn, rho, config.eigenvalue,
-          (outer >= config.eigenvalue_clear_count && eigvec.n_elem == rho.n_elem)
+      auto eig_result = eigenvalue.solve(
+          eig_force_fn, rho,
+          (outer >= eigenvalue_clear_count && eigvec.n_elem == rho.n_elem)
               ? eigvec : arma::vec{});
 
       eigvec = eig_result.eigenvector;
-      eigenvalue = eig_result.eigenvalue;
+      eigenvalue_val = eig_result.eigenvalue;
 
       std::cout << std::format("  eigenvalue = {:.6e}  converged = {}  iters = {}\n",
-                               eigenvalue, eig_result.converged, eig_result.iterations);
+                               eigenvalue_val, eig_result.converged, eig_result.iterations);
 
       // Step 2: FIRE2 at fixed mass + fixed boundary + direction projection.
 
-      arma::vec x_current = minimization::_internal::from_density(rho, config.param);
+      arma::vec x_current = minimization::_internal::from_density(rho, param);
       arma::vec dir_alias = eigvec;
-      dir_alias = minimization::_internal::transform_force(dir_alias, x_current, config.param);
+      dir_alias = minimization::_internal::transform_force(dir_alias, x_current, param);
       double dn = arma::norm(dir_alias);
       if (dn > 1e-30) {
         dir_alias /= dn;
@@ -437,7 +453,7 @@ namespace dft::algorithms::saddle_point {
 
       auto compute = [&](const std::vector<arma::vec>& x_param)
           -> std::pair<double, std::vector<arma::vec>> {
-        arma::vec rho_local = minimization::_internal::to_density(x_param[0], config.param);
+        arma::vec rho_local = minimization::_internal::to_density(x_param[0], param);
 
         double m_interior = 0.0;
         for (arma::uword i = 0; i < rho_local.n_elem; ++i) {
@@ -480,7 +496,7 @@ namespace dft::algorithms::saddle_point {
           }
         }
 
-        arma::vec f_alias = minimization::_internal::transform_force(grad, x_param[0], config.param);
+        arma::vec f_alias = minimization::_internal::transform_force(grad, x_param[0], param);
         f_alias -= arma::dot(dir_alias, f_alias) * dir_alias;
 
         return {result.grand_potential, {-f_alias}};
@@ -488,15 +504,15 @@ namespace dft::algorithms::saddle_point {
 
       std::cout << "  Running FIRE2 (fixed mass + projected)...\n";
 
-      auto fire_config = config.fire;
-      fire_config.force_tolerance = std::max(ftol, config.fire.force_tolerance);
-      ftol /= config.tolerance_factor;
+      auto fire_cfg = fire;
+      fire_cfg.force_tolerance = std::max(ftol, fire.force_tolerance);
+      ftol /= tolerance_factor;
 
-      auto fire_state = fire::initialize(
-          {minimization::_internal::from_density(rho, config.param)}, compute, fire_config);
+      auto fire_state = fire_cfg.initialize(
+          {minimization::_internal::from_density(rho, param)}, compute);
       auto [e0, forces0] = compute(fire_state.x);
 
-      if (config.log_interval > 0) {
+      if (log_interval > 0) {
         std::cout << std::format("    {:>6s}  {:>14s}  {:>14s}  {:>10s}\n",
                                  "iter", "Omega", "rms_force", "dt");
         std::cout << "    " << std::string(50, '-') << "\n";
@@ -504,20 +520,20 @@ namespace dft::algorithms::saddle_point {
                                  0, fire_state.energy, fire_state.rms_force, fire_state.dt);
       }
 
-      for (int i = 0; i < fire_config.max_steps && !fire_state.converged; ++i) {
-        auto [ns, nf] = fire::step(std::move(fire_state), forces0, compute, fire_config);
+      for (int i = 0; i < fire_cfg.max_steps && !fire_state.converged; ++i) {
+        auto [ns, nf] = fire_cfg.step(std::move(fire_state), forces0, compute);
         fire_state = std::move(ns);
         forces0 = std::move(nf);
 
-        if (config.log_interval > 0 &&
-            ((i + 1) % config.log_interval == 0 || fire_state.converged)) {
+        if (log_interval > 0 &&
+            ((i + 1) % log_interval == 0 || fire_state.converged)) {
           std::cout << std::format("    {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
                                    i + 1, fire_state.energy, fire_state.rms_force, fire_state.dt);
         }
       }
 
       // Extract final density.
-      rho = minimization::_internal::to_density(fire_state.x[0], config.param);
+      rho = minimization::_internal::to_density(fire_state.x[0], param);
       double fm = 0.0;
       for (arma::uword i = 0; i < rho.n_elem; ++i) {
         if (!bdry(i)) {
@@ -547,12 +563,12 @@ namespace dft::algorithms::saddle_point {
       std::cout << std::format("  Omega = {:.8f}  (delta = {:.2e})  gamma = {:.2e}\n\n",
                                omega, std::abs(omega - omega_old), gamma);
 
-      if (outer > 0 && std::abs(omega - omega_old) < config.omega_tolerance) {
+      if (outer > 0 && std::abs(omega - omega_old) < omega_tolerance) {
         converged = true;
         break;
       }
 
-      x_current = minimization::_internal::from_density(rho, config.param);
+      x_current = minimization::_internal::from_density(rho, param);
     }
 
     std::cout << std::format("  Eigenvector following {}  ({} outer iterations)\n",
@@ -562,7 +578,7 @@ namespace dft::algorithms::saddle_point {
         .density = rho,
         .eigenvector = eigvec,
         .grand_potential = omega,
-        .eigenvalue = eigenvalue,
+        .eigenvalue = eigenvalue_val,
         .outer_iterations = outer + 1,
         .converged = converged,
     };

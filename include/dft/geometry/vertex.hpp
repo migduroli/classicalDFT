@@ -18,14 +18,14 @@ namespace dft::geometry {
     auto operator[](int k) -> double& {
       return coordinates.at(static_cast<size_t>(k));
     }
+
+    [[nodiscard]] auto dimension() const -> int {
+      return static_cast<int>(coordinates.size());
+    }
   };
 
-  [[nodiscard]] inline auto dimension(const Vertex& v) -> int {
-    return static_cast<int>(v.coordinates.size());
-  }
-
   [[nodiscard]] inline auto operator+(const Vertex& a, const Vertex& b) -> Vertex {
-    if (dimension(a) != dimension(b)) {
+    if (a.dimension() != b.dimension()) {
       throw std::invalid_argument("Cannot add vertices of different dimensions");
     }
     std::vector<double> result;
@@ -37,7 +37,7 @@ namespace dft::geometry {
   }
 
   [[nodiscard]] inline auto operator-(const Vertex& a, const Vertex& b) -> Vertex {
-    if (dimension(a) != dimension(b)) {
+    if (a.dimension() != b.dimension()) {
       throw std::invalid_argument("Cannot subtract vertices of different dimensions");
     }
     std::vector<double> result;

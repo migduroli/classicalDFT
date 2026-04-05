@@ -57,17 +57,68 @@ namespace dft::functionals::bulk {
     SpinodalCurve spinodal;
     double critical_temperature{0.0};
     double critical_density{0.0};
+
+    [[nodiscard]] auto interpolate(double temperature) const -> PhaseBoundaries {
+      PhaseBoundaries result{.temperature = temperature};
+
+      auto try_spline = [](const arma::vec& T, const arma::vec& y, double t) -> double {
+        if (T.n_elem < 4 || t < T.front() || t > T.back()) {
+          return std::numeric_limits<double>::quiet_NaN();
+        }
+        math::CubicSpline spline(
+            std::span<const double>(T.memptr(), T.n_elem),
+            std::span<const double>(y.memptr(), y.n_elem)
+        );
+        return spline(t);
+      };
+
+      if (!binodal.temperature.is_empty()) {
+        result.binodal_vapor = try_spline(binodal.temperature, binodal.rho_vapor, temperature);
+        result.binodal_liquid = try_spline(binodal.temperature, binodal.rho_liquid, temperature);
+      }
+
+      if (!spinodal.temperature.is_empty()) {
+        result.spinodal_low = try_spline(spinodal.temperature, spinodal.rho_low, temperature);
+        result.spinodal_high = try_spline(spinodal.temperature, spinodal.rho_high, temperature);
+      }
+
+      return result;
+    }
   };
+
+  // EoS factory: produces a BulkThermodynamics at a given temperature.
+
+  using EoSFactory = std::function<BulkThermodynamics(double kT)>;
+
+  // Build an EoS factory from an FMT model, species list, and interactions.
+  // At each temperature the factory creates a BulkThermodynamics with
+  // analytical a_vdw (no grid). Suitable for PhaseDiagramBuilder.
+  //
+  //   auto eos_at = make_eos_factory(RSLT{}, species, interactions);
+  //   auto eos = eos_at(0.8);  // BulkThermodynamics at kT = 0.8
+
+  [[nodiscard]] inline auto make_eos_factory(
+      fmt::FMTModel fmt_model,
+      std::vector<Species> species,
+      std::vector<physics::Interaction> interactions
+  ) -> EoSFactory {
+    return [fmt_model = std::move(fmt_model), species = std::move(species),
+            interactions = std::move(interactions)](double kT) {
+      return make_bulk_thermodynamics(
+          species, make_bulk_weights(fmt_model, interactions, kT)
+      );
+    };
+  }
 
   // Configuration for full phase diagram computation.
 
-  struct PhaseDiagramConfig {
+  struct PhaseDiagramBuilder {
     double start_temperature{0.6};
     double density_gap_tolerance{0.005};
     double turning_point_margin{0.02};
     double spinodal_temperature_step{0.01};
-    PhaseSearchConfig search{};
-    algorithms::continuation::ContinuationConfig continuation{
+    PhaseSearch search{};
+    algorithms::continuation::Continuation continuation{
         .initial_step = 0.005,
         .max_step = 0.05,
         .min_step = 1e-6,
@@ -75,11 +126,17 @@ namespace dft::functionals::bulk {
         .shrink_factor = 0.5,
         .newton = {.max_iterations = 300, .tolerance = 1e-10},
     };
+
+    [[nodiscard]] auto binodal(
+        const EoSFactory& eos_factory
+    ) const -> std::optional<CoexistenceCurve>;
+
+    [[nodiscard]] auto spinodal_curve(
+        const EoSFactory& eos_factory
+    ) const -> std::optional<SpinodalCurve>;
   };
 
-  // Weight factory: produces bulk Weights at a given temperature.
-
-  using WeightFactory = std::function<Weights(double kT)>;
+  namespace _internal {
 
   // Trace the coexistence curve as a function of temperature using
   // pseudo-arclength continuation. The weight factory produces the
@@ -90,17 +147,17 @@ namespace dft::functionals::bulk {
 
   [[nodiscard]] inline auto trace_coexistence(
       const Coexistence& start, double start_kT,
-      const std::vector<Species>& species, const WeightFactory& weight_factory,
-      const algorithms::continuation::ContinuationConfig& config = {},
+      const EoSFactory& eos_factory,
+      const algorithms::continuation::Continuation& continuation = {},
       std::function<bool(const algorithms::continuation::CurvePoint&)> stop = {}
   ) -> std::vector<algorithms::continuation::CurvePoint> {
     auto residual = [&](const arma::vec& x, double kT) -> arma::vec {
-      auto w = weight_factory(kT);
+      auto eos = eos_factory(kT);
       arma::vec rv{x(0)};
       arma::vec rl{x(1)};
       return arma::vec{
-          pressure(rv, species, w) - pressure(rl, species, w),
-          chemical_potential(rv, species, w, 0) - chemical_potential(rl, species, w, 0),
+          eos.pressure(rv) - eos.pressure(rl),
+          eos.chemical_potential(rv, 0) - eos.chemical_potential(rl, 0),
       };
     };
 
@@ -111,32 +168,33 @@ namespace dft::functionals::bulk {
         .dlambda_ds = 1.0,
     };
 
-    return algorithms::continuation::trace(start_point, residual, config, std::move(stop));
+    return continuation.trace(start_point, residual, std::move(stop));
   }
+
+  }  // namespace _internal
 
   // Trace the full binodal (coexistence) curve from a starting temperature
   // up to the critical point using pseudo-arclength continuation.
   // The curve is truncated at the maximum temperature (critical point);
   // beyond Tc the continuation follows an unphysical branch.
 
-  [[nodiscard]] inline auto binodal(
-      const std::vector<Species>& species, const WeightFactory& weight_factory,
-      const PhaseDiagramConfig& config = {}
-  ) -> std::optional<CoexistenceCurve> {
-    auto w_start = weight_factory(config.start_temperature);
-    auto seed = find_coexistence(species, w_start, config.search);
+  [[nodiscard]] inline auto PhaseDiagramBuilder::binodal(
+      const EoSFactory& eos_factory
+  ) const -> std::optional<CoexistenceCurve> {
+    auto eos_start = eos_factory(start_temperature);
+    auto seed = search.find_coexistence(eos_start);
     if (!seed) {
       return std::nullopt;
     }
 
-    double T_max_seen = config.start_temperature;
-    auto curve = trace_coexistence(
-        *seed, config.start_temperature, species, weight_factory, config.continuation,
+    double T_max_seen = start_temperature;
+    auto curve = _internal::trace_coexistence(
+        *seed, start_temperature, eos_factory, continuation,
         [&](const algorithms::continuation::CurvePoint& pt) {
           T_max_seen = std::max(T_max_seen, pt.lambda);
           double gap = std::abs(pt.x(1) - pt.x(0));
-          return gap < config.density_gap_tolerance
-              || pt.lambda < T_max_seen - config.turning_point_margin;
+          return gap < density_gap_tolerance
+              || pt.lambda < T_max_seen - turning_point_margin;
         }
     );
 
@@ -176,22 +234,21 @@ namespace dft::functionals::bulk {
   // The temperature step is refined automatically near the critical
   // point where the density gap closes.
 
-  [[nodiscard]] inline auto spinodal(
-      const std::vector<Species>& species, const WeightFactory& weight_factory,
-      const PhaseDiagramConfig& config = {}
-  ) -> std::optional<SpinodalCurve> {
+  [[nodiscard]] inline auto PhaseDiagramBuilder::spinodal_curve(
+      const EoSFactory& eos_factory
+  ) const -> std::optional<SpinodalCurve> {
     std::vector<double> T_vals, lo_vals, hi_vals;
 
     // Bisection on dp_drho: guaranteed convergence within a bracket.
-    auto bisect_root = [&](double a, double b, const Weights& w) -> std::optional<double> {
-      double fa = _internal::dp_drho(a, species, w);
-      double fb = _internal::dp_drho(b, species, w);
+    auto bisect_root = [&](double a, double b, const BulkThermodynamics& eos) -> std::optional<double> {
+      double fa = _internal::dp_drho(a, eos);
+      double fb = _internal::dp_drho(b, eos);
       if (fa * fb > 0.0) {
         return std::nullopt;
       }
       for (int i = 0; i < 60; ++i) {
         double mid = 0.5 * (a + b);
-        double fm = _internal::dp_drho(mid, species, w);
+        double fm = _internal::dp_drho(mid, eos);
         if (fa * fm <= 0.0) {
           b = mid;
         } else {
@@ -204,12 +261,12 @@ namespace dft::functionals::bulk {
 
     // Bracket a root around a guess by expanding outward.
     auto bracket_root = [&](double guess, double sign_left, double step,
-                            const Weights& w) -> std::optional<std::pair<double, double>> {
+                            const BulkThermodynamics& eos) -> std::optional<std::pair<double, double>> {
       for (double delta = step; delta < 0.3; delta += step) {
         double a = std::max(guess - delta, 1e-6);
         double b = guess + delta;
-        double fa = _internal::dp_drho(a, species, w);
-        double fb = _internal::dp_drho(b, species, w);
+        double fa = _internal::dp_drho(a, eos);
+        double fb = _internal::dp_drho(b, eos);
         if (fa * fb < 0.0) {
           return std::pair{a, b};
         }
@@ -220,21 +277,21 @@ namespace dft::functionals::bulk {
     std::optional<Spinodal> prev;
     int consecutive_failures = 0;
 
-    double dT = config.spinodal_temperature_step;
-    for (double T = config.start_temperature; ; T += dT) {
-      auto w = weight_factory(T);
+    double dT = spinodal_temperature_step;
+    for (double T = start_temperature; ; T += dT) {
+      auto eos = eos_factory(T);
 
       std::optional<Spinodal> sp;
 
       if (prev) {
         // Bisection from previous values: search for brackets nearby.
-        double scan_step = config.search.rho_scan_step;
-        auto lo_bracket = bracket_root(prev->rho_low, 1.0, scan_step, w);
-        auto hi_bracket = bracket_root(prev->rho_high, -1.0, scan_step, w);
+        double scan_step = search.rho_scan_step;
+        auto lo_bracket = bracket_root(prev->rho_low, 1.0, scan_step, eos);
+        auto hi_bracket = bracket_root(prev->rho_high, -1.0, scan_step, eos);
 
         if (lo_bracket && hi_bracket) {
-          auto rlo = bisect_root(lo_bracket->first, lo_bracket->second, w);
-          auto rhi = bisect_root(hi_bracket->first, hi_bracket->second, w);
+          auto rlo = bisect_root(lo_bracket->first, lo_bracket->second, eos);
+          auto rhi = bisect_root(hi_bracket->first, hi_bracket->second, eos);
           if (rlo && rhi && *rhi > *rlo) {
             sp = Spinodal{.rho_low = *rlo, .rho_high = *rhi};
           }
@@ -243,7 +300,7 @@ namespace dft::functionals::bulk {
 
       // Fall back to full coarse scan.
       if (!sp) {
-        sp = find_spinodal(species, w, config.search);
+        sp = search.find_spinodal(eos);
       }
 
       if (!sp) {
@@ -288,11 +345,11 @@ namespace dft::functionals::bulk {
   // Returns nullopt only if both curves fail to compute.
 
   [[nodiscard]] inline auto phase_diagram(
-      const std::vector<Species>& species, const WeightFactory& weight_factory,
-      const PhaseDiagramConfig& config = {}
+      const EoSFactory& eos_factory,
+      const PhaseDiagramBuilder& builder = {}
   ) -> std::optional<PhaseDiagram> {
-    auto b = binodal(species, weight_factory, config);
-    auto s = spinodal(species, weight_factory, config);
+    auto b = builder.binodal(eos_factory);
+    auto s = builder.spinodal_curve(eos_factory);
 
     if (!b && !s) {
       return std::nullopt;
@@ -314,40 +371,6 @@ namespace dft::functionals::bulk {
         .critical_temperature = Tc,
         .critical_density = rho_c,
     };
-  }
-
-  // Interpolate the phase boundaries at an arbitrary temperature using
-  // cubic spline interpolation on the raw curve data. Returns NaN for
-  // any boundary that is not available at the requested temperature
-  // (e.g. above Tc or outside the traced range).
-
-  [[nodiscard]] inline auto interpolate(const PhaseDiagram& pd, double temperature) -> PhaseBoundaries {
-    PhaseBoundaries result{.temperature = temperature};
-
-    auto try_spline = [](const arma::vec& T, const arma::vec& y, double t) -> double {
-      if (T.n_elem < 4 || t < T.front() || t > T.back()) {
-        return std::numeric_limits<double>::quiet_NaN();
-      }
-      math::CubicSpline spline(
-          std::span<const double>(T.memptr(), T.n_elem),
-          std::span<const double>(y.memptr(), y.n_elem)
-      );
-      return spline(t);
-    };
-
-    const auto& b = pd.binodal;
-    if (!b.temperature.is_empty()) {
-      result.binodal_vapor = try_spline(b.temperature, b.rho_vapor, temperature);
-      result.binodal_liquid = try_spline(b.temperature, b.rho_liquid, temperature);
-    }
-
-    const auto& s = pd.spinodal;
-    if (!s.temperature.is_empty()) {
-      result.spinodal_low = try_spline(s.temperature, s.rho_low, temperature);
-      result.spinodal_high = try_spline(s.temperature, s.rho_high, temperature);
-    }
-
-    return result;
   }
 
 }  // namespace dft::functionals::bulk

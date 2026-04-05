@@ -195,17 +195,20 @@ int main() {
   auto weights = functionals::make_weights(fmt_model, model);
   auto bulk_wt = functionals::make_bulk_weights(fmt_model, model.interactions, kT);
 
-  auto coex = functionals::bulk::find_coexistence(
-      model.species, bulk_wt,
-      {.rho_max = 1.0, .rho_scan_step = 0.005,
-       .newton = {.max_iterations = 300, .tolerance = 1e-10}}
+  auto eos = functionals::bulk::make_bulk_thermodynamics(
+      model.species, bulk_wt
   );
+
+  auto coex = functionals::bulk::PhaseSearch{
+      .rho_max = 1.0, .rho_scan_step = 0.005,
+      .newton = {.max_iterations = 300, .tolerance = 1e-10},
+  }.find_coexistence(eos);
 
   if (!coex) {
     std::cout << "  SKIP: coexistence not found\n";
   } else {
-    double mu_coex = functionals::bulk::chemical_potential(
-        arma::vec{coex->rho_vapor}, model.species, bulk_wt, 0
+    double mu_coex = eos.chemical_potential(
+        arma::vec{coex->rho_vapor}, 0
     );
 
     // Tanh slab profile.

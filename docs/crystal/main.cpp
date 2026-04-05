@@ -60,7 +60,7 @@ int main() {
   std::println(std::cout, "\n=== Position scaling (BCC [001], 2x2x2) ===\n");
   auto bcc = build_lattice(Structure::BCC, Orientation::_001, {2, 2, 2});
   double dnn = 3.5;
-  auto scaled = scaled_positions(bcc, dnn);
+  auto scaled = bcc.scaled_positions(dnn);
   std::println(std::cout, "  Uniform scale (dnn = {:.1f}):", dnn);
   for (arma::uword i = 0; i < std::min<arma::uword>(bcc.positions.n_rows, 4); ++i) {
     std::println(std::cout, "    atom {}: ({:.6f}, {:.6f}, {:.6f})",
@@ -68,7 +68,7 @@ int main() {
   }
 
   arma::rowvec3 box = {10.0, 10.0, 10.0};
-  auto aniso = scaled_positions(bcc, box);
+  auto aniso = bcc.scaled_positions(box);
   std::println(std::cout, "\n  Anisotropic scale (box = 10x10x10):");
   for (arma::uword i = 0; i < std::min<arma::uword>(bcc.positions.n_rows, 4); ++i) {
     std::println(std::cout, "    atom {}: ({:.6f}, {:.6f}, {:.6f})",
@@ -77,10 +77,10 @@ int main() {
 
   // Export.
 
-  export_lattice(fcc, "exports/fcc_4x4x4.xyz", ExportFormat::XYZ);
+  fcc.export_to("exports/fcc_4x4x4.xyz", ExportFormat::XYZ);
   std::println(std::cout, "\n  Exported to exports/fcc_4x4x4.xyz");
 
-  export_lattice(fcc, "exports/fcc_4x4x4.csv", ExportFormat::CSV);
+  fcc.export_to("exports/fcc_4x4x4.csv", ExportFormat::CSV);
   std::println(std::cout, "  Exported to exports/fcc_4x4x4.csv");
 
   // Plots.

@@ -21,13 +21,13 @@ int main() {
 
   // FMT models and reference EOS models.
 
-  fmt::FMTModel ros = fmt::Rosenfeld{};
-  fmt::FMTModel rslt = fmt::RSLT{};
-  fmt::FMTModel wb1 = fmt::WhiteBearI{};
-  fmt::FMTModel wb2 = fmt::WhiteBearII{};
+  fmt::Rosenfeld ros{};
+  fmt::RSLT rslt{};
+  fmt::WhiteBearI wb1{};
+  fmt::WhiteBearII wb2{};
 
-  physics::hard_spheres::HardSphereModel cs = physics::hard_spheres::CarnahanStarling{};
-  physics::hard_spheres::HardSphereModel pyc = physics::hard_spheres::PercusYevickCompressibility{};
+  physics::hard_spheres::CarnahanStarling cs{};
+  physics::hard_spheres::PercusYevickCompressibility pyc{};
 
   // Bulk excess free energy per particle: FMT vs EOS.
 
@@ -44,10 +44,10 @@ int main() {
     double rho = physics::hard_spheres::density_from_eta(eta);
 
     auto m = fmt::make_uniform_measures(rho, 1.0);
-    m.products = fmt::inner_products(m);
-    f_ros_a(i) = fmt::phi(ros, m) / rho;
-    f_wb1_a(i) = fmt::phi(wb1, m) / rho;
-    f_wb2_a(i) = fmt::phi(wb2, m) / rho;
+    m.products = m.inner_products();
+    f_ros_a(i) = ros.phi(m) / rho;
+    f_wb1_a(i) = wb1.phi(m) / rho;
+    f_wb2_a(i) = wb2.phi(m) / rho;
 
     if (i % 50 == 0) {
       std::println(std::cout, "{:>8.3f}{:>16.8f}{:>16.8f}{:>16.8f}{:>16.8f}",
@@ -68,9 +68,9 @@ int main() {
   arma::vec mu_ros_a(N), mu_wb1_a(N), mu_wb2_a(N);
   for (arma::uword i = 0; i < eta_arma.n_elem; ++i) {
     double rho = physics::hard_spheres::density_from_eta(eta_arma(i));
-    mu_ros_a(i) = bulk::hard_sphere_excess_chemical_potential(ros, arma::vec{rho}, sp_list, 0);
-    mu_wb1_a(i) = bulk::hard_sphere_excess_chemical_potential(wb1, arma::vec{rho}, sp_list, 0);
-    mu_wb2_a(i) = bulk::hard_sphere_excess_chemical_potential(wb2, arma::vec{rho}, sp_list, 0);
+    mu_ros_a(i) = bulk::hard_sphere::excess_chemical_potential(ros, arma::vec{rho}, sp_list, 0);
+    mu_wb1_a(i) = bulk::hard_sphere::excess_chemical_potential(wb1, arma::vec{rho}, sp_list, 0);
+    mu_wb2_a(i) = bulk::hard_sphere::excess_chemical_potential(wb2, arma::vec{rho}, sp_list, 0);
   }
   auto mu_ros = arma::conv_to<std::vector<double>>::from(mu_ros_a);
   auto mu_wb1 = arma::conv_to<std::vector<double>>::from(mu_wb1_a);
@@ -86,8 +86,8 @@ int main() {
     double rho = physics::hard_spheres::density_from_eta(eta_arma(i));
     p_ros_a(i) = 1.0 + rho * (mu_ros_a(i) - f_ros_a(i));
     p_wb1_a(i) = 1.0 + rho * (mu_wb1_a(i) - f_wb1_a(i));
-    p_cs_a(i) = physics::hard_spheres::pressure(cs, eta_arma(i));
-    p_pyc_a(i) = physics::hard_spheres::pressure(pyc, eta_arma(i));
+    p_cs_a(i) = cs.pressure(eta_arma(i));
+    p_pyc_a(i) = pyc.pressure(eta_arma(i));
 
     if (i % 50 == 0) {
       std::println(std::cout, "{:>8.3f}{:>16.8f}{:>16.8f}{:>16.8f}{:>16.8f}",

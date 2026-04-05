@@ -41,16 +41,6 @@ namespace dft::algorithms::dynamics {
     double dt_used;
   };
 
-  // Configuration for a full DDFT simulation run.
-
-  struct SimulationConfig {
-    StepConfig step;
-    int n_steps{1000};
-    int snapshot_interval{100};
-    int log_interval{50};
-    double energy_offset{0.0};
-  };
-
   // A single snapshot captured during the simulation.
 
   struct Snapshot {
@@ -325,7 +315,7 @@ namespace dft::algorithms::dynamics {
     long fourier_total = grid.shape[0] * grid.shape[1] * nz_half;
     arma::vec k2(static_cast<arma::uword>(fourier_total));
 
-    for_each_wavevector(grid, [&](const Wavevector& wv) {
+    grid.for_each_wavevector([&](const Wavevector& wv) {
       k2(static_cast<arma::uword>(wv.idx)) = wv.norm2();
     });
 
@@ -547,23 +537,68 @@ namespace dft::algorithms::dynamics {
     };
   }
 
-  // Run a complete DDFT simulation using Lutsko's integrating-factor
-  // scheme with implicit fixed-point iteration and adaptive timestep.
+  // Boundary condition applied to densities after each DDFT timestep.
+  // Empty (default): periodic boundaries, mass is conserved (canonical).
+  // For open systems: use reservoir_boundary() to create Dirichlet BCs.
 
-  [[nodiscard]] inline auto simulate(
+  using BoundaryCondition = std::function<void(std::vector<arma::vec>&)>;
+
+  // Dirichlet boundary condition: resets marked cells to a fixed reservoir
+  // density after each timestep. This couples the system to an infinite
+  // reservoir at fixed chemical potential, allowing mass to flow in/out
+  // through the boundary (Lutsko, J. Chem. Phys. 2008; Sci. Adv. 2019).
+
+  [[nodiscard]] inline auto reservoir_boundary(
+      const arma::uvec& mask, double reservoir_density
+  ) -> BoundaryCondition {
+    return [mask, reservoir_density](std::vector<arma::vec>& densities) {
+      for (auto& rho : densities) {
+        rho.elem(arma::find(mask)).fill(reservoir_density);
+      }
+    };
+  }
+
+  // Configuration for a full DDFT simulation run.
+
+  struct Simulation {
+    StepConfig step;
+    int n_steps{1000};
+    int snapshot_interval{100};
+    int log_interval{50};
+    double energy_offset{0.0};
+    BoundaryCondition boundary{};
+
+    // Run a DDFT simulation using Lutsko's integrating-factor scheme
+    // with implicit fixed-point iteration and adaptive timestep.
+    // Boundary conditions are applied after each step via the boundary
+    // callback (empty = periodic/canonical).
+
+    [[nodiscard]] auto run(
+        std::vector<arma::vec> densities,
+        const Grid& grid,
+        const ForceCallback& force_fn
+    ) const -> SimulationResult;
+  };
+
+  [[nodiscard]] inline auto Simulation::run(
       std::vector<arma::vec> densities,
       const Grid& grid,
-      const ForceCallback& force_fn,
-      const SimulationConfig& config
-  ) -> SimulationResult {
+      const ForceCallback& force_fn
+  ) const -> SimulationResult {
     double dv = grid.cell_volume();
+
+    // Apply boundary condition to initial state.
+    if (boundary) {
+      boundary(densities);
+    }
+
     double mass_initial = 0.0;
     for (const auto& rho : densities) {
       mass_initial += arma::accu(rho) * dv;
     }
 
     auto st = _internal::make_if_state(grid);
-    StepConfig step_cfg = config.step;
+    StepConfig step_cfg = step;
 
     auto [e0, f0] = force_fn(densities);
 
@@ -577,18 +612,18 @@ namespace dft::algorithms::dynamics {
         .densities = densities,
     });
 
-    if (config.log_interval > 0) {
-      std::cout << std::format("  {:>8s}  {:>14s}  {:>12s}  {:>18s}\n",
-                               "step", "time", "dt", "Delta_E");
-      std::cout << "  " << std::string(58, '-') << "\n";
-      std::cout << std::format("  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}\n",
-                               0, 0.0, step_cfg.dt, e0 - config.energy_offset);
+    if (log_interval > 0) {
+      std::cout << std::format("  {:>8s}  {:>14s}  {:>12s}  {:>18s}  {:>14s}\n",
+                               "step", "time", "dt", "Delta_E", "mass");
+      std::cout << "  " << std::string(74, '-') << "\n";
+      std::cout << std::format("  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
+                               0, 0.0, step_cfg.dt, e0 - energy_offset, mass_initial);
     }
 
     int successes = 0;
     double time = 0.0;
 
-    for (int step = 1; step <= config.n_steps; ++step) {
+    for (int step = 1; step <= n_steps; ++step) {
       double dt_before = step_cfg.dt;
       auto step_result = integrating_factor_step(
           densities, grid, st, force_fn, step_cfg
@@ -596,6 +631,10 @@ namespace dft::algorithms::dynamics {
       densities = std::move(step_result.densities);
       double e_step = step_result.energy;
       time += step_result.dt_used;
+
+      if (boundary) {
+        boundary(densities);
+      }
 
       // Adaptive timestep: increase after 5 consecutive successes.
       if (step_result.dt_used < dt_before) {
@@ -608,15 +647,18 @@ namespace dft::algorithms::dynamics {
         successes = 0;
       }
 
-      if (config.log_interval > 0 && (step % config.log_interval == 0 || step == config.n_steps)) {
+      if (log_interval > 0 && (step % log_interval == 0 || step == n_steps)) {
+        double mass = 0.0;
+        for (const auto& rho : densities) {
+          mass += arma::accu(rho) * dv;
+        }
         result.times.push_back(time);
         result.energies.push_back(e_step);
-
-        std::cout << std::format("  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}\n",
-                                 step, time, step_cfg.dt, e_step - config.energy_offset);
+        std::cout << std::format("  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
+                                 step, time, step_cfg.dt, e_step - energy_offset, mass);
       }
 
-      if (config.snapshot_interval > 0 && step % config.snapshot_interval == 0) {
+      if (snapshot_interval > 0 && step % snapshot_interval == 0) {
         result.snapshots.push_back(Snapshot{
             .step = step,
             .time = time,

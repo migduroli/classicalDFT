@@ -20,8 +20,8 @@ static auto quadratic_force(const std::vector<arma::vec>& x) -> std::pair<double
 
 TEST_CASE("fire initialize produces valid initial state", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{1.0, 2.0, 3.0}};
-  FireConfig config;
-  auto state = initialize(x0, quadratic_force, config);
+  Fire config;
+  auto state = config.initialize(x0, quadratic_force);
 
   CHECK(state.energy == Catch::Approx(7.0));
   CHECK(state.rms_force > 0.0);
@@ -33,11 +33,11 @@ TEST_CASE("fire initialize produces valid initial state", "[fire]") {
 
 TEST_CASE("fire step reduces energy on quadratic", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{1.0, 2.0, 3.0}};
-  FireConfig config{.dt = 0.01, .force_tolerance = 1e-6};
-  auto state = initialize(x0, quadratic_force, config);
+  Fire config{.dt = 0.01, .force_tolerance = 1e-6};
+  auto state = config.initialize(x0, quadratic_force);
   auto [_, forces] = quadratic_force(state.x);
 
-  auto [new_state, new_forces] = step(state, forces, quadratic_force, config);
+  auto [new_state, new_forces] = config.step(state, forces, quadratic_force);
 
   CHECK(new_state.energy < state.energy);
   CHECK(new_state.iteration == 1);
@@ -45,9 +45,9 @@ TEST_CASE("fire step reduces energy on quadratic", "[fire]") {
 
 TEST_CASE("fire minimize converges on 1D quadratic", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{5.0}};
-  FireConfig config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
+  Fire config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
 
-  auto result = minimize(x0, quadratic_force, config);
+  auto result = config.minimize(x0, quadratic_force);
 
   CHECK(result.converged);
   CHECK(std::abs(result.x[0](0)) < 1e-3);
@@ -56,9 +56,9 @@ TEST_CASE("fire minimize converges on 1D quadratic", "[fire]") {
 
 TEST_CASE("fire minimize converges on 3D quadratic", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{3.0, -2.0, 1.0}};
-  FireConfig config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
+  Fire config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
 
-  auto result = minimize(x0, quadratic_force, config);
+  auto result = config.minimize(x0, quadratic_force);
 
   CHECK(result.converged);
   CHECK(arma::norm(result.x[0]) < 1e-3);
@@ -66,9 +66,9 @@ TEST_CASE("fire minimize converges on 3D quadratic", "[fire]") {
 
 TEST_CASE("fire minimize handles multi-species", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{2.0, 1.0}, arma::vec{-1.0, 3.0}};
-  FireConfig config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
+  Fire config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
 
-  auto result = minimize(x0, quadratic_force, config);
+  auto result = config.minimize(x0, quadratic_force);
 
   CHECK(result.converged);
   CHECK(arma::norm(result.x[0]) < 1e-3);
@@ -88,14 +88,14 @@ static auto rosenbrock_force(const std::vector<arma::vec>& x) -> std::pair<doubl
 
 TEST_CASE("fire minimize makes progress on Rosenbrock", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{-1.0, 1.0}};
-  FireConfig config{
+  Fire config{
       .dt = 1e-4,
       .dt_max = 1e-3,
       .force_tolerance = 0.1,
       .max_steps = 50000,
   };
 
-  auto result = minimize(x0, rosenbrock_force, config);
+  auto result = config.minimize(x0, rosenbrock_force);
 
   // Should at least reduce energy significantly from the starting point
   auto [e0, _] = rosenbrock_force(x0);
@@ -104,9 +104,9 @@ TEST_CASE("fire minimize makes progress on Rosenbrock", "[fire]") {
 
 TEST_CASE("fire at minimum reports converged", "[fire]") {
   std::vector<arma::vec> x0 = {arma::vec{0.0, 0.0, 0.0}};
-  FireConfig config{.force_tolerance = 1e-6};
+  Fire config{.force_tolerance = 1e-6};
 
-  auto state = initialize(x0, quadratic_force, config);
+  auto state = config.initialize(x0, quadratic_force);
   CHECK(state.converged);
 }
 
@@ -124,7 +124,7 @@ TEST_CASE("fire throws when max uphill steps exceeded", "[fire]") {
   };
 
   std::vector<arma::vec> x0 = {arma::vec{1.0, 1.0}};
-  FireConfig config{
+  Fire config{
       .dt = 0.5,
       .dt_max = 0.5,
       .n_delay = 0,
@@ -133,5 +133,5 @@ TEST_CASE("fire throws when max uphill steps exceeded", "[fire]") {
       .max_steps = 5000,
   };
 
-  REQUIRE_THROWS_AS(minimize(x0, alternating_force, config), std::runtime_error);
+  REQUIRE_THROWS_AS(config.minimize(x0, alternating_force), std::runtime_error);
 }

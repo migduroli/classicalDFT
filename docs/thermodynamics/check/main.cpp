@@ -54,7 +54,7 @@ int main() {
 
   section("Step 1: Percus-Yevick compressibility route");
 
-  hs::HardSphereModel py_model = hs::PercusYevickCompressibility{};
+  hs::PercusYevickCompressibility py_model{};
 
   double max_diff_pyc_fex = 0.0;
   double max_diff_pyc_dfex = 0.0;
@@ -65,20 +65,20 @@ int main() {
     double eta = hs::packing_fraction(rho);
     legacy::thermodynamics::Enskog enskog(rho);
 
-    double our_f = hs::excess_free_energy(py_model, eta);
+    double our_f = py_model.excess_free_energy(eta);
     double jim_f = enskog.exFreeEnergyPYC();
     max_diff_pyc_fex = std::max(max_diff_pyc_fex, std::abs(our_f - jim_f));
 
-    double our_df = hs::d_excess_free_energy(py_model, eta) * (std::numbers::pi / 6.0);
+    double our_df = py_model.d_excess_free_energy(eta) * (std::numbers::pi / 6.0);
     double jim_df = enskog.dexFreeEnergyPYCdRho();
     max_diff_pyc_dfex = std::max(max_diff_pyc_dfex, std::abs(our_df - jim_df));
 
-    double our_d2f = hs::d2_excess_free_energy(py_model, eta) *
+    double our_d2f = py_model.d2_excess_free_energy(eta) *
                      (std::numbers::pi / 6.0) * (std::numbers::pi / 6.0);
     double jim_d2f = enskog.d2exFreeEnergyPYCdRho2();
     max_diff_pyc_d2fex = std::max(max_diff_pyc_d2fex, std::abs(our_d2f - jim_d2f));
 
-    double our_d3f = hs::d3_excess_free_energy(py_model, eta) *
+    double our_d3f = py_model.d3_excess_free_energy(eta) *
                      std::pow(std::numbers::pi / 6.0, 3);
     double jim_d3f = enskog.d3exFreeEnergyPYCdRho3();
     max_diff_pyc_d3fex = std::max(max_diff_pyc_d3fex, std::abs(our_d3f - jim_d3f));
@@ -97,7 +97,7 @@ int main() {
 
   section("Step 2: Carnahan-Starling");
 
-  hs::HardSphereModel cs_model = hs::CarnahanStarling{};
+  hs::CarnahanStarling cs_model{};
 
   double max_diff_cs_fex = 0.0;
   double max_diff_cs_dfex = 0.0;
@@ -108,20 +108,20 @@ int main() {
     double eta = hs::packing_fraction(rho);
     legacy::thermodynamics::Enskog enskog(rho);
 
-    double our_f = hs::excess_free_energy(cs_model, eta);
+    double our_f = cs_model.excess_free_energy(eta);
     double jim_f = enskog.exFreeEnergyCS();
     max_diff_cs_fex = std::max(max_diff_cs_fex, std::abs(our_f - jim_f));
 
-    double our_df = hs::d_excess_free_energy(cs_model, eta) * (std::numbers::pi / 6.0);
+    double our_df = cs_model.d_excess_free_energy(eta) * (std::numbers::pi / 6.0);
     double jim_df = enskog.dexFreeEnergyCSdRho();
     max_diff_cs_dfex = std::max(max_diff_cs_dfex, std::abs(our_df - jim_df));
 
-    double our_d2f = hs::d2_excess_free_energy(cs_model, eta) *
+    double our_d2f = cs_model.d2_excess_free_energy(eta) *
                      (std::numbers::pi / 6.0) * (std::numbers::pi / 6.0);
     double jim_d2f = enskog.d2exFreeEnergyCSdRho2();
     max_diff_cs_d2fex = std::max(max_diff_cs_d2fex, std::abs(our_d2f - jim_d2f));
 
-    double our_d3f = hs::d3_excess_free_energy(cs_model, eta) *
+    double our_d3f = cs_model.d3_excess_free_energy(eta) *
                      std::pow(std::numbers::pi / 6.0, 3);
     double jim_d3f = enskog.d3exFreeEnergyCSdRho3();
     max_diff_cs_d3fex = std::max(max_diff_cs_d3fex, std::abs(our_d3f - jim_d3f));
@@ -147,11 +147,11 @@ int main() {
     double eta = hs::packing_fraction(rho);
     legacy::thermodynamics::Enskog enskog(rho);
 
-    double our_P = hs::pressure(py_model, eta);
+    double our_P = py_model.pressure(eta);
     double jim_P = enskog.pressurePYC();
     max_diff_P = std::max(max_diff_P, std::abs(our_P - jim_P));
 
-    double our_mu = hs::chemical_potential(py_model, rho);
+    double our_mu = py_model.chemical_potential(rho);
     double jim_mu = enskog.chemPotentialPYC();
     max_diff_mu = std::max(max_diff_mu, std::abs(our_mu - jim_mu));
   }
@@ -214,18 +214,16 @@ int main() {
     auto our_jzg = eos::make_lennard_jones_jzg(kT);
     auto jim_jzg = legacy::thermodynamics::make_LJ_JZG(kT);
 
-    eos::EosModel model = our_jzg;
-
     for (double rho : jzg_rhos) {
-      double our_phix = eos::excess_free_energy(model, rho);
+      double our_phix = our_jzg.excess_free_energy(rho);
       double jim_phix = jim_jzg.phix(rho);
       max_diff_jzg_phix = std::max(max_diff_jzg_phix, std::abs(our_phix - jim_phix));
 
-      double our_phi1x = eos::d_excess_free_energy(model, rho);
+      double our_phi1x = our_jzg.d_excess_free_energy(rho);
       double jim_phi1x = jim_jzg.phi1x(rho);
       max_diff_jzg_phi1x = std::max(max_diff_jzg_phi1x, std::abs(our_phi1x - jim_phi1x));
 
-      double our_phi2x = eos::d2_excess_free_energy(model, rho);
+      double our_phi2x = our_jzg.d2_excess_free_energy(rho);
       double jim_phi2x = jim_jzg.phi2x(rho);
       max_diff_jzg_phi2x = std::max(max_diff_jzg_phi2x, std::abs(our_phi2x - jim_phi2x));
     }
@@ -249,14 +247,12 @@ int main() {
     auto our_mecke = eos::make_lennard_jones_mecke(kT);
     auto jim_mecke = legacy::thermodynamics::make_LJ_Mecke(kT);
 
-    eos::EosModel model = our_mecke;
-
     for (double rho : jzg_rhos) {
-      double our_phix = eos::excess_free_energy(model, rho);
+      double our_phix = our_mecke.excess_free_energy(rho);
       double jim_phix = jim_mecke.phix(rho);
       max_diff_mecke_phix = std::max(max_diff_mecke_phix, std::abs(our_phix - jim_phix));
 
-      double our_phi1x = eos::d_excess_free_energy(model, rho);
+      double our_phi1x = our_mecke.d_excess_free_energy(rho);
       double jim_phi1x = jim_mecke.phi1x(rho);
       max_diff_mecke_phi1x = std::max(max_diff_mecke_phi1x, std::abs(our_phi1x - jim_phi1x));
     }
@@ -277,16 +273,15 @@ int main() {
   for (double kT : temperatures) {
     auto our_jzg = eos::make_lennard_jones_jzg(kT);
     auto jim_jzg = legacy::thermodynamics::make_LJ_JZG(kT);
-    eos::EosModel model = our_jzg;
 
     for (double rho : jzg_rhos) {
       // mu/kT = log(rho) + phix + rho * phi1x
-      double our_mu = eos::chemical_potential(model, rho);
+      double our_mu = our_jzg.chemical_potential(rho);
       double jim_mu = std::log(rho) + jim_jzg.phix(rho) + rho * jim_jzg.phi1x(rho);
       max_diff_jzg_mu = std::max(max_diff_jzg_mu, std::abs(our_mu - jim_mu));
 
       // P/(nkT) = 1 + rho * phi1x
-      double our_P = eos::pressure(model, rho);
+      double our_P = our_jzg.pressure(rho);
       double jim_P = 1.0 + rho * jim_jzg.phi1x(rho);
       max_diff_jzg_P = std::max(max_diff_jzg_P, std::abs(our_P - jim_P));
     }

@@ -160,12 +160,78 @@ where $f_{\mathrm{HS}}$ is a mapping of $\rho^*$ and $T^*$ to an effective
 hard-sphere packing fraction, and $c_i, m_i, n_i, p_i, q_i$ are tabulated
 constants from Mecke et al., Int. J. Thermophys. 17, 391 (1996).
 
-## What the code does
+---
 
-1. Evaluates $Z(\eta)$ for CS, PYv, and PYc at 30 packing fractions ($\eta = 0.05$ to $0.49$).
-2. Verifies Gibbs-Duhem consistency $\mu - f - P/(\rho kT) = 0$ for CS at $\eta = 0.3$.
-3. Evaluates Enskog transport coefficients at 8 densities ($\rho = 0.1$ to $0.8$).
-4. Evaluates pressure isotherms at $kT = 1.5$ for ideal gas, PY, JZG, and Mecke.
+## Step-by-step code walkthrough
+
+### Step 1: Instantiate hard-sphere EOS models
+
+Three hard-sphere equations of state are created — Carnahan-Starling and both
+Percus-Yevick routes:
+
+```cpp
+hard_spheres::CarnahanStarling cs{};
+hard_spheres::PercusYevickVirial pyv{};
+hard_spheres::PercusYevickCompressibility pyc{};
+```
+
+Each provides `pressure(eta)`, `chemical_potential(rho)`, and
+`free_energy(rho)` via the same interface. This allows tabulating
+$Z(\eta) = P/(\rho k_BT)$ across packing fractions for all three models in a
+single loop.
+
+### Step 2: Gibbs-Duhem consistency check
+
+The thermodynamic identity $\mu = f + P/\rho$ is verified at $\eta = 0.3$
+for the Carnahan-Starling model:
+
+```cpp
+double rho = hard_spheres::density_from_eta(0.3);
+double mu = cs.chemical_potential(rho);
+double f = cs.free_energy(rho);
+double p = cs.pressure(0.3);
+// mu - f - p should be exactly 0
+```
+
+This validates that the `chemical_potential()` and `free_energy()` implementations
+are mutually consistent. Any deviation indicates an error in the analytical
+derivatives.
+
+### Step 3: Enskog transport coefficients
+
+The hard-sphere contact value $g_2(\sigma^+)$ is computed from the packing
+fraction, and the four Enskog transport coefficients are evaluated:
+
+```cpp
+double chi = hard_spheres::contact_value(hard_spheres::packing_fraction(density));
+hard_spheres::transport::shear_viscosity(density, chi);
+hard_spheres::transport::bulk_viscosity(density, chi);
+hard_spheres::transport::thermal_conductivity(density, chi);
+hard_spheres::transport::sound_damping(density, chi);
+```
+
+These are the density-dependent transport coefficients that enter the
+generalised hydrodynamic equations and the DDFT diffusion kernel.
+
+### Step 4: Full equations of state (kT = 1.5)
+
+Four EOS models are instantiated at $kT = 1.5$ and their pressure isotherms
+are compared:
+
+```cpp
+double kT = 1.5;
+auto ideal = eos::IdealGas{.kT = kT};
+auto py_eos = eos::PercusYevick{.kT = kT};
+auto jzg = eos::make_lennard_jones_jzg(kT);
+auto mecke = eos::make_lennard_jones_mecke(kT);
+```
+
+The JZG and Mecke models are accurate Lennard-Jones EOS parametrisations.
+Both are constructed via factory functions that embed the 33 (JZG) or 52
+(Mecke) tabulated coefficients. The pressure isotherms are evaluated at 16
+densities from $\rho = 0.05$ to $0.80$.
+
+---
 
 ## Cross-validation (`check/`)
 

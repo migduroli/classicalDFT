@@ -19,16 +19,27 @@ namespace dft::algorithms::continuation {
     double dlambda_ds;
   };
 
-  struct ContinuationConfig {
+  using Residual = std::function<arma::vec(const arma::vec&, double)>;
+
+  struct Continuation {
     double initial_step{0.01};
     double max_step{0.1};
     double min_step{1e-5};
     double growth_factor{1.2};
     double shrink_factor{0.5};
-    solvers::NewtonConfig newton;
+    solvers::Newton newton;
+
+    // One pseudo-arclength continuation step.
+    // Returns the next CurvePoint or nullopt if Newton fails to converge.
+    [[nodiscard]] auto step(const CurvePoint& current, const Residual& R, double ds) const -> std::optional<CurvePoint>;
+
+    // Trace a curve defined by R(x, lambda) = 0 using pseudo-arclength
+    // continuation with adaptive step sizing.
+    [[nodiscard]] auto trace(CurvePoint start, const Residual& R,
+                             std::function<bool(const CurvePoint&)> stop = {}) const -> std::vector<CurvePoint>;
   };
 
-  using Residual = std::function<arma::vec(const arma::vec&, double)>;
+  namespace _internal {
 
   // Compute the tangent vector (dx/ds, dlambda/ds) at a point on the curve
   // using the null space of the extended Jacobian [dR/dx | dR/dlambda].
@@ -67,10 +78,9 @@ namespace dft::algorithms::continuation {
     return {tau.head(n), tau(n)};
   }
 
-  // One pseudo-arclength continuation step.
-  // Returns the next CurvePoint or nullopt if Newton fails to converge.
-  [[nodiscard]] inline auto step(const CurvePoint& current, const Residual& R, double ds,
-                                 const ContinuationConfig& config) -> std::optional<CurvePoint> {
+  }  // namespace _internal
+
+  [[nodiscard]] inline auto Continuation::step(const CurvePoint& current, const Residual& R, double ds) const -> std::optional<CurvePoint> {
     const arma::uword n = current.x.n_elem;
 
     // Predictor: Euler step along tangent
@@ -101,7 +111,7 @@ namespace dft::algorithms::continuation {
     };
 
     // Solve augmented system with Newton (auto-Jacobian)
-    auto result = solvers::newton(std::move(y), augmented_f, config.newton);
+    auto result = newton.solve(std::move(y), augmented_f);
 
     if (!result.converged) {
       return std::nullopt;
@@ -111,7 +121,7 @@ namespace dft::algorithms::continuation {
     double lambda_new = result.solution(n);
 
     // Compute tangent at the new point
-    auto [dx_ds_new, dlambda_ds_new] = tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds);
+    auto [dx_ds_new, dlambda_ds_new] = _internal::tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds);
 
     return CurvePoint{
         .x = std::move(x_new),
@@ -121,19 +131,17 @@ namespace dft::algorithms::continuation {
     };
   }
 
-  // Trace a curve defined by R(x, lambda) = 0 using pseudo-arclength
-  // continuation with adaptive step sizing.
-  [[nodiscard]] inline auto trace(CurvePoint start, const Residual& R, const ContinuationConfig& config,
-                                  std::function<bool(const CurvePoint&)> stop = {}) -> std::vector<CurvePoint> {
+  [[nodiscard]] inline auto Continuation::trace(CurvePoint start, const Residual& R,
+                                  std::function<bool(const CurvePoint&)> stop) const -> std::vector<CurvePoint> {
     std::vector<CurvePoint> curve;
     curve.push_back(start);
 
-    double ds = config.initial_step;
+    double ds = initial_step;
 
-    while (ds >= config.min_step) {
+    while (ds >= min_step) {
       std::optional<CurvePoint> next;
       try {
-        next = step(curve.back(), R, ds, config);
+        next = step(curve.back(), R, ds);
       } catch (...) {
         // Numerical failure (e.g. degenerate SVD near a bifurcation).
         // Return the curve traced so far.
@@ -142,7 +150,7 @@ namespace dft::algorithms::continuation {
 
       if (!next) {
         // Shrink step and retry
-        ds *= config.shrink_factor;
+        ds *= shrink_factor;
         continue;
       }
 
@@ -153,7 +161,7 @@ namespace dft::algorithms::continuation {
       }
 
       // Grow step for next iteration
-      ds = std::min(ds * config.growth_factor, config.max_step);
+      ds = std::min(ds * growth_factor, max_step);
     }
 
     return curve;

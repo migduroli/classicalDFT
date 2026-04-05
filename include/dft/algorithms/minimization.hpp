@@ -116,13 +116,6 @@ namespace dft::algorithms::minimization {
 
   }  // namespace _internal
 
-  struct Config {
-    fire::FireConfig fire{};
-    Parametrization param = Unbounded{};
-    bool homogeneous_boundary{true};
-    int log_interval{100};
-  };
-
   struct Result {
     std::vector<arma::vec> densities;
     double free_energy{0.0};
@@ -130,6 +123,32 @@ namespace dft::algorithms::minimization {
     double rms_force{0.0};
     int iterations{0};
     bool converged{false};
+  };
+
+  struct Minimizer {
+    fire::Fire fire{};
+    Parametrization param = Unbounded{};
+    bool use_homogeneous_boundary{true};
+    int log_interval{100};
+
+    // Minimize the Helmholtz free energy F[rho] at fixed total mass N.
+
+    [[nodiscard]] auto fixed_mass(
+        const physics::Model& model,
+        const functionals::Weights& weights,
+        const arma::vec& initial_density,
+        double chemical_potential,
+        double target_mass
+    ) const -> Result;
+
+    // Minimize the grand potential Omega[rho] in the grand-canonical ensemble.
+
+    [[nodiscard]] auto grand_potential(
+        const physics::Model& model,
+        const functionals::Weights& weights,
+        const arma::vec& initial_density,
+        double chemical_potential
+    ) const -> Result;
   };
 
   // Build a Picard constraint that fixes the total mass of each species
@@ -166,29 +185,19 @@ namespace dft::algorithms::minimization {
     };
   }
 
-  // Minimize the Helmholtz free energy F[rho] at fixed total mass N,
-  // using FIRE2 in a positivity-preserving parameter space.
-  //
-  // The critical (unstable) cluster of the open system Omega[rho]
-  // at chemical potential mu is equivalent to the stable minimum
-  // of F[rho] at fixed N, where the Lagrange multiplier lambda = mu.
-
-  namespace fixed_mass {
-
-    [[nodiscard]] inline auto minimize(
-        const physics::Model& model,
-        const functionals::Weights& weights,
-        const arma::vec& initial_density,
-        double chemical_potential,
-        double target_mass,
-        const Config& config = {}
-    ) -> Result {
-      double dv = model.grid.cell_volume();
-      arma::uvec bdry = boundary_mask(model.grid);
+  [[nodiscard]] inline auto Minimizer::fixed_mass(
+      const physics::Model& model,
+      const functionals::Weights& weights,
+      const arma::vec& initial_density,
+      double chemical_potential,
+      double target_mass
+  ) const -> Result {
+    double dv = model.grid.cell_volume();
+    arma::uvec bdry = model.grid.boundary_mask();
 
       auto compute = [&](const std::vector<arma::vec>& x_param)
           -> std::pair<double, std::vector<arma::vec>> {
-        arma::vec rho = _internal::to_density(x_param[0], config.param);
+        arma::vec rho = _internal::to_density(x_param[0], param);
 
         // Rescale to target mass.
         double mass = arma::accu(rho) * dv;
@@ -206,7 +215,7 @@ namespace dft::algorithms::minimization {
         arma::vec grad = result.forces[0];
 
         // Boundary conditions.
-        if (config.homogeneous_boundary) {
+        if (use_homogeneous_boundary) {
           grad = homogeneous_boundary(grad, bdry);
         }
 
@@ -215,23 +224,23 @@ namespace dft::algorithms::minimization {
         grad -= lambda * dv;
 
         // Convert to parameter space and negate for FIRE.
-        arma::vec f = _internal::transform_force(grad, x_param[0], config.param);
+        arma::vec f = _internal::transform_force(grad, x_param[0], param);
         return {result.grand_potential, {-f}};
       };
 
-      arma::vec x0 = _internal::from_density(initial_density, config.param);
+      arma::vec x0 = _internal::from_density(initial_density, param);
 
-      if (config.log_interval > 0) {
+      if (log_interval > 0) {
         std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}  {:>10s}\n",
                                  "iter", "F", "monitor", "dt");
         std::cout << "  " << std::string(50, '-') << "\n";
       }
 
       double volume = static_cast<double>(initial_density.n_elem) * dv;
-      auto state = fire::initialize({x0}, compute, config.fire);
+      auto state = fire.initialize({x0}, compute);
       auto [e0, forces] = compute(state.x);
 
-      if (config.log_interval > 0) {
+      if (log_interval > 0) {
         std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
                                  0, state.energy, state.rms_force, state.dt);
       }
@@ -239,27 +248,27 @@ namespace dft::algorithms::minimization {
       double vv = 1.0;
       bool converged = false;
 
-      for (int i = 0; i < config.fire.max_steps && !converged; ++i) {
+      for (int i = 0; i < fire.max_steps && !converged; ++i) {
         double old_energy = state.energy;
-        auto [ns, nf] = fire::step(std::move(state), forces, compute, config.fire);
+        auto [ns, nf] = fire.step(std::move(state), forces, compute);
         state = std::move(ns);
         forces = std::move(nf);
 
         auto [new_vv, monitor] = _internal::convergence_monitor(
             vv, old_energy, state.energy, state.dt, volume);
         vv = new_vv;
-        converged = monitor < config.fire.force_tolerance;
+        converged = monitor < fire.force_tolerance;
         state.converged = converged;
 
-        if (config.log_interval > 0 &&
-            ((i + 1) % config.log_interval == 0 || converged)) {
+        if (log_interval > 0 &&
+            ((i + 1) % log_interval == 0 || converged)) {
           std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
                                    i + 1, state.energy, monitor, state.dt);
         }
       }
 
       // Extract final density.
-      arma::vec rho_final = _internal::to_density(state.x[0], config.param);
+      arma::vec rho_final = _internal::to_density(state.x[0], param);
       double fm = arma::accu(rho_final) * dv;
       if (fm > 0.0) {
         rho_final *= target_mass / fm;
@@ -279,96 +288,85 @@ namespace dft::algorithms::minimization {
       };
     }
 
-  }  // namespace fixed_mass
+  [[nodiscard]] inline auto Minimizer::grand_potential(
+      const physics::Model& model,
+      const functionals::Weights& weights,
+      const arma::vec& initial_density,
+      double chemical_potential
+  ) const -> Result {
+    arma::uvec bdry = model.grid.boundary_mask();
 
-  // Minimize the grand potential Omega[rho] in the grand-canonical ensemble.
-  // The chemical potential is fixed, homogeneous boundary conditions keep
-  // the faces at the average boundary force, and mass is free to change.
+    auto compute = [&](const std::vector<arma::vec>& x_param)
+        -> std::pair<double, std::vector<arma::vec>> {
+      arma::vec rho = _internal::to_density(x_param[0], param);
 
-  namespace grand_potential {
+      auto state = init::from_profile(model, rho);
+      state.species[0].chemical_potential = chemical_potential;
+      auto result = functionals::total(model, state, weights);
+      arma::vec grad = result.forces[0];
 
-    [[nodiscard]] inline auto minimize(
-        const physics::Model& model,
-        const functionals::Weights& weights,
-        const arma::vec& initial_density,
-        double chemical_potential,
-        const Config& config = {}
-    ) -> Result {
-      arma::uvec bdry = boundary_mask(model.grid);
-
-      auto compute = [&](const std::vector<arma::vec>& x_param)
-          -> std::pair<double, std::vector<arma::vec>> {
-        arma::vec rho = _internal::to_density(x_param[0], config.param);
-
-        auto state = init::from_profile(model, rho);
-        state.species[0].chemical_potential = chemical_potential;
-        auto result = functionals::total(model, state, weights);
-        arma::vec grad = result.forces[0];
-
-        if (config.homogeneous_boundary) {
-          grad = homogeneous_boundary(grad, bdry);
-        }
-
-        arma::vec f = _internal::transform_force(grad, x_param[0], config.param);
-        return {result.grand_potential, {-f}};
-      };
-
-      arma::vec x0 = _internal::from_density(initial_density, config.param);
-
-      if (config.log_interval > 0) {
-        std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}  {:>10s}\n",
-                                 "iter", "Omega", "monitor", "dt");
-        std::cout << "  " << std::string(50, '-') << "\n";
+      if (use_homogeneous_boundary) {
+        grad = homogeneous_boundary(grad, bdry);
       }
 
-      double volume = static_cast<double>(initial_density.n_elem) * model.grid.cell_volume();
-      auto state = fire::initialize({x0}, compute, config.fire);
-      auto [e0, forces] = compute(state.x);
+      arma::vec f = _internal::transform_force(grad, x_param[0], param);
+      return {result.grand_potential, {-f}};
+    };
 
-      if (config.log_interval > 0) {
-        std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
-                                 0, state.energy, state.rms_force, state.dt);
-      }
+    arma::vec x0 = _internal::from_density(initial_density, param);
 
-      double vv = 1.0;
-      bool converged = false;
-
-      for (int i = 0; i < config.fire.max_steps && !converged; ++i) {
-        double old_energy = state.energy;
-        auto [ns, nf] = fire::step(std::move(state), forces, compute, config.fire);
-        state = std::move(ns);
-        forces = std::move(nf);
-
-        auto [new_vv, monitor] = _internal::convergence_monitor(
-            vv, old_energy, state.energy, state.dt, volume);
-        vv = new_vv;
-        converged = monitor < config.fire.force_tolerance;
-        state.converged = converged;
-
-        if (config.log_interval > 0 &&
-            ((i + 1) % config.log_interval == 0 || converged)) {
-          std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
-                                   i + 1, state.energy, monitor, state.dt);
-        }
-      }
-
-      arma::vec rho_final = _internal::to_density(state.x[0], config.param);
-
-      auto s_final = init::from_profile(model, rho_final);
-      s_final.species[0].chemical_potential = chemical_potential;
-      auto r_final = functionals::total(model, s_final, weights);
-
-      return Result{
-          .densities = {rho_final},
-          .free_energy = r_final.free_energy,
-          .grand_potential = r_final.grand_potential,
-          .rms_force = state.rms_force,
-          .iterations = state.iteration,
-          .converged = state.converged,
-      };
+    if (log_interval > 0) {
+      std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}  {:>10s}\n",
+                               "iter", "Omega", "monitor", "dt");
+      std::cout << "  " << std::string(50, '-') << "\n";
     }
 
-  }  // namespace grand_potential
+    double volume = static_cast<double>(initial_density.n_elem) * model.grid.cell_volume();
+    auto state = fire.initialize({x0}, compute);
+    auto [e0, forces] = compute(state.x);
+
+    if (log_interval > 0) {
+      std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
+                               0, state.energy, state.rms_force, state.dt);
+    }
+
+    double vv = 1.0;
+    bool converged = false;
+
+    for (int i = 0; i < fire.max_steps && !converged; ++i) {
+      double old_energy = state.energy;
+      auto [ns, nf] = fire.step(std::move(state), forces, compute);
+      state = std::move(ns);
+      forces = std::move(nf);
+
+      auto [new_vv, monitor] = _internal::convergence_monitor(
+          vv, old_energy, state.energy, state.dt, volume);
+      vv = new_vv;
+      converged = monitor < fire.force_tolerance;
+      state.converged = converged;
+
+      if (log_interval > 0 &&
+          ((i + 1) % log_interval == 0 || converged)) {
+        std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n",
+                                 i + 1, state.energy, monitor, state.dt);
+      }
+    }
+
+    arma::vec rho_final = _internal::to_density(state.x[0], param);
+
+    auto s_final = init::from_profile(model, rho_final);
+    s_final.species[0].chemical_potential = chemical_potential;
+    auto r_final = functionals::total(model, s_final, weights);
+
+    return Result{
+        .densities = {rho_final},
+        .free_energy = r_final.free_energy,
+        .grand_potential = r_final.grand_potential,
+        .rms_force = state.rms_force,
+        .iterations = state.iteration,
+        .converged = state.converged,
+    };
+  }
 
 }  // namespace dft::algorithms::minimization
 

@@ -34,25 +34,25 @@ static auto make_hs_weights(const FMTModel& model = Rosenfeld{}) -> Weights {
 
 TEST_CASE("ideal free energy density of unit density is -1", "[bulk][thermodynamics]") {
   arma::vec rho = {1.0};
-  CHECK(ideal_free_energy_density(rho) == Catch::Approx(-1.0).margin(1e-14));
+  CHECK(ideal::free_energy_density(rho) == Catch::Approx(-1.0).margin(1e-14));
 }
 
 TEST_CASE("ideal free energy density is rho*(ln(rho) - 1)", "[bulk][thermodynamics]") {
   double rho0 = 0.5;
   arma::vec rho = {rho0};
   double expected = rho0 * (std::log(rho0) - 1.0);
-  CHECK(ideal_free_energy_density(rho) == Catch::Approx(expected).margin(1e-14));
+  CHECK(ideal::free_energy_density(rho) == Catch::Approx(expected).margin(1e-14));
 }
 
 TEST_CASE("ideal chemical potential is ln(rho)", "[bulk][thermodynamics]") {
   double rho0 = 0.3;
-  CHECK(ideal_chemical_potential(rho0) == Catch::Approx(std::log(rho0)).margin(1e-14));
+  CHECK(ideal::chemical_potential(rho0) == Catch::Approx(std::log(rho0)).margin(1e-14));
 }
 
 TEST_CASE("ideal free energy density is additive for two species", "[bulk][thermodynamics]") {
   arma::vec rho = {0.3, 0.2};
   double expected = 0.3 * (std::log(0.3) - 1.0) + 0.2 * (std::log(0.2) - 1.0);
-  CHECK(ideal_free_energy_density(rho) == Catch::Approx(expected).margin(1e-14));
+  CHECK(ideal::free_energy_density(rho) == Catch::Approx(expected).margin(1e-14));
 }
 
 // Hard-sphere excess: single species should match FMT single-species function
@@ -69,8 +69,8 @@ TEST_CASE("hard sphere bulk free energy matches fmt::free_energy_density", "[bul
   }));
 
   CAPTURE(label);
-  double bulk_val = hard_sphere_free_energy_density(model, rho, SPECIES);
-  double fmt_val = free_energy_density(model, rho0, DIAMETER);
+  double bulk_val = hard_sphere::free_energy_density(model, rho, SPECIES);
+  double fmt_val = model.free_energy_density(rho0, DIAMETER);
   CHECK(bulk_val == Catch::Approx(fmt_val).epsilon(1e-14));
 }
 
@@ -84,14 +84,14 @@ TEST_CASE("hard sphere excess mu matches fmt::excess_chemical_potential for sing
   }));
 
   CAPTURE(label);
-  double bulk_mu = hard_sphere_excess_chemical_potential(model, rho, SPECIES, 0);
-  double fmt_mu = excess_chemical_potential(model, rho0, DIAMETER);
+  double bulk_mu = hard_sphere::excess_chemical_potential(model, rho, SPECIES, 0);
+  double fmt_mu = model.excess_chemical_potential(rho0, DIAMETER);
   CHECK(bulk_mu == Catch::Approx(fmt_mu).epsilon(1e-14));
 }
 
 TEST_CASE("hard sphere excess vanishes at zero density", "[bulk][thermodynamics]") {
   arma::vec rho = {1e-15};
-  double f = hard_sphere_free_energy_density(Rosenfeld{}, rho, SPECIES);
+  double f = hard_sphere::free_energy_density(Rosenfeld{}, rho, SPECIES);
   CHECK(std::abs(f) < 1e-10);
 }
 
@@ -106,7 +106,7 @@ TEST_CASE("mean field free energy density is 0.5 * a_vdw * rho^2 for self", "[bu
 
   double rho0 = 0.3;
   arma::vec rho = {rho0};
-  double f = mean_field_free_energy_density(mfw, rho);
+  double f = mean_field::free_energy_density(mfw, rho);
   double expected = 0.5 * mfw.interactions[0].a_vdw * rho0 * rho0;
   CHECK(f == Catch::Approx(expected).epsilon(1e-14));
 }
@@ -120,7 +120,7 @@ TEST_CASE("mean field chemical potential is a_vdw * rho for self", "[bulk][therm
 
   double rho0 = 0.3;
   arma::vec rho = {rho0};
-  double mu = mean_field_chemical_potential(mfw, rho, 0);
+  double mu = mean_field::chemical_potential(mfw, rho, 0);
   double expected = mfw.interactions[0].a_vdw * rho0;
   CHECK(mu == Catch::Approx(expected).epsilon(1e-14));
 }
@@ -128,7 +128,7 @@ TEST_CASE("mean field chemical potential is a_vdw * rho for self", "[bulk][therm
 TEST_CASE("mean field free energy density is zero with no interactions", "[bulk][thermodynamics]") {
   MeanFieldWeights mfw;
   arma::vec rho = {0.5};
-  CHECK(mean_field_free_energy_density(mfw, rho) == 0.0);
+  CHECK(mean_field::free_energy_density(mfw, rho) == 0.0);
 }
 
 // Composed: thermodynamic consistency
@@ -265,7 +265,7 @@ TEST_CASE("mean field cross-interaction free energy density", "[bulk][thermodyna
   auto mfw = make_mean_field_weights(GRID, interactions, KT);
 
   arma::vec rho = {0.3, 0.2};
-  double f = mean_field_free_energy_density(mfw, rho);
+  double f = mean_field::free_energy_density(mfw, rho);
   double expected = mfw.interactions[0].a_vdw * rho(0) * rho(1);
   CHECK(f == Catch::Approx(expected).epsilon(1e-14));
 }
@@ -283,9 +283,9 @@ TEST_CASE("mean field cross-interaction chemical potential", "[bulk][thermodynam
 
   arma::vec rho = {0.3, 0.2};
   // mu for species 0 = 0.5 * a_vdw * rho(1)
-  double mu0 = mean_field_chemical_potential(mfw, rho, 0);
+  double mu0 = mean_field::chemical_potential(mfw, rho, 0);
   CHECK(mu0 == Catch::Approx(0.5 * mfw.interactions[0].a_vdw * rho(1)).epsilon(1e-14));
   // mu for species 1 = 0.5 * a_vdw * rho(0)
-  double mu1 = mean_field_chemical_potential(mfw, rho, 1);
+  double mu1 = mean_field::chemical_potential(mfw, rho, 1);
   CHECK(mu1 == Catch::Approx(0.5 * mfw.interactions[0].a_vdw * rho(0)).epsilon(1e-14));
 }

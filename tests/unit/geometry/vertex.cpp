@@ -8,12 +8,12 @@ using namespace dft::geometry;
 TEST_CASE("vertex default-constructs with empty coordinates", "[vertex]") {
   Vertex v;
   CHECK(v.coordinates.empty());
-  CHECK(dimension(v) == 0);
+  CHECK(v.dimension() == 0);
 }
 
 TEST_CASE("vertex supports designated initializer construction", "[vertex]") {
   Vertex v{.coordinates = {1.0, 2.0, 3.0}};
-  CHECK(dimension(v) == 3);
+  CHECK(v.dimension() == 3);
   CHECK(v.coordinates[0] == 1.0);
   CHECK(v.coordinates[1] == 2.0);
   CHECK(v.coordinates[2] == 3.0);

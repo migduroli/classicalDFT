@@ -17,13 +17,29 @@ namespace utils {
     arma::vec T, rho_lo, rho_hi;
   };
 
-  // Temperature-dependent bulk weight factory.
+  // Jim's single-temperature coexistence points (scan + bisection).
 
-  [[nodiscard]] inline auto make_weight_factory(
+  struct JimCoexPoints {
+    std::vector<double> T, rho_v, rho_l;
+  };
+
+  // Jim's single-temperature spinodal points (scan + bisection).
+
+  struct JimSpinodalPoints {
+    std::vector<double> T, rho_lo, rho_hi;
+  };
+
+  // Temperature-dependent bulk EoS factory (parameterised by FMT model).
+
+  [[nodiscard]] inline auto make_eos_factory(
+      const std::vector<dft::Species>& species,
       const std::vector<dft::physics::Interaction>& interactions
   ) {
-    return [&interactions](const dft::functionals::fmt::FMTModel& fmt_model, double kT) {
-      return dft::functionals::make_bulk_weights(fmt_model, interactions, kT);
+    return [&species, &interactions](const dft::functionals::fmt::FMTModel& fmt_model, double kT)
+               -> dft::functionals::bulk::BulkThermodynamics {
+      return dft::functionals::bulk::make_bulk_thermodynamics(
+          species, dft::functionals::make_bulk_weights(fmt_model, interactions, kT)
+      );
     };
   }
 

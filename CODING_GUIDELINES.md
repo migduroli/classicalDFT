@@ -225,7 +225,7 @@ Enforced by `.clang-tidy` `readability-identifier-naming`:
 
 | Entity | Case | Example |
 |--------|------|---------|
-| Struct | `CamelCase` | `Density`, `WhiteBearI`, `FireConfig` |
+| Struct | `CamelCase` | `Density`, `WhiteBearI`, `Fire` |
 | Free function | `lower_snake_case` | `free_energy()`, `forces()` |
 | Variable | `lower_snake_case` | `eta`, `rho0`, `diameter` |
 | Struct member | `lower_snake_case` (public, no trailing `_`) | `dx`, `weights`, `diameter` |
@@ -268,14 +268,121 @@ These prefixes are **forbidden** in the public API:
 | `add_to_` / `zero_` | Not needed (no mutable buffers) |
 | `bulk_` prefix on functions | Use `functionals::bulk::` namespace instead |
 
-### Data is public, logic is free functions
+### Data is public (for pure data types)
 
-All data lives in `struct` with public members. No getters, no setters, no
-`private:` section for data. If a value is just data, it is publicly
-accessible.
+Pure data types (`Grid`, `Density`, `Species`, `State`) and algorithm
+configurations (`Fire`, `Picard`, `Newton`) are `struct` with all-public
+members and designated-initialiser construction. No getters, no setters.
 
-Logic lives in free functions that receive data by `const&` and return results
-by value. Functions never mutate their arguments.
+Types that own implementation details (FFT weights, scratch buffers) use
+`class` with private members. See **Encapsulation** below.
+
+### Types own their behavior
+
+When a free function always takes a struct/class as its first argument, that
+function is a method on the type. No orphan free functions that could be
+methods.
+
+```cpp
+// Good: behavior lives on the type
+struct LennardJones {
+  double sigma{1.0};
+  double epsilon{1.0};
+  double r_cutoff{-1.0};
+
+  [[nodiscard]] auto energy(double r) const -> double;
+  [[nodiscard]] auto attractive(double r, SplitScheme) const -> double;
+};
+
+// Bad: orphan free function
+[[nodiscard]] auto energy(const LennardJones& lj, double r) -> double;
+```
+
+### Encapsulation via `class` when it serves the user
+
+Use `class` with private members when hiding implementation details
+genuinely simplifies the API. The user should never have to create weights,
+sync internal values, or manage scratch buffers.
+
+```cpp
+// Good: user never sees weights, FFT buffers, or a_vdw sync
+template <typename FMT>
+class Functional {
+ public:
+  explicit Functional(physics::Model model);
+
+  [[nodiscard]] auto evaluate(const State&) const -> Result;
+  [[nodiscard]] auto bulk() const -> BulkThermodynamics;
+
+ private:
+  physics::Model model_;
+  Weights weights_;        // hidden implementation detail
+  Weights bulk_weights_;   // auto-synced in constructor
+};
+
+// Bad: user manually wires everything
+auto weights = make_weights(fmt_model, model);
+auto bulk_weights = make_bulk_weights(fmt_model, model.interactions, kT);
+bulk_weights.mean_field.interactions[0].a_vdw = weights.mean_field.interactions[0].a_vdw;
+```
+
+### Templates for compile-time polymorphism
+
+Use templates when the type choice is known at compile time. This eliminates
+hot-path `std::visit` dispatch and yields better compiler optimisation.
+
+```cpp
+// Good: FMT model known at compile time — no visit overhead in hot loop
+template <typename FMT>
+auto evaluate_hard_sphere(const FMT& model, const Grid&, const State&, ...) -> Contribution;
+
+// Acceptable: variant for runtime choices (config-file driven)
+using Potential = std::variant<LennardJones, TenWoldeFrenkel, ...>;
+auto energy(const Potential& pot, double r) -> double {
+  return std::visit([r](const auto& p) { return p.energy(r); }, pot);
+}
+```
+
+### Algorithm structs own their methods
+
+When a group of free functions all receive the same configuration struct as
+their first or last parameter, those functions become `const` methods on the
+struct. The struct retains all-public members and designated-initialiser
+construction. Methods are `[[nodiscard]]` and `const` (they do not modify
+the struct's state). Drop the `Config` suffix from the struct name — the
+struct IS the algorithm, not just its configuration.
+
+```cpp
+// Good: algorithm struct with methods
+struct Fire {
+  double dt{1e-3};
+  double force_tolerance{0.1};
+  int max_steps{10000};
+
+  [[nodiscard]] auto minimize(
+      std::vector<arma::vec> x0, const ForceFunction& compute
+  ) const -> FireState;
+};
+
+// Usage: config IS the algorithm
+auto fire = Fire{.dt = 0.01, .force_tolerance = 1e-6};
+auto result = fire.minimize(x0, compute);
+
+// Bad: C-style config + free function
+struct FireConfig { ... };
+auto result = minimize(x0, compute, config);  // OBSOLETE
+```
+
+Pure data types (`Grid`, `Density`, `Species`, `State`) remain data-only
+structs with no methods. The rule applies only to types whose primary
+purpose is configuring an algorithm or solver.
+
+### Free functions for truly stateless logic
+
+Logic that genuinely operates on two or more unrelated types (no single
+"owner") lives in free functions. Functions never mutate their arguments.
+If a function always takes one type as its first argument, it should be a
+method on that type instead.
 
 ```cpp
 // Data
@@ -285,15 +392,15 @@ struct Grid {
   std::array<long, 3> shape;
 };
 
-// Logic
+// Logic (no config needed)
 [[nodiscard]] auto atom_count(const Grid&, const Density&) -> double;
 ```
 
 ### Value semantics (no mutation)
 
-Functions return new values. Algorithm functions take `State` by value (they
-own a local working copy) and return the final state. RVO and `std::move`
-eliminate copies.
+Functions return new values. Algorithm methods take working data by value
+(they own a local working copy) and return the final result. RVO and
+`std::move` eliminate copies.
 
 Every function that produces a result **must** return it. Never pass an
 object by mutable reference to be filled internally. The caller should not
@@ -301,8 +408,8 @@ need to read the function body to understand what is being created or
 modified. The function signature must tell the full story.
 
 ```cpp
-// Good: takes State by value, returns Solution
-[[nodiscard]] auto fire(const Model&, State, const FireConfig&) -> Solution;
+// Good: const method takes State by value, returns Solution
+[[nodiscard]] auto minimize(std::vector<arma::vec> x0, const ForceFunction& compute) const -> FireState;
 
 // Bad: mutates argument in place
 void minimize(State&, const Model&);
@@ -336,18 +443,63 @@ physics::Model model{
 };
 ```
 
-### `std::variant` over inheritance
+### `std::variant` for runtime closed sets — with wrapper classes
 
-No `virtual` keyword anywhere in the core library. Runtime polymorphism is
-handled via `std::variant` + `std::visit`:
+Runtime polymorphism for closed type sets uses `std::variant`, but raw
+variants are never exposed in the public API. Instead, wrap the variant in
+a class that exposes the shared interface as regular methods:
 
 ```cpp
-using Potential = std::variant<LennardJones, TenWoldeFrenkel, WangRamirezDobnikarFrenkel>;
+// Concrete types — struct with public data and methods
+struct LennardJones {
+  double sigma{1.0};
+  double epsilon{1.0};
+  double r_cutoff{-1.0};
+  // ...
+  [[nodiscard]] auto energy(double r) const -> double;
+  [[nodiscard]] auto vdw_integral(double kT, SplitScheme) const -> double;
+};
 
-[[nodiscard]] auto energy(const Potential& pot, double r) -> double {
-  return std::visit([r](const auto& p) { return energy_impl(p, r); }, pot);
-}
+// Wrapper class — hides variant, exposes unified interface
+class Potential {
+ public:
+  template <typename T>
+  Potential(T concrete) : data_(std::move(concrete)) {}
+
+  [[nodiscard]] auto energy(double r) const -> double {
+    return std::visit([r](const auto& p) { return p.energy(r); }, data_);
+  }
+
+  [[nodiscard]] auto vdw_integral(double kT, SplitScheme s) const -> double {
+    return std::visit([kT, s](const auto& p) { return p.vdw_integral(kT, s); }, data_);
+  }
+
+  // Access underlying variant (for rare cases needing type-specific logic)
+  [[nodiscard]] auto variant() const -> const auto& { return data_; }
+
+ private:
+  std::variant<LennardJones, TenWoldeFrenkel, WangRamirezDobnikarFrenkel> data_;
+};
+
+// Usage — no std::visit at call sites
+double a = 2.0 * inter.potential.vdw_integral(kT, scheme);
+double d = inter.potential.hard_sphere_diameter(kT, scheme);
 ```
+
+**Rules for variant wrapper classes:**
+
+- The wrapper class owns a `std::variant` as a private member.
+- Every method shared by all alternatives becomes a public method on the
+  wrapper that internally dispatches via `std::visit`.
+- Construction from any alternative is implicit (converting constructor).
+- A `variant()` accessor exposes the underlying variant for rare cases
+  that need type-specific inspection (e.g. `NAME`, `NEEDS_TENSOR`).
+- Callers never write `std::visit` — the wrapper handles it.
+- Concrete types remain plain `struct` with designated-initialiser
+  construction.
+
+Use templates instead of variants when the type is known at compile time
+(e.g. FMT model choice in `Functional<FMT>`).
 
 ### C++20 concepts for generic solvers
 
@@ -361,7 +513,7 @@ concept VectorFunction = requires(F f, const arma::vec& x) {
 };
 
 template <VectorFunction Func>
-[[nodiscard]] auto newton(arma::vec x, Func&& f, const NewtonConfig&) -> SolverResult;
+[[nodiscard]] auto Newton::solve(arma::vec x, Func&& f) const -> SolverResult;
 ```
 
 ### C++23 idioms
@@ -423,38 +575,73 @@ function. If a function name contains "and", split it.
 
 ## 9. Type design
 
-### `struct` only (no `class` for data)
+### `struct` for data and configuration
 
-Every data type is a `struct` with all members public. No invariants enforced
-in the type itself. Validation happens at system boundaries via factory
-functions (e.g. `make_grid()`) or at API entry points.
+Pure data types and algorithm configurations are `struct` with all members
+public. Validation happens at system boundaries via factory functions or at
+API entry points.
 
 ```cpp
-// Good
+// Pure data — struct
 struct Density {
   arma::vec values;
   arma::vec external_field;
 };
 
-// Bad
-class Density {
- public:
-  [[nodiscard]] const arma::vec& values() const noexcept;
- private:
-  arma::vec values_;
+// Algorithm configuration — struct
+struct Fire {
+  double dt{1e-3};
+  double force_tolerance{0.1};
+  int max_steps{10000};
+
+  [[nodiscard]] auto minimize(...) const -> FireState;
 };
 ```
 
-### No `class` keyword in the core library
+### `class` for types with implementation details
 
-The `class` keyword is only permitted for:
-- RAII wrappers around C resources (`FourierTransform`, `CubicSpline`, `Grace`)
-- Types that genuinely own a non-copyable resource (file handle, pipe, FFT plan)
+Types that own non-trivial implementation details (FFT weights, internal
+buffers, synced state) use `class` with private members and a public API.
+This is natural C++ — use the language as designed.
+
+```cpp
+// Hides weight construction, a_vdw sync, and scratch management
+template <typename FMT>
+class Functional {
+ public:
+  explicit Functional(physics::Model model);
+  [[nodiscard]] auto evaluate(const State&) const -> Result;
+ private:
+  physics::Model model_;
+  Weights weights_;
+};
+```
+
+### Physics types: `struct` with methods
+
+Physics types (`LennardJones`, `CarnahanStarling`, `WhiteBearII`, etc.) are
+`struct` with public data AND methods. They have no invariants to protect,
+but they own their behavior.
+
+```cpp
+struct LennardJones {
+  double sigma{1.0};
+  double epsilon{1.0};
+  double r_cutoff{-1.0};
+  double epsilon_shift{0.0};
+  double r_min{0.0};
+  double v_min{0.0};
+
+  [[nodiscard]] auto energy(double r) const -> double;
+  [[nodiscard]] auto repulsive(double r, SplitScheme) const -> double;
+  [[nodiscard]] auto attractive(double r, SplitScheme) const -> double;
+};
+```
 
 ### Struct member ordering
 
 ```cpp
-struct FireConfig {
+struct Fire {
   double dt{1e-3};
   double dt_max{1e-2};
   double dt_min{1e-8};
@@ -740,11 +927,14 @@ int main() {
       .species = {core::Species{.name = "Argon", .hard_sphere_diameter = 1.0}},
   };
 
+  // Build functional
+  auto functional = functionals::make_functional(functionals::fmt::WhiteBearII{}, model);
+
   // Initial state
   auto state = init::homogeneous(model, 0.5);
 
   // Evaluate
-  auto result = functionals::total(model, state);
+  auto result = functional.evaluate(state);
   std::cout << "Free energy: " << result.total_free_energy << "\n";
 
   // Grace plots
@@ -795,11 +985,18 @@ int main() {
 
 ## 16. Design principles
 
-### Data/logic separation
+### Types own their behavior
 
-Data and logic are strictly separated. Data is `struct`. Logic is free
-functions. No methods on data types (except trivial `constexpr` helpers like
-`cell_volume()`).
+Types encapsulate both data and behavior. Physics types are `struct` with
+public data and methods. Complex types with implementation details are
+`class` with private members. Free functions only for truly stateless logic
+that operates across multiple unrelated types.
+
+### Templates for compile-time polymorphism
+
+Use C++ templates when the type is known at compile time. This eliminates
+`std::visit` overhead in hot paths and generates specialized code. Use
+`std::variant` only when the choice is runtime-determined.
 
 ### Value semantics
 
@@ -818,19 +1015,24 @@ buffers.
 Every function and file has one reason to change. If a function name contains
 "and", split it.
 
-### No inheritance in the core library
+### Minimal inheritance — only for variant wrapper classes
 
-No `virtual`, no abstract base classes, no NVI pattern. Polymorphism is via
-`std::variant` + `std::visit` (compile-time exhaustiveness, cache-friendly).
+No deep hierarchies, no NVI pattern, no `virtual` on hot-path methods.
+The only permitted use of inheritance is via variant wrapper classes (see
+§8 "std::variant for runtime closed sets — with wrapper classes"). These
+wrappers give closed type sets a unified method interface without exposing
+`std::visit` to callers.
 
 RAII wrappers for C resources (`FourierTransform`, `CubicSpline`, `Grace`)
-are the only exception.
+remain a separate exception.
 
-### Open/closed via variants
+### Open/closed principle
 
-Add new potential types, FMT models, or mesh types by adding a new struct
-and extending the `std::variant`. No existing code needs to change except the
-variant typedef and the `std::visit` dispatchers.
+Add new potential types, FMT models, or mesh types by adding a new struct,
+extending the variant inside the wrapper class, and implementing the
+required methods. The wrapper class enforces interface completeness at
+compile time (any missing method on a new alternative causes a build error
+inside the `std::visit` lambda).
 
 ### No premature abstraction
 

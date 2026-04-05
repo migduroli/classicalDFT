@@ -17,7 +17,7 @@ TEST_CASE("PY compressibility excess free energy matches legacy", "[integration]
   auto py_model = hs::PercusYevickCompressibility{};
   for (double eta : ETA_VALUES) {
     legacy::thermodynamics::Enskog enskog(eta * 6.0 / std::numbers::pi);
-    CHECK(hs::excess_free_energy(py_model, eta) == Approx(enskog.exFreeEnergyPYC()).margin(1e-10));
+    CHECK(py_model.excess_free_energy(eta) == Approx(enskog.exFreeEnergyPYC()).margin(1e-10));
   }
 }
 
@@ -26,10 +26,10 @@ TEST_CASE("PY compressibility derivatives match legacy", "[integration][thermody
   double de = std::numbers::pi / 6.0;
   for (double eta : ETA_VALUES) {
     legacy::thermodynamics::Enskog enskog(eta * 6.0 / std::numbers::pi);
-    CHECK(hs::d_excess_free_energy(py_model, eta) * de == Approx(enskog.dexFreeEnergyPYCdRho()).margin(1e-10));
-    CHECK(hs::d2_excess_free_energy(py_model, eta) * de * de == Approx(enskog.d2exFreeEnergyPYCdRho2()).margin(1e-10));
+    CHECK(py_model.d_excess_free_energy(eta) * de == Approx(enskog.dexFreeEnergyPYCdRho()).margin(1e-10));
+    CHECK(py_model.d2_excess_free_energy(eta) * de * de == Approx(enskog.d2exFreeEnergyPYCdRho2()).margin(1e-10));
     CHECK(
-        hs::d3_excess_free_energy(py_model, eta) * de * de * de == Approx(enskog.d3exFreeEnergyPYCdRho3()).margin(1e-8)
+        py_model.d3_excess_free_energy(eta) * de * de * de == Approx(enskog.d3exFreeEnergyPYCdRho3()).margin(1e-8)
     );
   }
 }
@@ -38,7 +38,7 @@ TEST_CASE("Carnahan-Starling excess free energy matches legacy", "[integration][
   auto cs_model = hs::CarnahanStarling{};
   for (double eta : ETA_VALUES) {
     legacy::thermodynamics::Enskog enskog(eta * 6.0 / std::numbers::pi);
-    CHECK(hs::excess_free_energy(cs_model, eta) == Approx(enskog.exFreeEnergyCS()).margin(1e-10));
+    CHECK(cs_model.excess_free_energy(eta) == Approx(enskog.exFreeEnergyCS()).margin(1e-10));
   }
 }
 
@@ -47,10 +47,10 @@ TEST_CASE("CS derivatives match legacy", "[integration][thermodynamics]") {
   double de = std::numbers::pi / 6.0;
   for (double eta : ETA_VALUES) {
     legacy::thermodynamics::Enskog enskog(eta * 6.0 / std::numbers::pi);
-    CHECK(hs::d_excess_free_energy(cs_model, eta) * de == Approx(enskog.dexFreeEnergyCSdRho()).margin(1e-10));
-    CHECK(hs::d2_excess_free_energy(cs_model, eta) * de * de == Approx(enskog.d2exFreeEnergyCSdRho2()).margin(1e-10));
+    CHECK(cs_model.d_excess_free_energy(eta) * de == Approx(enskog.dexFreeEnergyCSdRho()).margin(1e-10));
+    CHECK(cs_model.d2_excess_free_energy(eta) * de * de == Approx(enskog.d2exFreeEnergyCSdRho2()).margin(1e-10));
     CHECK(
-        hs::d3_excess_free_energy(cs_model, eta) * de * de * de == Approx(enskog.d3exFreeEnergyCSdRho3()).margin(1e-8)
+        cs_model.d3_excess_free_energy(eta) * de * de * de == Approx(enskog.d3exFreeEnergyCSdRho3()).margin(1e-8)
     );
   }
 }
@@ -60,8 +60,8 @@ TEST_CASE("HS pressure and chemical potential match legacy", "[integration][ther
   for (double eta : ETA_VALUES) {
     double rho = eta * 6.0 / std::numbers::pi;
     legacy::thermodynamics::Enskog enskog(rho);
-    CHECK(hs::pressure(py_model, eta) == Approx(enskog.pressurePYC()).margin(1e-10));
-    CHECK(hs::chemical_potential(py_model, rho) == Approx(enskog.chemPotentialPYC()).margin(1e-10));
+    CHECK(py_model.pressure(eta) == Approx(enskog.pressurePYC()).margin(1e-10));
+    CHECK(py_model.chemical_potential(rho) == Approx(enskog.chemPotentialPYC()).margin(1e-10));
   }
 }
 
@@ -84,9 +84,9 @@ TEST_CASE("JZG phix and derivatives match legacy", "[integration][thermodynamics
     auto our_jzg = eos::make_lennard_jones_jzg(kT, 2.5, true);
     auto jim_jzg = legacy::thermodynamics::make_LJ_JZG(kT, 2.5);
     for (double rho : {0.1, 0.2, 0.4, 0.6, 0.8}) {
-      CHECK(eos::excess_free_energy(our_jzg, rho) == Approx(jim_jzg.phix(rho)).margin(1e-10));
-      CHECK(eos::d_excess_free_energy(our_jzg, rho) == Approx(jim_jzg.phi1x(rho)).epsilon(1e-7));
-      CHECK(eos::d2_excess_free_energy(our_jzg, rho) == Approx(jim_jzg.phi2x(rho)).epsilon(1e-4));
+      CHECK(our_jzg.excess_free_energy(rho) == Approx(jim_jzg.phix(rho)).margin(1e-10));
+      CHECK(our_jzg.d_excess_free_energy(rho) == Approx(jim_jzg.phi1x(rho)).epsilon(1e-7));
+      CHECK(our_jzg.d2_excess_free_energy(rho) == Approx(jim_jzg.phi2x(rho)).epsilon(1e-4));
     }
   }
 }
@@ -96,8 +96,8 @@ TEST_CASE("Mecke phix and phi1x match legacy", "[integration][thermodynamics]") 
     auto our_mecke = eos::make_lennard_jones_mecke(kT, 2.5, true);
     auto jim_mecke = legacy::thermodynamics::make_LJ_Mecke(kT, 2.5);
     for (double rho : {0.1, 0.2, 0.4, 0.6, 0.8}) {
-      CHECK(eos::excess_free_energy(our_mecke, rho) == Approx(jim_mecke.phix(rho)).margin(1e-10));
-      CHECK(eos::d_excess_free_energy(our_mecke, rho) == Approx(jim_mecke.phi1x(rho)).epsilon(1e-7));
+      CHECK(our_mecke.excess_free_energy(rho) == Approx(jim_mecke.phix(rho)).margin(1e-10));
+      CHECK(our_mecke.d_excess_free_energy(rho) == Approx(jim_mecke.phi1x(rho)).epsilon(1e-7));
     }
   }
 }

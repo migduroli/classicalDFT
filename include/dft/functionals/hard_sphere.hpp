@@ -94,7 +94,7 @@ namespace dft::functionals {
         }
       }
 
-      m.products = fmt::inner_products(m);
+      m.products = m.inner_products();
       return m;
     }
 
@@ -195,10 +195,10 @@ namespace dft::functionals {
 
         if (total.eta < 1e-30) continue;
 
-        total.products = fmt::inner_products(total);
-        free_energy += fmt::phi(model, total) * dv;
+        total.products = total.inner_products();
+        free_energy += model.phi(total) * dv;
 
-        auto dm = fmt::d_phi(model, total);
+        auto dm = model.d_phi(total);
         for (std::size_t s = 0; s < n_species; ++s) {
           derivs[s].d_eta(idx) = dm.d_eta;
           derivs[s].d_n2(idx) = dm.d_n2;

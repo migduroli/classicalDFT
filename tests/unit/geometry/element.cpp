@@ -29,32 +29,30 @@ TEST_CASE("make_square_box_3d produces 8 vertices", "[element]") {
 
 TEST_CASE("volume of SquareBox2D is length squared", "[element]") {
   auto box = make_square_box_2d(3.0, {0.0, 0.0});
-  CHECK(volume(box) == Catch::Approx(9.0));
+  CHECK(box.volume() == Catch::Approx(9.0));
 }
 
 TEST_CASE("volume of SquareBox3D is length cubed", "[element]") {
   auto box = make_square_box_3d(2.0, {0.0, 0.0, 0.0});
-  CHECK(volume(box) == Catch::Approx(8.0));
+  CHECK(box.volume() == Catch::Approx(8.0));
 }
 
 TEST_CASE("volume of ElementVariant dispatches correctly", "[element]") {
-  ElementVariant e2d = make_square_box_2d(4.0, {0.0, 0.0});
-  ElementVariant e3d = make_square_box_3d(2.0, {0.0, 0.0, 0.0});
-  ElementVariant gen = Element{.vertices = {Vertex{{0.0, 0.0}}, Vertex{{1.0, 1.0}}}};
+  auto sq = make_square_box_2d(4.0, {0.0, 0.0});
+  auto cb = make_square_box_3d(2.0, {0.0, 0.0, 0.0});
 
-  CHECK(volume(e2d) == Catch::Approx(16.0));
-  CHECK(volume(e3d) == Catch::Approx(8.0));
-  CHECK(volume(gen) == Catch::Approx(0.0));
+  CHECK(sq.volume() == Catch::Approx(16.0));
+  CHECK(cb.volume() == Catch::Approx(8.0));
 }
 
 TEST_CASE("dimension of ElementVariant", "[element]") {
-  ElementVariant e2d = make_square_box_2d(1.0, {0.0, 0.0});
-  ElementVariant e3d = make_square_box_3d(1.0, {0.0, 0.0, 0.0});
-  ElementVariant empty = Element{};
+  auto sq = make_square_box_2d(1.0, {0.0, 0.0});
+  auto cb = make_square_box_3d(1.0, {0.0, 0.0, 0.0});
+  Element empty{};
 
-  CHECK(dimension(e2d) == 2);
-  CHECK(dimension(e3d) == 3);
-  CHECK(dimension(empty) == 0);
+  CHECK(sq.vertices.front().dimension() == 2);
+  CHECK(cb.vertices.front().dimension() == 3);
+  CHECK(empty.vertices.empty());
 }
 
 TEST_CASE("element struct supports direct member access", "[element]") {

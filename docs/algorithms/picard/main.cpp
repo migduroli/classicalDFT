@@ -37,49 +37,41 @@ int main() {
       .temperature = temperature,
   };
 
-  auto fmt_model = functionals::fmt::WhiteBearII{};
-  auto weights = functionals::make_weights(fmt_model, model);
+  auto func = functionals::make_functional(functionals::fmt::WhiteBearII{}, model);
 
-  long nx = model.grid.shape[0];
-  long ny = model.grid.shape[1];
-  long nz = model.grid.shape[2];
+  long nx = func.model.grid.shape[0];
+  long ny = func.model.grid.shape[1];
+  long nz = func.model.grid.shape[2];
 
-  std::println(std::cout, "  Grid:        {}x{}x{} (dx = {})", nx, ny, nz, model.grid.dx);
+  std::println(std::cout, "  Grid:        {}x{}x{} (dx = {})", nx, ny, nz, func.model.grid.dx);
   std::println(std::cout, "  rho_bulk:    {:.6f}", rho_bulk);
   std::println(std::cout, "  eta_bulk:    {:.6f}\n", physics::hard_spheres::packing_fraction(rho_bulk));
 
   // Bulk chemical potential at the target density.
 
-  auto bulk_weights = functionals::make_bulk_weights(
-      fmt_model, model.interactions, model.temperature
-  );
-  double mu_bulk = functionals::bulk::chemical_potential(
-      arma::vec{rho_bulk}, model.species, bulk_weights, 0
-  );
-  double p_bulk = functionals::bulk::pressure(
-      arma::vec{rho_bulk}, model.species, bulk_weights
-  );
+  auto eos = func.bulk();
+  double mu_bulk = eos.chemical_potential(arma::vec{rho_bulk}, 0);
+  double p_bulk = eos.pressure(arma::vec{rho_bulk});
 
   std::println(std::cout, "  mu_bulk:     {:.6f}", mu_bulk);
   std::println(std::cout, "  P_bulk:      {:.6f}\n", p_bulk);
 
   // Initial density: uniform with a small sinusoidal perturbation.
 
-  arma::vec x_vals = arma::linspace(0.0, (nx - 1) * model.grid.dx, nx);
+  arma::vec x_vals = arma::linspace(0.0, (nx - 1) * func.model.grid.dx, nx);
   arma::vec profile_1d = rho_bulk * (1.0 + 0.05 * arma::sin(
-      2.0 * arma::datum::pi * x_vals / model.grid.box_size[0]
+      2.0 * arma::datum::pi * x_vals / func.model.grid.box_size[0]
   ));
 
   arma::vec rho_init = arma::repelem(profile_1d, ny * nz, 1);
 
   // Force function.
 
-  auto force_fn = utils::make_force_fn(model, weights, mu_bulk);
+  auto force_fn = func.grand_potential_callback(mu_bulk);
 
   // Evaluate the initial state.
 
-  auto initial_state = utils::make_state(model, rho_init, mu_bulk);
-  auto initial_result = functionals::total(model, initial_state, weights);
+  auto initial_result = func.evaluate(rho_init, mu_bulk);
 
   std::println(std::cout, "=== Initial state (perturbed uniform) ===\n");
   std::println(std::cout, "  Grand potential:  {:.6f}", initial_result.grand_potential);
@@ -89,7 +81,7 @@ int main() {
 
   console::info("Running Picard iteration");
 
-  algorithms::picard::PicardConfig picard_config{
+  algorithms::picard::Picard picard_config{
       .mixing = 0.005,
       .min_density = 1e-30,
       .tolerance = 1e-8,
@@ -97,8 +89,8 @@ int main() {
       .log_interval = 500,
   };
 
-  auto picard_result = algorithms::picard::solve(
-      {rho_init}, force_fn, model.grid.cell_volume(), picard_config
+  auto picard_result = picard_config.solve(
+      {rho_init}, force_fn, func.model.grid.cell_volume()
   );
 
   std::println(std::cout, "\n=== Picard result ===\n");
@@ -119,8 +111,8 @@ int main() {
 
   // Verify that Omega/V = -P_bulk.
 
-  double volume = model.grid.cell_volume()
-                  * static_cast<double>(model.grid.total_points());
+  double volume = func.model.grid.cell_volume()
+                  * static_cast<double>(func.model.grid.total_points());
   double omega_per_vol = picard_result.grand_potential / volume;
   std::println(std::cout, "  Omega/V:          {:.6f}", omega_per_vol);
   std::println(std::cout, "  -P_bulk:          {:.6f}", -p_bulk);

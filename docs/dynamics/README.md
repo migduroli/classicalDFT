@@ -73,19 +73,169 @@ $$
 This provides an exact analytical check: the numerical decay rate must match
 $e^{\Lambda_1 D\Delta t}$ per step.
 
-## What the code does
+---
 
-### FIRE2 minimiser
+## Step-by-step code walkthrough
 
-1. Minimises $f(x,y) = (x-1)^2 + 4(y+2)^2$ from $(5, 5)$ using both the
-   one-shot `minimize()` API and the step-by-step `initialize()` + `step()` loop.
-2. Logs the energy at every configurable interval for convergence plotting.
+### Part A: FIRE2 minimisation of a 2D quadratic
 
-### Split-operator DDFT
+#### Step 1: Read FIRE2 parameters
 
-1. Defines an ideal gas on a $16^3$ grid with a sinusoidal perturbation.
-2. Runs the split-operator DDFT scheme and tracks density snapshots.
-3. Verifies exponential variance decay and exact mass conservation.
+All parameters are loaded from `config.ini`:
+
+```cpp
+auto cfg = config::parse_config("config.ini", config::FileType::INI);
+double fire_dt = config::get<double>(cfg, "fire2.dt");
+double fire_dt_max = config::get<double>(cfg, "fire2.dt_max");
+double fire_tol = config::get<double>(cfg, "fire2.force_tolerance");
+int fire_max_steps = config::get<int>(cfg, "fire2.max_steps");
+double fire_x0 = config::get<double>(cfg, "fire2.x0");
+double fire_y0 = config::get<double>(cfg, "fire2.y0");
+```
+
+#### Step 2: Define the objective and force
+
+The test function is a 2D anisotropic quadratic:
+
+$$
+f(x, y) = (x - 1)^2 + 4(y + 2)^2
+$$
+
+with analytical gradient $\nabla f = (2(x-1),\; 8(y+2))$. The force is
+$\mathbf{F} = -\nabla f$:
+
+```cpp
+auto fire_force_fn = [](const std::vector<arma::vec>& x)
+    -> std::pair<double, std::vector<arma::vec>> {
+  double xv = x[0](0);
+  double yv = x[0](1);
+  double energy = (xv - 1.0) * (xv - 1.0) + 4.0 * (yv + 2.0) * (yv + 2.0);
+  arma::vec force = {-2.0 * (xv - 1.0), -8.0 * (yv + 2.0)};
+  return {energy, {force}};
+};
+```
+
+The force callback follows the library convention: it takes a vector of
+`arma::vec` (one per species/degree-of-freedom) and returns `{energy, forces}`.
+
+#### Step 3: One-shot minimisation
+
+The `Fire::minimize()` method runs FIRE2 to convergence:
+
+```cpp
+algorithms::fire::Fire fire_config{
+    .dt = fire_dt, .dt_max = fire_dt_max,
+    .force_tolerance = fire_tol, .max_steps = fire_max_steps,
+};
+auto fire_result = fire_config.minimize({arma::vec{fire_x0, fire_y0}}, fire_force_fn);
+```
+
+This returns `{x, energy, rms_force, converged, iteration}`. The solution
+should be $(1, -2)$ with energy $= 0$.
+
+#### Step 4: Step-by-step iteration
+
+For convergence logging, the same minimisation is run using the
+`initialize()` + `step()` API:
+
+```cpp
+auto state = fire_config.initialize({arma::vec{fire_x0, fire_y0}}, fire_force_fn);
+auto [init_energy, forces] = fire_force_fn(state.x);
+
+while (!state.converged && state.iteration < fire_config.max_steps) {
+  auto [new_state, new_forces] = fire_config.step(std::move(state), forces, fire_force_fn);
+  state = std::move(new_state);
+  forces = std::move(new_forces);
+}
+```
+
+This loop records energy values at configurable intervals, producing the
+convergence plot below.
+
+---
+
+### Part B: Split-operator DDFT (ideal gas)
+
+#### Step 5: Define the ideal gas model
+
+A zero-diameter species with no interactions defines a pure ideal gas:
+
+```cpp
+physics::Model model{
+    .grid = make_grid(ddft_dx, {box_size, box_size, box_size}),
+    .species = {Species{.name = "ideal", .hard_sphere_diameter = 0.0}},
+    .interactions = {},
+    .temperature = temperature,
+};
+```
+
+#### Step 6: Construct the sinusoidal initial condition
+
+A sinusoidal perturbation along the $z$-axis is replicated over $x$ and $y$:
+
+```cpp
+arma::vec z_vals = arma::linspace(0.0, (nz - 1) * model.grid.dx, nz);
+arma::vec z_profile = rho0 + amplitude * arma::sin(
+    2.0 * std::numbers::pi * z_vals / model.grid.box_size[2]);
+arma::vec rho = arma::repmat(z_profile, nx * ny, 1);
+```
+
+The density varies only in $z$, making the decay rate analytically
+predictable.
+
+#### Step 7: Define the ideal-gas force function
+
+For an ideal gas, $F[\rho] = k_BT \int \rho(\ln\rho - 1)\,d\mathbf{r}$
+and $\delta F/\delta\rho = k_BT \ln\rho$. Since $k_BT = 1$:
+
+```cpp
+auto ddft_force_fn = [&](const std::vector<arma::vec>& densities)
+    -> std::pair<double, std::vector<arma::vec>> {
+  double dv = model.grid.cell_volume();
+  arma::vec rho_safe = arma::clamp(densities[0], 1e-18, arma::datum::inf);
+  double energy = dv * arma::dot(rho_safe, arma::log(rho_safe) - 1.0);
+  arma::vec force = dv * arma::log(rho_safe);
+  return {energy, {force}};
+};
+```
+
+#### Step 8: Run the DDFT simulation
+
+The `Simulation` struct configures and runs the time integration:
+
+```cpp
+algorithms::dynamics::Simulation sim_config{
+    .step = {.dt = ddft_dt, .diffusion_coefficient = D, .min_density = 1e-18},
+    .n_steps = n_steps,
+    .snapshot_interval = snapshot_interval,
+    .log_interval = snapshot_interval,
+};
+
+auto sim = sim_config.run(
+    {ddft_state.species[0].density.values}, model.grid, ddft_force_fn);
+```
+
+The simulation stores density snapshots at regular intervals, allowing
+post-hoc analysis of the density evolution and variance decay.
+
+#### Step 9: Verify variance decay and mass conservation
+
+The variance of the density field should decay exponentially:
+
+$$
+\mathrm{Var}[\rho](t) \propto e^{2\Lambda_1 D t}
+$$
+
+and the total mass must be conserved to machine precision:
+
+```cpp
+std::println(std::cout, "  Mass initial: {:.6f}", sim.mass_initial);
+std::println(std::cout, "  Mass final:   {:.6f}", sim.mass_final);
+std::println(std::cout, "  Rel. error:   {:.6e}",
+             std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial);
+```
+
+---
 
 ## Cross-validation (`check/`)
 

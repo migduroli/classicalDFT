@@ -71,7 +71,9 @@ term itself, achieving second-order compensation. The error bound is
 $O(\varepsilon_{\mathrm{mach}}^2)$ independent of $N$. This is the most
 accurate variant but involves more operations per element.
 
-## What the code does
+---
+
+## Step-by-step code walkthrough
 
 Two test arrays are constructed with values that differ at the level of
 machine epsilon:

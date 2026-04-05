@@ -40,7 +40,9 @@ A JSON file uses nested objects to achieve the same logical structure:
 The same dotted-key access pattern (`"default.DoubleValue"`) works for both
 formats, so the physics code is agnostic to the file format.
 
-## What the code does
+---
+
+## Step-by-step code walkthrough
 
 ```cpp
 auto data = config::parse_config("config.ini", config::FileType::INI);

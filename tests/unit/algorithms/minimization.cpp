@@ -115,7 +115,7 @@ TEST_CASE("bounded transform_force applies chain rule correctly", "[parametrizat
 
 TEST_CASE("boundary_mask identifies face points", "[grid][boundary]") {
   auto grid = dft::make_grid(1.0, {3.0, 3.0, 3.0});
-  auto mask = dft::boundary_mask(grid);
+  auto mask = grid.boundary_mask();
   // 3x3x3 = 27 points, interior is 1x1x1 = 1 point
   arma::uword n_boundary = arma::accu(mask);
   CHECK(n_boundary == 26);
@@ -123,7 +123,7 @@ TEST_CASE("boundary_mask identifies face points", "[grid][boundary]") {
 
 TEST_CASE("homogeneous_boundary averages face forces", "[grid][boundary]") {
   auto grid = dft::make_grid(1.0, {3.0, 3.0, 3.0});
-  auto mask = dft::boundary_mask(grid);
+  auto mask = grid.boundary_mask();
   arma::vec forces(27, arma::fill::zeros);
   // Set boundary forces to different values
   for (arma::uword i = 0; i < 27; ++i) {
@@ -143,7 +143,7 @@ TEST_CASE("homogeneous_boundary averages face forces", "[grid][boundary]") {
 
 TEST_CASE("fixed_boundary zeros face forces", "[grid][boundary]") {
   auto grid = dft::make_grid(1.0, {3.0, 3.0, 3.0});
-  auto mask = dft::boundary_mask(grid);
+  auto mask = grid.boundary_mask();
   arma::vec forces(27, arma::fill::ones);
   auto result = dft::fixed_boundary(forces, mask);
   // Interior point should be 1

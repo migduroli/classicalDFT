@@ -21,12 +21,12 @@ TEST_CASE("continuation step advances along unit circle", "[continuation]") {
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.1,
       .newton = {.max_iterations = 50, .tolerance = 1e-12},
   };
 
-  auto next = step(start, circle_residual, 0.1, config);
+  auto next = config.step(start, circle_residual, 0.1);
 
   REQUIRE(next.has_value());
 
@@ -48,7 +48,7 @@ TEST_CASE("continuation traces quarter circle", "[continuation]") {
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.05,
       .max_step = 0.2,
       .min_step = 1e-4,
@@ -57,7 +57,7 @@ TEST_CASE("continuation traces quarter circle", "[continuation]") {
       .newton = {.max_iterations = 50, .tolerance = 1e-10},
   };
 
-  auto curve = trace(start, circle_residual, config, [](const CurvePoint& p) { return p.lambda < 0.05; });
+  auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.lambda < 0.05; });
 
   REQUIRE(curve.size() > 2);
 
@@ -87,7 +87,7 @@ TEST_CASE("continuation handles turning point on folded cubic", "[continuation]"
       .dlambda_ds = 1.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.05,
       .max_step = 0.1,
       .min_step = 1e-4,
@@ -100,7 +100,7 @@ TEST_CASE("continuation handles turning point on folded cubic", "[continuation]"
   double prev_lambda = start.lambda;
   bool passed_turning = false;
   int steps_taken = 0;
-  auto curve = trace(start, cubic_residual, config, [&](const CurvePoint& p) {
+  auto curve = config.trace(start, cubic_residual, [&](const CurvePoint& p) {
     ++steps_taken;
     if (steps_taken > 5 && p.lambda < prev_lambda) {
       passed_turning = true;
@@ -132,12 +132,12 @@ TEST_CASE("continuation step returns nullopt for impossible step", "[continuatio
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.1,
       .newton = {.max_iterations = 10, .tolerance = 1e-12},
   };
 
-  auto next = step(start, bad_residual, 0.1, config);
+  auto next = config.step(start, bad_residual, 0.1);
   CHECK(!next.has_value());
 }
 
@@ -152,7 +152,7 @@ TEST_CASE("trace shrinks step on failed steps and continues", "[continuation]") 
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.5,
       .max_step = 0.5,
       .min_step = 0.01,
@@ -161,7 +161,7 @@ TEST_CASE("trace shrinks step on failed steps and continues", "[continuation]") 
       .newton = {.max_iterations = 3, .tolerance = 1e-14},
   };
 
-  auto curve = trace(start, circle_residual, config, [](const CurvePoint& p) { return p.x(0) > 0.5; });
+  auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.x(0) > 0.5; });
 
   REQUIRE(curve.size() > 2);
   for (const auto& p : curve) {
@@ -182,7 +182,7 @@ TEST_CASE("trace returns start point when all steps fail", "[continuation]") {
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.1,
       .max_step = 0.1,
       .min_step = 0.01,
@@ -191,7 +191,7 @@ TEST_CASE("trace returns start point when all steps fail", "[continuation]") {
       .newton = {.max_iterations = 5, .tolerance = 1e-12},
   };
 
-  auto curve = trace(start, bad_residual, config);
+  auto curve = config.trace(start, bad_residual);
 
   // Only the starting point should be in the curve
   CHECK(curve.size() == 1);
@@ -214,14 +214,14 @@ TEST_CASE("trace catches exceptions in step and returns curve so far", "[continu
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.05,
       .max_step = 0.1,
       .min_step = 0.01,
       .newton = {.max_iterations = 50, .tolerance = 1e-10},
   };
 
-  auto curve = trace(start, throwing_residual, config);
+  auto curve = config.trace(start, throwing_residual);
 
   // Should have at least the start point and stop gracefully
   CHECK(curve.size() >= 1);
@@ -235,7 +235,7 @@ TEST_CASE("trace grows step after successful steps", "[continuation]") {
       .dlambda_ds = 0.0,
   };
 
-  ContinuationConfig config{
+  Continuation config{
       .initial_step = 0.01,
       .max_step = 0.5,
       .min_step = 1e-4,
@@ -244,7 +244,7 @@ TEST_CASE("trace grows step after successful steps", "[continuation]") {
       .newton = {.max_iterations = 50, .tolerance = 1e-10},
   };
 
-  auto curve = trace(start, circle_residual, config, [](const CurvePoint& p) { return p.x(0) > 0.3; });
+  auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.x(0) > 0.3; });
 
   // With growth_factor=2.0, the step grows quickly so we need fewer steps
   // to reach x > 0.3 than we would with growth_factor=1.0

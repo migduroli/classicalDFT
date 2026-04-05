@@ -25,10 +25,9 @@ int main() {
   std::println(std::cout, "  Elements: {}", mesh2d.elements.size());
   std::println(std::cout, "  Spacing: {}", mesh2d.dx);
 
-  geometry::Mesh m2d = mesh2d;
-  auto w1 = geometry::wrap(m2d, geometry::Vertex{{1.5, 2.5}});
-  auto w2 = geometry::wrap(m2d, geometry::Vertex{{5.5, 7.0}});
-  auto w3 = geometry::wrap(m2d, geometry::Vertex{{-1.0, -0.5}});
+  auto w1 = mesh2d.wrap(geometry::Vertex{{1.5, 2.5}});
+  auto w2 = mesh2d.wrap(geometry::Vertex{{5.5, 7.0}});
+  auto w3 = mesh2d.wrap(geometry::Vertex{{-1.0, -0.5}});
   std::cout << "  wrap({1.5, 2.5}):   " << w1 << "\n";
   std::cout << "  wrap({5.5, 7.0}):   " << w2 << "\n";
   std::cout << "  wrap({-1.0, -0.5}): " << w3 << "\n";
@@ -40,16 +39,15 @@ int main() {
   std::println(std::cout, "  Shape: [{}, {}, {}]", mesh3d.shape[0], mesh3d.shape[1], mesh3d.shape[2]);
   std::println(std::cout, "  Elements: {}", mesh3d.elements.size());
 
-  geometry::Mesh m3d = mesh3d;
-  auto w4 = geometry::wrap(m3d, geometry::Vertex{{5.5, 7.0, 12.5}});
+  auto w4 = mesh3d.wrap(geometry::Vertex{{5.5, 7.0, 12.5}});
   std::cout << "  wrap({5.5, 7.0, 12.5}): " << w4 << "\n";
 
   // Element construction.
 
   console::info("Elements");
   auto sq = geometry::make_square_box_2d(1.0, {0.0, 0.0});
-  std::println(std::cout, "  SquareBox2D volume: {}", geometry::volume(sq));
+  std::println(std::cout, "  SquareBox2D volume: {}", sq.volume());
 
   auto cb = geometry::make_square_box_3d(1.0, {0.0, 0.0, 0.0});
-  std::println(std::cout, "  SquareBox3D volume: {}", geometry::volume(cb));
+  std::println(std::cout, "  SquareBox3D volume: {}", cb.volume());
 }

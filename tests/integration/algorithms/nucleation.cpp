@@ -106,9 +106,8 @@ namespace {
       // Model setup.
 
       auto lj = physics::potentials::make_lennard_jones(SIGMA, EPSILON, RCUT);
-      auto pot = physics::potentials::Potential{lj};
       double hsd =
-          physics::potentials::hard_sphere_diameter(pot, KT, physics::potentials::SplitScheme::WeeksChandlerAndersen);
+          lj.hard_sphere_diameter(KT, physics::potentials::SplitScheme::WeeksChandlerAndersen);
 
       fx.model = physics::Model{
           .grid = make_grid(DX, {BOX_LENGTH, BOX_LENGTH, BOX_LENGTH}),
@@ -129,13 +128,17 @@ namespace {
       fx.bulk_weights = functionals::make_bulk_weights(functionals::fmt::RSLT{}, fx.model.interactions, KT);
       fx.bulk_weights.mean_field.interactions[0].a_vdw = fx.weights.mean_field.interactions[0].a_vdw;
 
+      auto eos = functionals::bulk::make_bulk_thermodynamics(
+          fx.model.species, fx.bulk_weights
+      );
+
       // Coexistence.
 
-      auto coex = functionals::bulk::find_coexistence(
-          fx.model.species,
-          fx.bulk_weights,
-          {.rho_max = 1.0, .rho_scan_step = 0.005, .newton = {.max_iterations = 300, .tolerance = 1e-10}}
-      );
+      auto coex = functionals::bulk::PhaseSearch{
+          .rho_max = 1.0,
+          .rho_scan_step = 0.005,
+          .newton = {.max_iterations = 300, .tolerance = 1e-10},
+      }.find_coexistence(eos);
 
       double rho_v = coex ? coex->rho_vapor : RHO_OUT;
       double rho_l = coex ? coex->rho_liquid : RHO_IN;
@@ -148,24 +151,19 @@ namespace {
       }
 
       double mu_rho_out =
-          functionals::bulk::chemical_potential(arma::vec{rho_out_used}, fx.model.species, fx.bulk_weights, 0);
+          eos.chemical_potential(arma::vec{rho_out_used}, 0);
 
       // Initial condition.
 
       auto r = radial_distances(fx.model.grid);
       fx.rho0 = step_function(r, R0, rho_l, rho_out_used);
       fx.target_mass = arma::accu(fx.rho0) * fx.model.grid.cell_volume();
-      fx.boundary = boundary_mask(fx.model.grid);
+      fx.boundary = fx.model.grid.boundary_mask();
 
       // FIRE minimization: ours.
 
-      auto cluster = algorithms::minimization::fixed_mass::minimize(
-          fx.model,
-          fx.weights,
-          fx.rho0,
-          mu_rho_out,
-          fx.target_mass,
-          {.fire =
+      auto cluster = algorithms::minimization::Minimizer{
+          .fire =
                {.dt = 0.1,
                 .dt_max = 1.0,
                 .alpha_start = 0.01,
@@ -173,8 +171,14 @@ namespace {
                 .force_tolerance = 1e-6,
                 .max_steps = 200000},
            .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
-           .homogeneous_boundary = true,
-           .log_interval = 0}
+           .use_homogeneous_boundary = true,
+           .log_interval = 0,
+      }.fixed_mass(
+          fx.model,
+          fx.weights,
+          fx.rho0,
+          mu_rho_out,
+          fx.target_mass
       );
 
       fx.our_cluster = cluster.densities[0];
@@ -230,7 +234,7 @@ namespace {
       if (n_bdry > 0)
         fx.background /= static_cast<double>(n_bdry);
 
-      fx.mu_bg = functionals::bulk::chemical_potential(arma::vec{fx.background}, fx.model.species, fx.bulk_weights, 0);
+      fx.mu_bg = eos.chemical_potential(arma::vec{fx.background}, 0);
 
       auto bg_state = init::from_profile(fx.model, arma::vec(fx.rho0.n_elem, arma::fill::value(fx.background)));
       bg_state.species[0].chemical_potential = fx.mu_bg;
@@ -247,10 +251,11 @@ namespace {
         return {result.grand_potential, grad};
       };
 
-      auto our_eig = algorithms::saddle_point::smallest_eigenvalue(
+      auto our_eig = algorithms::saddle_point::EigenvalueSolver{
+          .tolerance = 1e-4, .max_iterations = 300, .hessian_eps = 1e-6, .log_interval = 0
+      }.solve(
           eig_force_fn,
-          fx.our_cluster,
-          {.tolerance = 1e-4, .max_iterations = 300, .hessian_eps = 1e-6, .log_interval = 0}
+          fx.our_cluster
       );
 
       fx.our_eigenvalue = our_eig.eigenvalue;

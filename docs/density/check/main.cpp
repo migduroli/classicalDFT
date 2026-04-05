@@ -98,6 +98,10 @@ int main() {
   double a_vdw_grid = weights.mean_field.interactions[0].a_vdw;
   bulk_weights.mean_field.interactions[0].a_vdw = a_vdw_grid;
 
+  auto eos = functionals::bulk::make_bulk_thermodynamics(
+      model.species, bulk_weights
+  );
+
   std::cout << "Grid: " << model.grid.shape[0] << "x" << model.grid.shape[1]
             << "x" << model.grid.shape[2] << " = " << n_points
             << " points, V = " << V << "\n";
@@ -142,17 +146,15 @@ int main() {
         model.grid, state, model.species, weights.mean_field
     );
 
-    double f_id_bulk = functionals::bulk::ideal_free_energy_density(arma::vec{rho});
-    double f_hs_bulk = functionals::bulk::hard_sphere_free_energy_density(
+    double f_id_bulk = functionals::bulk::ideal::free_energy_density(arma::vec{rho});
+    double f_hs_bulk = functionals::bulk::hard_sphere::free_energy_density(
         weights.fmt_model, arma::vec{rho}, model.species
     );
-    double f_mf_bulk = functionals::bulk::mean_field_free_energy_density(
+    double f_mf_bulk = functionals::bulk::mean_field::free_energy_density(
         bulk_weights.mean_field, arma::vec{rho}
     );
 
-    double f_bulk = functionals::bulk::free_energy_density(
-        arma::vec{rho}, model.species, bulk_weights
-    );
+    double f_bulk = eos.free_energy_density(arma::vec{rho});
     double F_ref = f_bulk * V;
 
     double rel = std::abs(result.free_energy - F_ref)
@@ -181,9 +183,7 @@ int main() {
   section("Step " + std::to_string(step) + ": Zero force at equilibrium");
 
   constexpr double rho_test = 0.4;
-  double mu_test = functionals::bulk::chemical_potential(
-      arma::vec{rho_test}, model.species, bulk_weights, 0
-  );
+  double mu_test = eos.chemical_potential(arma::vec{rho_test}, 0);
 
   {
     arma::vec density(n_points, arma::fill::value(rho_test));
@@ -220,22 +220,21 @@ int main() {
   ++step;
   section("Step " + std::to_string(step) + ": Omega at coexistence");
 
-  auto coex = functionals::bulk::find_coexistence(
-      model.species, bulk_weights,
-      {.rho_max = 1.0, .rho_scan_step = 0.005,
-       .newton = {.max_iterations = 300, .tolerance = 1e-10}}
-  );
+  auto coex = functionals::bulk::PhaseSearch{
+      .rho_max = 1.0, .rho_scan_step = 0.005,
+      .newton = {.max_iterations = 300, .tolerance = 1e-10},
+  }.find_coexistence(eos);
 
   if (!coex) {
     std::cout << "  FAIL: coexistence not found\n";
     g_failures += 2;
     g_checks += 2;
   } else {
-    double mu_coex = functionals::bulk::chemical_potential(
-        arma::vec{coex->rho_vapor}, model.species, bulk_weights, 0
+    double mu_coex = eos.chemical_potential(
+        arma::vec{coex->rho_vapor}, 0
     );
-    double P_coex = functionals::bulk::pressure(
-        arma::vec{coex->rho_vapor}, model.species, bulk_weights
+    double P_coex = eos.pressure(
+        arma::vec{coex->rho_vapor}
     );
     std::cout << "  rho_v=" << coex->rho_vapor << " rho_l=" << coex->rho_liquid
               << " mu=" << mu_coex << " P=" << P_coex << "\n";

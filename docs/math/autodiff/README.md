@@ -53,21 +53,57 @@ The function `f` must be written in terms of autodiff-compatible operations
 (the standard math functions are overloaded in the `autodiff::detail`
 namespace).
 
-## What the code does
+---
 
-1. **First derivatives**: computes $f'(x)$ for $\sin(x)$, $\exp(x)$, and
-   a cubic polynomial, comparing against exact analytical values.
+## Step-by-step code walkthrough
 
-2. **Second derivatives**: computes $f''(x)$ for $\sin(x)$ and $\exp(x)$,
-   verifying that $\sin''(x) = -\sin(x)$ and $\exp''(x) = \exp(x)$.
+### Step 1: First derivatives
 
-3. **Third derivatives**: computes $f'''(x)$ for $\sin(x)$ and the cubic
-   polynomial (whose third derivative is the constant $6$).
+The structured binding API computes $(f, f')$ in one call using `dual` types:
 
-4. **Autodiff vs finite differences**: for $f(x) = \ln(1 + x^2)$, compares
-   the accuracy of autodiff against central finite differences with
-   $h = 10^{-5}$. Autodiff achieves $\sim 10^{-16}$ error while finite
-   differences reach only $\sim 10^{-10}$.
+```cpp
+auto [sv, sd] = derivatives_up_to_1(
+    [](dual x) -> dual { return autodiff::detail::sin(x); },
+    std::numbers::pi / 4.0
+);
+```
+
+The lambda must use `autodiff::detail::sin` (not `std::sin`) to enable
+automatic differentiation.
+
+### Step 2: Second derivatives
+
+The `derivatives_up_to_2` function returns $(f, f', f'')$ using `dual2nd`
+types:
+
+```cpp
+auto [s2v, s2d, s2d2] = derivatives_up_to_2(
+    [](dual2nd x) -> dual2nd { return autodiff::detail::sin(x); }, x0
+);
+```
+
+This verifies $\sin''(x) = -\sin(x)$ and $\exp''(x) = \exp(x)$.
+
+### Step 3: Third derivatives
+
+The `derivatives_up_to_3` function returns $(f, f', f'', f''')$ using
+`dual3rd` types. For the cubic $p(x) = x^3 - 2x^2 + 3x - 1$, the third
+derivative is the constant $6$.
+
+### Step 4: Autodiff vs finite differences
+
+For $f(x) = \ln(1 + x^2)$, the autodiff and central finite difference
+($h = 10^{-5}$) results are compared:
+
+```cpp
+auto [tv, td, td2] = derivatives_up_to_2(
+    [](dual2nd x) -> dual2nd { return autodiff::detail::log(1.0 + x * x); }, xc
+);
+double fd1 = (std::log(1 + (xc+h)*(xc+h)) - std::log(1 + (xc-h)*(xc-h))) / (2*h);
+```
+
+Autodiff achieves $\sim 10^{-16}$ error (machine precision), while finite
+differences are limited to $\sim 10^{-10}$ by truncation error.
 
 ## Build and run
 

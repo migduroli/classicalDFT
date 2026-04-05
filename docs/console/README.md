@@ -36,7 +36,9 @@ Each `console::info()`, `console::warning()`, `console::error()`, and
 and appends the reset code `ESC[0m` at the end, so it does not bleed into
 subsequent output.
 
-## What the code does
+---
+
+## Step-by-step code walkthrough
 
 ```cpp
 console::info("Hello world");         // "[INFO] Hello world"  in green

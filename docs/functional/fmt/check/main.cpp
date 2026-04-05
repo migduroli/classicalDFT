@@ -144,23 +144,23 @@ int main() {
     double rho = 6.0 * eta / std::numbers::pi;  // d=1
     auto um = fmt::make_uniform_measures(rho, 1.0);
 
-    fmt::FMTModel ros_model = fmt::Rosenfeld{};
-    double our_ros_fex = fmt::phi(ros_model, um) / rho;
+    fmt::Rosenfeld ros_model{};
+    double our_ros_fex = ros_model.phi(um) / rho;
     double jim_ros_fex = legacy::fmt::Rosenfeld_model::fex(eta);
     check("Ros fex(" + std::to_string(eta) + ")", our_ros_fex, jim_ros_fex, 1e-8);
 
-    fmt::FMTModel rslt_model = fmt::RSLT{};
-    double our_rslt_fex = fmt::phi(rslt_model, um) / rho;
+    fmt::RSLT rslt_model{};
+    double our_rslt_fex = rslt_model.phi(um) / rho;
     double jim_rslt_fex = legacy::fmt::RSLT_model::fex(eta);
     check("RSLT fex(" + std::to_string(eta) + ")", our_rslt_fex, jim_rslt_fex, 1e-8);
 
-    fmt::FMTModel wbi_model = fmt::WhiteBearI{};
-    double our_wbi_fex = fmt::phi(wbi_model, um) / rho;
+    fmt::WhiteBearI wbi_model{};
+    double our_wbi_fex = wbi_model.phi(um) / rho;
     double jim_wbi_fex = legacy::fmt::WhiteBearI_model::fex(eta);
     check("WBI fex(" + std::to_string(eta) + ")", our_wbi_fex, jim_wbi_fex, 1e-8);
 
-    fmt::FMTModel wbii_model = fmt::WhiteBearII{};
-    double our_wbii_fex = fmt::phi(wbii_model, um) / rho;
+    fmt::WhiteBearII wbii_model{};
+    double our_wbii_fex = wbii_model.phi(um) / rho;
     double jim_wbii_fex = legacy::fmt::WhiteBearII_model::fex(eta);
     check("WBII fex(" + std::to_string(eta) + ")", our_wbii_fex, jim_wbii_fex, 1e-8);
   }
@@ -178,7 +178,7 @@ int main() {
     m.v1 = {0.1, -0.2, 0.15};
     m.v0 = {0.01, -0.02, 0.015};
     m.T = {{0.9, 0.1, -0.05}, {0.1, 0.85, 0.08}, {-0.05, 0.08, 0.75}};
-    m.products = fmt::inner_products(m);
+    m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
 
@@ -210,7 +210,7 @@ int main() {
     m.v1 = {0.1, -0.2, 0.15};
     m.v0 = {0.01, -0.02, 0.015};
     m.T = {{0.9, 0.1, -0.05}, {0.1, 0.85, 0.08}, {-0.05, 0.08, 0.75}};
-    m.products = fmt::inner_products(m);
+    m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
 
@@ -242,7 +242,7 @@ int main() {
     m.v1 = {0.1, -0.2, 0.15};
     m.v0 = {0.01, -0.02, 0.015};
     m.T = {{0.9, 0.1, -0.05}, {0.1, 0.85, 0.08}, {-0.05, 0.08, 0.75}};
-    m.products = fmt::inner_products(m);
+    m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
 
@@ -308,7 +308,7 @@ int main() {
     m.v1 = {0.3, -0.1, 0.2};
     m.v0 = {0.03, -0.01, 0.02};
     m.T = {{0.95, 0.15, -0.1}, {0.15, 0.9, 0.05}, {-0.1, 0.05, 0.8}};
-    m.products = fmt::inner_products(m);
+    m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
 

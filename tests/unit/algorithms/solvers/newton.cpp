@@ -13,7 +13,7 @@ TEST_CASE("newton solves linear system with analytical jacobian", "[newton]") {
   auto f = [&](const arma::vec& x) -> arma::vec { return A * x - b; };
   auto J = [&](const arma::vec&) -> arma::mat { return A; };
 
-  auto result = newton(arma::vec{0.0, 0.0}, f, J, {.tolerance = 1e-12});
+  auto result = Newton{.tolerance = 1e-12}.solve(arma::vec{0.0, 0.0}, f, J);
 
   REQUIRE(result.converged);
   CHECK(result.iterations <= 2);
@@ -29,7 +29,7 @@ TEST_CASE("newton solves nonlinear system with analytical jacobian", "[newton]")
 
   auto J = [](const arma::vec& x) -> arma::mat { return arma::mat{{2.0 * x(0), 0.0}, {0.0, 2.0 * x(1)}}; };
 
-  auto result = newton(arma::vec{1.0, 2.0}, f, J, {.tolerance = 1e-12});
+  auto result = Newton{.tolerance = 1e-12}.solve(arma::vec{1.0, 2.0}, f, J);
 
   REQUIRE(result.converged);
   CHECK(result.solution(0) == Catch::Approx(2.0).margin(1e-10));
@@ -40,7 +40,7 @@ TEST_CASE("newton solves with automatic numerical jacobian", "[newton]") {
   // Same nonlinear system, no analytical Jacobian provided
   auto f = [](const arma::vec& x) -> arma::vec { return arma::vec{x(0) * x(0) - 4.0, x(1) * x(1) - 9.0}; };
 
-  auto result = newton(arma::vec{1.0, 2.0}, f, {.tolerance = 1e-10});
+  auto result = Newton{.tolerance = 1e-10}.solve(arma::vec{1.0, 2.0}, f);
 
   REQUIRE(result.converged);
   CHECK(result.solution(0) == Catch::Approx(2.0).margin(1e-8));
@@ -57,7 +57,7 @@ TEST_CASE("newton reports non-convergence when max iterations exceeded", "[newto
     return m;
   };
 
-  auto result = newton(arma::vec{50.0}, f, J, {.max_iterations = 3, .tolerance = 1e-15});
+  auto result = Newton{.max_iterations = 3, .tolerance = 1e-15}.solve(arma::vec{50.0}, f, J);
 
   CHECK(!result.converged);
   CHECK(result.iterations == 3);
@@ -73,7 +73,7 @@ TEST_CASE("newton solves scalar equation", "[newton]") {
     return m;
   };
 
-  auto result = newton(arma::vec{1.0}, f, J, {.tolerance = 1e-12});
+  auto result = Newton{.tolerance = 1e-12}.solve(arma::vec{1.0}, f, J);
 
   REQUIRE(result.converged);
   CHECK(result.solution(0) == Catch::Approx(2.0).margin(1e-10));
@@ -86,7 +86,7 @@ TEST_CASE("newton converges in one step for linear system", "[newton]") {
   auto f = [&](const arma::vec& x) -> arma::vec { return A * x - b; };
   auto J = [&](const arma::vec&) -> arma::mat { return A; };
 
-  auto result = newton(arma::vec{0.0, 0.0}, f, J, {.tolerance = 1e-14});
+  auto result = Newton{.tolerance = 1e-14}.solve(arma::vec{0.0, 0.0}, f, J);
 
   REQUIRE(result.converged);
   CHECK(result.iterations == 1);
@@ -102,7 +102,7 @@ TEST_CASE("newton verbose mode prints iteration info", "[newton]") {
     return m;
   };
 
-  auto result = newton(arma::vec{0.0}, f, J, {.tolerance = 1e-12, .verbose = true});
+  auto result = Newton{.tolerance = 1e-12, .verbose = true}.solve(arma::vec{0.0}, f, J);
 
   REQUIRE(result.converged);
 }
@@ -115,7 +115,7 @@ TEST_CASE("newton returns non-converged for singular jacobian", "[newton]") {
     return m;
   };
 
-  auto result = newton(arma::vec{1.0}, f, J, {.max_iterations = 5, .tolerance = 1e-12});
+  auto result = Newton{.max_iterations = 5, .tolerance = 1e-12}.solve(arma::vec{1.0}, f, J);
 
   CHECK(!result.converged);
 }

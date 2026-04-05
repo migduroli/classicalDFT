@@ -43,14 +43,14 @@ int main() {
     return {energy, {force}};
   };
 
-  algorithms::fire::FireConfig fire_config{
+  algorithms::fire::Fire fire_config{
       .dt = fire_dt,
       .dt_max = fire_dt_max,
       .force_tolerance = fire_tol,
       .max_steps = fire_max_steps,
   };
 
-  auto fire_result = algorithms::fire::minimize({arma::vec{fire_x0, fire_y0}}, fire_force_fn, fire_config);
+  auto fire_result = fire_config.minimize({arma::vec{fire_x0, fire_y0}}, fire_force_fn);
 
   std::println(std::cout, "  Converged: {} after {} steps",
                fire_result.converged ? "true" : "false", fire_result.iteration);
@@ -60,12 +60,12 @@ int main() {
 
   // Step-by-step iteration for convergence logging.
 
-  auto state = algorithms::fire::initialize({arma::vec{fire_x0, fire_y0}}, fire_force_fn, fire_config);
+  auto state = fire_config.initialize({arma::vec{fire_x0, fire_y0}}, fire_force_fn);
   auto [init_energy, forces] = fire_force_fn(state.x);
 
   std::vector<double> fire_steps, fire_energies;
   while (!state.converged && state.iteration < fire_config.max_steps) {
-    auto [new_state, new_forces] = algorithms::fire::step(std::move(state), forces, fire_force_fn, fire_config);
+    auto [new_state, new_forces] = fire_config.step(std::move(state), forces, fire_force_fn);
     state = std::move(new_state);
     forces = std::move(new_forces);
     if (state.iteration % fire_log_interval == 0 || state.converged) {
@@ -114,14 +114,14 @@ int main() {
     return {energy, {force}};
   };
 
-  algorithms::dynamics::SimulationConfig sim_config{
+  algorithms::dynamics::Simulation sim_config{
       .step = {.dt = ddft_dt, .diffusion_coefficient = D, .min_density = 1e-18},
       .n_steps = n_steps,
       .snapshot_interval = snapshot_interval,
       .log_interval = snapshot_interval,
   };
 
-  auto sim = algorithms::dynamics::simulate({ddft_state.species[0].density.values}, model.grid, ddft_force_fn, sim_config);
+  auto sim = sim_config.run({ddft_state.species[0].density.values}, model.grid, ddft_force_fn);
 
   // Collect z-profile snapshots.
 

@@ -47,7 +47,7 @@ namespace dft::functionals {
     MeanFieldWeights mf;
     mf.interactions.reserve(interactions.size());
     for (const auto& inter : interactions) {
-      double a = 2.0 * physics::potentials::vdw_integral(inter.potential, kT, inter.split);
+      double a = 2.0 * inter.potential.vdw_integral(kT, inter.split);
       mf.interactions.push_back(InteractionWeight{
           .species_i = inter.species_i,
           .species_j = inter.species_j,

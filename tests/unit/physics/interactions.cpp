@@ -45,5 +45,5 @@ TEST_CASE("Interaction stores variant potential correctly", "[interactions]") {
       .potential = Potential{twf},
   };
 
-  CHECK(potentials::name(inter.potential) == "TenWoldeFrenkel");
+  CHECK(inter.potential.name() == "TenWoldeFrenkel");
 }

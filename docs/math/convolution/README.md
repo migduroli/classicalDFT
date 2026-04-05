@@ -76,21 +76,69 @@ i.e. a Gaussian with width $\sigma_{\mathrm{out}} = \sqrt{2}\,\sigma$ and
 amplitude $\sigma\sqrt{\pi}$. This provides an analytical reference for
 validating the numerical convolution.
 
-## What the code does
+---
 
-1. **Delta convolution**: convolves $\delta(\mathbf{r})$ with a constant
-   function $f = 3$. The result must be $3$ everywhere, verifying the
-   identity property.
+## Step-by-step code walkthrough
 
-2. **Gaussian self-convolution**: convolves a Gaussian with itself on a
-   1D periodic grid and compares the result with the analytical formula.
-   Demonstrates the resolution-dependent accuracy of the FFT approach.
+### Step 1: Delta convolution ($\delta * f = f$)
 
-3. **Adjoint symmetry**: generates random fields $\rho$, $d$, and $w$,
-   then verifies
-   $\langle \mathrm{convolve}(w, \rho),\, d\rangle = \langle \rho,\, \mathrm{IFFT}[\mathrm{back\_convolve}(w, d)]\rangle$
-   to machine precision. This identity is the mathematical foundation for
-   correct force computation in heterogeneous DFT.
+A delta function $\delta(\mathbf{r})$ and a constant field $f = 3$ are placed
+into two separate Fourier buffers, transformed, and convolved:
+
+```cpp
+auto plan_a = math::FourierTransform(shape);
+auto plan_b = math::FourierTransform(shape);
+auto real_a = plan_a.real();
+std::fill(real_a.begin(), real_a.end(), 0.0);
+real_a[0] = 1.0;          // delta at the origin
+auto real_b = plan_b.real();
+std::fill(real_b.begin(), real_b.end(), 3.0);   // constant
+
+plan_a.forward();
+plan_b.forward();
+auto result = math::convolve(plan_a.fourier(), plan_b.fourier(), shape);
+result /= static_cast<double>(N);
+```
+
+The result must be $3$ at every grid point. This verifies the fundamental
+identity property of convolution.
+
+### Step 2: Gaussian self-convolution
+
+A Gaussian with width $\sigma = 1.5$ is convolved with itself on a 1D
+periodic grid ($64$ points, $\Delta x = 0.5$). The analytical result is a
+wider Gaussian with $\sigma_{\mathrm{out}} = \sigma\sqrt{2}$ and amplitude
+$\sigma\sqrt{\pi}$:
+
+```cpp
+auto gg = math::convolve(g_k, g_k, shape_1d);
+gg *= dx / static_cast<double>(N_1d);
+```
+
+The code compares the numerical result against the analytical formula at
+every 4th grid point, printing the error. This demonstrates the
+resolution-dependent accuracy of the FFT approach.
+
+### Step 3: Adjoint symmetry ($\langle w*\rho, d \rangle = \langle \rho, \mathrm{IFFT}[\mathrm{back\_convolve}(w, d)] \rangle$)
+
+Random fields $\rho$, $d$, and $w$ are generated, and the identity
+
+$$
+\langle w \ast \rho,\, d \rangle = \langle \rho,\, \mathcal{F}^{-1}[\hat{w}^* \cdot \hat{d}] \rangle
+$$
+
+is verified to machine precision. This adjoint property is the foundation
+for correct back-convolution of forces in FMT:
+
+```cpp
+auto n = math::convolve(w_k_span, rho_k, shape);
+double lhs = arma::dot(n, d_r);
+auto bc = math::back_convolve(w_k_span, d_r, shape, true);
+// ... IFFT bc and dot with rho_r ...
+double rhs = arma::dot(rho_r, bc_r);
+```
+
+The relative error $|lhs - rhs| / |lhs|$ should be $< 10^{-14}$.
 
 ## Build and run
 

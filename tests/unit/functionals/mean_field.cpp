@@ -77,7 +77,7 @@ TEST_CASE("a_vdw matches 2 * vdw_integral when potential fits the grid", "[mean_
 
   // vdw_integral = (2pi/kT) int r^2 u_att(r) dr
   // a_vdw = int (u_att(r)/kT) d^3r = 2 * vdw_integral
-  double a_continuous = 2.0 * vdw_integral(pot, KT, split);
+  double a_continuous = 2.0 * pot.vdw_integral(KT, split);
 
   std::vector<Interaction> interactions = {
       {.species_i = 0, .species_j = 0, .potential = pot, .split = split},

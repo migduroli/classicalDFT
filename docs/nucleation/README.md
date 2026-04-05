@@ -37,9 +37,9 @@ In the library this is set up with a single declarative `Model` struct:
 physics::Model model{
     .grid = make_grid(dx, {box_length, box_length, box_length}),
     .species = {Species{.name = "LJ",
-                        .hard_sphere_diameter = physics::potentials::hard_sphere_diameter(
-                            Potential{make_lennard_jones(sigma, epsilon, rcut)},
-                            kT, SplitScheme::WeeksChandlerAndersen)}},
+                        .hard_sphere_diameter =
+                            make_lennard_jones(sigma, epsilon, rcut)
+                                .hard_sphere_diameter(kT, SplitScheme::WeeksChandlerAndersen)}},
     .interactions = {{
         .species_i = 0, .species_j = 0,
         .potential = make_lennard_jones(sigma, epsilon, rcut),
@@ -69,25 +69,33 @@ $$
 | $F_{\mathrm{HS}}$ | RSLT fundamental measure theory | Hard-sphere excess (Rosenfeld-Santos-Lotfi-Tarazona) |
 | $F_{\mathrm{mf}}$ | $\frac{1}{2}\iint \rho(\mathbf{r})\,w_{\mathrm{att}}(|\mathbf{r}-\mathbf{r}'|)\,\rho(\mathbf{r}')\,d\mathbf{r}\,d\mathbf{r}'$ | Mean-field attractive contribution |
 
-The FMT model and interaction weights are built in one call each:
+The FMT model and all convolution weights (FMT + mean-field) are built in one call:
 
 ```cpp
-auto fmt_model = functionals::fmt::RSLT{};
-auto weights = functionals::make_weights(fmt_model, model);
+auto func = functionals::make_functional(functionals::fmt::RSLT{}, model);
 ```
+
+This creates a `Functional` object that owns the physics model, the
+inhomogeneous convolution weights (`func.weights`), and the analytical bulk
+weights (`func.bulk_weights`). All subsequent operations go through `func`.
 
 ### Bulk thermodynamics and coexistence
 
 Liquid-vapor coexistence is found by equating chemical potentials and pressures
 of the bulk EOS at a range of densities. The library provides a Newton-based
-solver wrapped in `find_coexistence`:
+solver wrapped in `PhaseSearch`:
 
 ```cpp
-auto coex = functionals::bulk::find_coexistence(
-    model.species, bulk_weights,
-    {.rho_max = 1.0, .rho_scan_step = 0.005,
-     .newton = {.max_iterations = 300, .tolerance = 1e-10}});
+auto eos = func.bulk();
+auto coex = functionals::bulk::PhaseSearch{
+    .rho_max = 1.0, .rho_scan_step = 0.005,
+    .newton = {.max_iterations = 300, .tolerance = 1e-10},
+}.find_coexistence(eos);
 ```
+
+The `func.bulk()` method creates a `BulkThermodynamics` object from the
+pre-computed analytical bulk weights, providing `eos.pressure(rho)`,
+`eos.chemical_potential(rho, species)`, and `eos.free_energy_density(rho)`.
 
 This returns the coexistence densities $\rho_v$ and $\rho_l$. The
 supersaturation is defined as $S = \rho_{\mathrm{out}} / \rho_v$, where
@@ -222,19 +230,23 @@ The target mass is $N = \sum_i \rho_{0,i}\,\Delta V$.
 ### Library call
 
 ```cpp
-auto r = nucleation::radial_distances(model.grid);
+auto r = nucleation::radial_distances(func.model.grid);
 arma::vec rho0 = nucleation::step_function(r, R0, rho_l, rho_out);
-double target_mass = arma::accu(rho0) * model.grid.cell_volume();
+double target_mass = arma::accu(rho0) * func.model.grid.cell_volume();
 
-auto cluster = algorithms::minimization::fixed_mass::minimize(
-    model, weights, rho0, mu_out, target_mass,
-    {.fire = {.dt = 0.1, .dt_max = 1.0, .alpha_start = 0.01,
-              .f_alpha = 0.99, .force_tolerance = 1e-8,
-              .max_steps = 500000},
-     .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
-     .homogeneous_boundary = true,
-     .log_interval = 1000});
+auto cluster = algorithms::minimization::Minimizer{
+    .fire = {.dt = 0.1, .dt_max = 1.0, .alpha_start = 0.01,
+             .f_alpha = 0.99, .force_tolerance = 1e-8,
+             .max_steps = 500000},
+    .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
+    .use_homogeneous_boundary = true,
+    .log_interval = 1000,
+}.fixed_mass(func.model, func.weights, rho0, mu_out, target_mass);
 ```
+
+The `Minimizer` struct configures the FIRE2 engine and parametrization, then
+`.fixed_mass(...)` runs the constrained minimization using the weights owned
+by the `Functional` object.
 
 ### Effective radius and barrier height
 
@@ -319,19 +331,19 @@ the box faces:
 
 ```cpp
 auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
-    auto state = init::from_profile(model, rho);
-    state.species[0].chemical_potential = mu_bg;
-    auto result = functionals::total(model, state, weights);
-    arma::vec grad = result.forces[0];
-    grad = fixed_boundary(grad, bdry);
-    return {result.grand_potential, grad};
+    auto result = func.evaluate(rho, mu_bg);
+    return {result.grand_potential, fixed_boundary(result.forces[0], bdry)};
 };
 
-auto eig = algorithms::saddle_point::smallest_eigenvalue(
-    eig_force_fn, cluster.densities[0],
-    {.tolerance = 1e-4, .max_iterations = 300,
-     .hessian_eps = 1e-6, .log_interval = 20});
+auto eig = algorithms::saddle_point::EigenvalueSolver{
+    .tolerance = 1e-4, .max_iterations = 300,
+    .hessian_eps = 1e-6, .log_interval = 20,
+}.solve(eig_force_fn, cluster.densities[0]);
 ```
+
+The `func.evaluate(rho, mu_bg)` convenience method replaces the manual
+`init::from_profile` / `functionals::total` sequence with a single call that
+returns `{free_energy, grand_potential, forces}`.
 
 A negative eigenvalue ($\lambda_{\min} < 0$) confirms the saddle point.
 
@@ -384,20 +396,31 @@ derivation).
 ### Running the simulations
 
 ```cpp
-auto ddft_force_fn = [&](const std::vector<arma::vec>& densities)
-    -> std::pair<double, std::vector<arma::vec>> {
-    auto state = init::from_profile(model, densities[0]);
-    state.species[0].chemical_potential = mu_bg;
-    auto result = functionals::total(model, state, weights);
-    return {result.grand_potential, result.forces};
+auto gc_force_fn = func.grand_potential_callback(mu_bg);
+
+algorithms::dynamics::Simulation ddft_cfg{
+    .step = {.dt = 0.01, .diffusion_coefficient = 1.0, .min_density = 1e-18,
+             .dt_max = 1.0, .fp_tolerance = 1e-6, .fp_max_iterations = 20},
+    .n_steps = 10000,
+    .snapshot_interval = 100,
+    .log_interval = 1000,
+    .energy_offset = omega_bg,
+    .boundary = algorithms::dynamics::reservoir_boundary(bdry, background),
 };
 
 arma::vec rho_grow = cluster.densities[0] + perturb_scale * ev;
-auto sim_grow = algorithms::dynamics::simulate({rho_grow}, model.grid, ddft_force_fn, sim_cfg);
+auto sim_grow = ddft_cfg.run({rho_grow}, func.model.grid, gc_force_fn);
 
 arma::vec rho_shrink = cluster.densities[0] - perturb_scale * ev;
-auto sim_shrink = algorithms::dynamics::simulate({rho_shrink}, model.grid, ddft_force_fn, sim_cfg);
+auto sim_shrink = ddft_cfg.run({rho_shrink}, func.model.grid, gc_force_fn);
 ```
+
+The `func.grand_potential_callback(mu_bg)` method returns a `ForceCallback`
+that internally builds a `State`, evaluates the full functional, and returns
+`{Omega, forces}`. The `reservoir_boundary` applies Dirichlet boundary
+conditions: boundary cells are reset to the background density after each
+step, allowing mass to flow in and out of the simulation box as in Lutsko's
+grand-canonical scheme.
 
 ### Tracking the pathway
 

@@ -108,18 +108,18 @@ int main() {
   double max_diff_whdf_vr = 0.0;
 
   for (double r : r_points) {
-    double our_v = pot::potential(our_lj, r);
+    double our_v = our_lj(r);
     double jim_v = legacy::potentials::LJ::vr(sigma, eps, r);
     max_diff_lj_vr = std::max(max_diff_lj_vr, std::abs(our_v - jim_v));
 
     if (r > sigma + 1e-6) {
-      double our_v2 = pot::potential(our_twf, r);
+      double our_v2 = our_twf(r);
       double jim_v2 = legacy::potentials::tWF::vr(sigma, eps, twf_alpha, r);
       max_diff_twf_vr = std::max(max_diff_twf_vr, std::abs(our_v2 - jim_v2));
     }
 
     if (r < whdf_rcut) {
-      double our_v3 = pot::potential(our_whdf, r);
+      double our_v3 = our_whdf(r);
       double jim_v3 = legacy::potentials::WHDF::vr(jim_whdf.eps_rescaled, sigma, whdf_rcut, r);
       max_diff_whdf_vr = std::max(max_diff_whdf_vr, std::abs(our_v3 - jim_v3));
     }
@@ -268,7 +268,7 @@ int main() {
   std::vector<double> temperatures = {0.5, 0.7, 1.0, 1.5, 2.0, 5.0};
 
   for (double kT : temperatures) {
-    double our_d = pot::hard_sphere_diameter(plj, kT, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_d = plj.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_d = legacy::potentials::getHSD(jim_lj, kT);
     check("LJ HSD(kT=" + std::to_string(kT) + ")", our_d, jim_d, 1e-6);
     std::cout << "  LJ  HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d
@@ -276,7 +276,7 @@ int main() {
   }
 
   for (double kT : temperatures) {
-    double our_d = pot::hard_sphere_diameter(ptwf, kT, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_d = ptwf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_d = legacy::potentials::getHSD(jim_twf, kT);
     check("tWF HSD(kT=" + std::to_string(kT) + ")", our_d, jim_d, 1e-6);
     std::cout << "  tWF HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d
@@ -284,7 +284,7 @@ int main() {
   }
 
   for (double kT : temperatures) {
-    double our_d = pot::hard_sphere_diameter(pwhdf, kT, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_d = pwhdf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_d = legacy::potentials::getHSD(jim_whdf, kT);
     check("WHDF HSD(kT=" + std::to_string(kT) + ")", our_d, jim_d, 1e-6);
     std::cout << "  WHDF HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d
@@ -296,7 +296,7 @@ int main() {
   section("Step 8: Van der Waals integral a_vdw(kT) [WCA]");
 
   for (double kT : temperatures) {
-    double our_a = pot::vdw_integral(plj, kT, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_a = plj.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_a = legacy::potentials::getVDW(jim_lj, kT);
     check("LJ a_vdw(kT=" + std::to_string(kT) + ")", our_a, jim_a, 1e-6);
     std::cout << "  LJ  a_vdw(kT=" << kT << "): ours=" << our_a << " jim=" << jim_a
@@ -304,7 +304,7 @@ int main() {
   }
 
   for (double kT : temperatures) {
-    double our_a = pot::vdw_integral(ptwf, kT, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_a = ptwf.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_a = legacy::potentials::getVDW(jim_twf, kT);
     check("tWF a_vdw(kT=" + std::to_string(kT) + ")", our_a, jim_a, 1e-6);
     std::cout << "  tWF a_vdw(kT=" << kT << "): ours=" << our_a << " jim=" << jim_a
@@ -312,7 +312,7 @@ int main() {
   }
 
   for (double kT : temperatures) {
-    double our_a = pot::vdw_integral(pwhdf, kT, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_a = pwhdf.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_a = legacy::potentials::getVDW(jim_whdf, kT);
     check("WHDF a_vdw(kT=" + std::to_string(kT) + ")", our_a, jim_a, 1e-6);
     std::cout << "  WHDF a_vdw(kT=" << kT << "): ours=" << our_a << " jim=" << jim_a

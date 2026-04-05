@@ -59,7 +59,7 @@ TEST_CASE("hard_sphere free energy matches bulk for Rosenfeld", "[fmt][hard_sphe
   auto result = hard_sphere(model, GRID, state, species, w);
 
   double volume = GRID.box_size[0] * GRID.box_size[1] * GRID.box_size[2];
-  double phi_bulk = free_energy_density(model, rho0, DIAMETER);
+  double phi_bulk = model.free_energy_density(rho0, DIAMETER);
   double expected = phi_bulk * volume;
 
   CHECK(result.free_energy == Catch::Approx(expected).epsilon(1e-6));
@@ -75,7 +75,7 @@ TEST_CASE("hard_sphere free energy matches bulk for WhiteBearII", "[fmt][hard_sp
   auto result = hard_sphere(model, GRID, state, species, w);
 
   double volume = GRID.box_size[0] * GRID.box_size[1] * GRID.box_size[2];
-  double phi_bulk = free_energy_density(model, rho0, DIAMETER);
+  double phi_bulk = model.free_energy_density(rho0, DIAMETER);
   double expected = phi_bulk * volume;
 
   CHECK(result.free_energy == Catch::Approx(expected).epsilon(1e-6));
@@ -91,7 +91,7 @@ TEST_CASE("hard_sphere free energy matches bulk for RSLT", "[fmt][hard_sphere]")
   auto result = hard_sphere(model, GRID, state, species, w);
 
   double volume = GRID.box_size[0] * GRID.box_size[1] * GRID.box_size[2];
-  double phi_bulk = free_energy_density(model, rho0, DIAMETER);
+  double phi_bulk = model.free_energy_density(rho0, DIAMETER);
   double expected = phi_bulk * volume;
 
   CHECK(result.free_energy == Catch::Approx(expected).epsilon(1e-6));
@@ -107,7 +107,7 @@ TEST_CASE("hard_sphere free energy matches bulk for WhiteBearI", "[fmt][hard_sph
   auto result = hard_sphere(model, GRID, state, species, w);
 
   double volume = GRID.box_size[0] * GRID.box_size[1] * GRID.box_size[2];
-  double phi_bulk = free_energy_density(model, rho0, DIAMETER);
+  double phi_bulk = model.free_energy_density(rho0, DIAMETER);
   double expected = phi_bulk * volume;
 
   CHECK(result.free_energy == Catch::Approx(expected).epsilon(1e-6));
@@ -141,7 +141,7 @@ TEST_CASE("uniform force equals excess_chemical_potential * dV for Rosenfeld", "
 
   auto result = hard_sphere(model, GRID, state, species, w);
 
-  double mu_ex = excess_chemical_potential(model, rho0, DIAMETER);
+  double mu_ex = model.excess_chemical_potential(rho0, DIAMETER);
   double dv = GRID.cell_volume();
 
   CHECK(result.forces[0](0) == Catch::Approx(mu_ex * dv).epsilon(1e-6));
@@ -156,7 +156,7 @@ TEST_CASE("uniform force equals excess_chemical_potential * dV for WhiteBearII",
 
   auto result = hard_sphere(model, GRID, state, species, w);
 
-  double mu_ex = excess_chemical_potential(model, rho0, DIAMETER);
+  double mu_ex = model.excess_chemical_potential(rho0, DIAMETER);
   double dv = GRID.cell_volume();
 
   CHECK(result.forces[0](0) == Catch::Approx(mu_ex * dv).epsilon(1e-6));
@@ -270,7 +270,7 @@ TEST_CASE("hard_sphere free energy matches bulk for EsFMT", "[fmt][hard_sphere]"
   auto result = hard_sphere(model, GRID, state, species, w);
 
   double volume = GRID.box_size[0] * GRID.box_size[1] * GRID.box_size[2];
-  double phi_bulk = free_energy_density(model, rho0, DIAMETER);
+  double phi_bulk = model.free_energy_density(rho0, DIAMETER);
   double expected = phi_bulk * volume;
 
   CHECK(result.free_energy == Catch::Approx(expected).epsilon(1e-6));

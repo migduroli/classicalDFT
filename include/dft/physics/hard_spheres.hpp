@@ -38,6 +38,36 @@ namespace dft::physics::hard_spheres {
       T e = T(1.0) - eta;
       return eta * (T(4.0) - T(3.0) * eta) / (e * e);
     }
+
+    [[nodiscard]] static auto d_excess_free_energy(double eta) -> double {
+      auto [f, df] =
+          math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
+      return df;
+    }
+
+    [[nodiscard]] static auto d2_excess_free_energy(double eta) -> double {
+      auto [f, df, d2f] =
+          math::derivatives_up_to_2([](math::dual2nd x) -> math::dual2nd { return excess_free_energy(x); }, eta);
+      return d2f;
+    }
+
+    [[nodiscard]] static auto d3_excess_free_energy(double eta) -> double {
+      auto [f, df, d2f, d3f] =
+          math::derivatives_up_to_3([](math::dual3rd x) -> math::dual3rd { return excess_free_energy(x); }, eta);
+      return d3f;
+    }
+
+    [[nodiscard]] static auto pressure(double eta) -> double { return 1.0 + eta * d_excess_free_energy(eta); }
+
+    [[nodiscard]] static auto free_energy(double density) -> double {
+      double eta = packing_fraction(density);
+      return std::log(density) - 1.0 + excess_free_energy(eta);
+    }
+
+    [[nodiscard]] static auto chemical_potential(double density) -> double {
+      double eta = packing_fraction(density);
+      return std::log(density) + excess_free_energy(eta) + eta * d_excess_free_energy(eta);
+    }
   };
 
   struct PercusYevickVirial {
@@ -48,6 +78,36 @@ namespace dft::physics::hard_spheres {
       using std::log;
       T e = T(1.0) - eta;
       return T(2.0) * log(e) + T(6.0) * eta / e;
+    }
+
+    [[nodiscard]] static auto d_excess_free_energy(double eta) -> double {
+      auto [f, df] =
+          math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
+      return df;
+    }
+
+    [[nodiscard]] static auto d2_excess_free_energy(double eta) -> double {
+      auto [f, df, d2f] =
+          math::derivatives_up_to_2([](math::dual2nd x) -> math::dual2nd { return excess_free_energy(x); }, eta);
+      return d2f;
+    }
+
+    [[nodiscard]] static auto d3_excess_free_energy(double eta) -> double {
+      auto [f, df, d2f, d3f] =
+          math::derivatives_up_to_3([](math::dual3rd x) -> math::dual3rd { return excess_free_energy(x); }, eta);
+      return d3f;
+    }
+
+    [[nodiscard]] static auto pressure(double eta) -> double { return 1.0 + eta * d_excess_free_energy(eta); }
+
+    [[nodiscard]] static auto free_energy(double density) -> double {
+      double eta = packing_fraction(density);
+      return std::log(density) - 1.0 + excess_free_energy(eta);
+    }
+
+    [[nodiscard]] static auto chemical_potential(double density) -> double {
+      double eta = packing_fraction(density);
+      return std::log(density) + excess_free_energy(eta) + eta * d_excess_free_energy(eta);
     }
   };
 
@@ -60,78 +120,39 @@ namespace dft::physics::hard_spheres {
       T e = T(1.0) - eta;
       return -log(e) + T(1.5) * eta * (T(2.0) - eta) / (e * e);
     }
+
+    [[nodiscard]] static auto d_excess_free_energy(double eta) -> double {
+      auto [f, df] =
+          math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
+      return df;
+    }
+
+    [[nodiscard]] static auto d2_excess_free_energy(double eta) -> double {
+      auto [f, df, d2f] =
+          math::derivatives_up_to_2([](math::dual2nd x) -> math::dual2nd { return excess_free_energy(x); }, eta);
+      return d2f;
+    }
+
+    [[nodiscard]] static auto d3_excess_free_energy(double eta) -> double {
+      auto [f, df, d2f, d3f] =
+          math::derivatives_up_to_3([](math::dual3rd x) -> math::dual3rd { return excess_free_energy(x); }, eta);
+      return d3f;
+    }
+
+    [[nodiscard]] static auto pressure(double eta) -> double { return 1.0 + eta * d_excess_free_energy(eta); }
+
+    [[nodiscard]] static auto free_energy(double density) -> double {
+      double eta = packing_fraction(density);
+      return std::log(density) - 1.0 + excess_free_energy(eta);
+    }
+
+    [[nodiscard]] static auto chemical_potential(double density) -> double {
+      double eta = packing_fraction(density);
+      return std::log(density) + excess_free_energy(eta) + eta * d_excess_free_energy(eta);
+    }
   };
 
   using HardSphereModel = std::variant<CarnahanStarling, PercusYevickVirial, PercusYevickCompressibility>;
-
-  // Free functions operating on any HardSphereModel via visit + autodiff
-
-  [[nodiscard]] inline auto excess_free_energy(const HardSphereModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) { return static_cast<double>(m.excess_free_energy(eta)); }, model
-    );
-  }
-
-  [[nodiscard]] inline auto d_excess_free_energy(const HardSphereModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) {
-          auto [f, df] =
-              math::derivatives_up_to_1([&](math::dual x) -> math::dual { return m.excess_free_energy(x); }, eta);
-          return df;
-        },
-        model
-    );
-  }
-
-  [[nodiscard]] inline auto d2_excess_free_energy(const HardSphereModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) {
-          auto [f, df, d2f] = math::derivatives_up_to_2(
-              [&](math::dual2nd x) -> math::dual2nd { return m.excess_free_energy(x); }, eta
-          );
-          return d2f;
-        },
-        model
-    );
-  }
-
-  [[nodiscard]] inline auto d3_excess_free_energy(const HardSphereModel& model, double eta) -> double {
-    return std::visit(
-        [eta](const auto& m) {
-          auto [f, df, d2f, d3f] = math::derivatives_up_to_3(
-              [&](math::dual3rd x) -> math::dual3rd { return m.excess_free_energy(x); }, eta
-          );
-          return d3f;
-        },
-        model
-    );
-  }
-
-  // Reduced pressure: P / (rho kT) = 1 + eta * f'(eta)
-
-  [[nodiscard]] inline auto pressure(const HardSphereModel& model, double eta) -> double {
-    return 1.0 + eta * d_excess_free_energy(model, eta);
-  }
-
-  // Total free energy per particle: log(rho) - 1 + f_ex(eta)
-
-  [[nodiscard]] inline auto free_energy(const HardSphereModel& model, double density) -> double {
-    double eta = packing_fraction(density);
-    return std::log(density) - 1.0 + excess_free_energy(model, eta);
-  }
-
-  // Chemical potential: log(rho) + f_ex(eta) + eta * f_ex'(eta)
-
-  [[nodiscard]] inline auto chemical_potential(const HardSphereModel& model, double density) -> double {
-    double eta = packing_fraction(density);
-    return std::log(density) + excess_free_energy(model, eta) + eta * d_excess_free_energy(model, eta);
-  }
-
-  // Model name
-
-  [[nodiscard]] inline auto name(const HardSphereModel& model) -> std::string_view {
-    return std::visit([](const auto& m) -> std::string_view { return m.NAME; }, model);
-  }
 
   // Enskog transport coefficients (hard spheres with d = kT = 1)
 

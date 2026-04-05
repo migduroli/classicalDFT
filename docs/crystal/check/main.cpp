@@ -208,7 +208,7 @@ int main() {
     auto label = structure_str(tc.structure) + "-" + orient_str(tc.orientation) + " dnn=" + std::to_string(dnn);
 
     auto ours_lat = build_lattice(tc.structure, tc.orientation, {1, 1, 1});
-    auto ours_scaled = scaled_positions(ours_lat, dnn);
+    auto ours_scaled = ours_lat.scaled_positions(dnn);
 
     auto jims_lat = legacy::crystal::build(structure_str(tc.structure), orient_str(tc.orientation), 1, 1, 1);
     auto jims_scaled = legacy::crystal::scaled(jims_lat, dnn);

@@ -164,12 +164,82 @@ $$
 \frac{P}{\rho k_BT} = 1 + \rho\left(\mu_{\mathrm{ex}} - f_{\mathrm{ex}}\right)
 $$
 
-## What the code does
+---
 
-1. Evaluates $f_{\mathrm{ex}}(\eta)$ for all four models at 200 packing fractions.
-2. Computes $\mu_{\mathrm{ex}}(\eta)$ via `hard_sphere_excess_chemical_potential()`.
-3. Derives $P/(\rho kT)$ from the Gibbs-Duhem relation and compares against
-   the exact CS and PYc results.
+## Step-by-step code walkthrough
+
+### Step 1: Instantiate FMT models and reference EOS
+
+Four FMT models and two reference hard-sphere equations of state are created:
+
+```cpp
+fmt::Rosenfeld ros{};
+fmt::RSLT rslt{};
+fmt::WhiteBearI wb1{};
+fmt::WhiteBearII wb2{};
+
+physics::hard_spheres::CarnahanStarling cs{};
+physics::hard_spheres::PercusYevickCompressibility pyc{};
+```
+
+Each FMT model provides a `phi(measures)` method that evaluates $\Phi$ and
+its derivatives from a set of weighted densities. The CS and PYc models serve
+as the analytical reference.
+
+### Step 2: Evaluate bulk excess free energy per particle
+
+At each packing fraction, uniform weighted densities are constructed and
+$\Phi(\{n_\alpha\})/\rho$ is evaluated:
+
+```cpp
+for (arma::uword i = 0; i < eta_arma.n_elem; ++i) {
+    double eta = eta_arma(i);
+    double rho = physics::hard_spheres::density_from_eta(eta);
+    auto m = fmt::make_uniform_measures(rho, 1.0);
+    m.products = m.inner_products();
+    f_ros_a(i) = ros.phi(m) / rho;
+    f_wb1_a(i) = wb1.phi(m) / rho;
+    f_wb2_a(i) = wb2.phi(m) / rho;
+}
+```
+
+The `make_uniform_measures(rho, sigma)` helper builds the uniform-density
+weighted measure set (scalar $n_0, n_1, n_2, n_3$ and vector $\mathbf{v}_1,
+\mathbf{v}_2$). The `.inner_products()` call pre-computes the products
+$n_2 v_{2,k} v_{2,k}$ etc. needed by the tensor FMT models.
+
+Rosenfeld and RSLT should match PYc, while White Bear I/II should match CS.
+
+### Step 3: Compute the excess chemical potential
+
+The bulk chemical potential is evaluated analytically from the FMT
+$\Phi$ functions:
+
+```cpp
+mu_ros_a(i) = bulk::hard_sphere::excess_chemical_potential(ros, arma::vec{rho}, sp_list, 0);
+mu_wb1_a(i) = bulk::hard_sphere::excess_chemical_potential(wb1, arma::vec{rho}, sp_list, 0);
+mu_wb2_a(i) = bulk::hard_sphere::excess_chemical_potential(wb2, arma::vec{rho}, sp_list, 0);
+```
+
+The function takes the FMT model, the density vector, the species list, and
+the species index. It computes the analytical derivative
+$\mu_{\mathrm{ex}} = \partial(\rho\,f_{\mathrm{ex}})/\partial\rho$ at the
+given density.
+
+### Step 4: Derive the compressibility factor
+
+The pressure is obtained from the Gibbs-Duhem relation:
+
+```cpp
+p_ros_a(i) = 1.0 + rho * (mu_ros_a(i) - f_ros_a(i));
+```
+
+This verifies that $P/(\rho k_BT) = 1 + \rho(\mu_{\mathrm{ex}} - f_{\mathrm{ex}})$
+holds for each FMT model. The result is compared against the direct CS and PYc
+pressure routines. Agreement to machine precision confirms the internal
+consistency of the FMT implementation.
+
+---
 
 ## Cross-validation (`check/`)
 

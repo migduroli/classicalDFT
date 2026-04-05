@@ -53,47 +53,45 @@ int main() {
       .temperature = temperature,
   };
 
-  auto fmt_model = functionals::fmt::WhiteBearII{};
+  auto func = functionals::make_functional(functionals::fmt::WhiteBearII{}, model);
 
   std::println(std::cout, "=== DFT + DDFT: LJ liquid slab relaxation ===\n");
   std::println(std::cout, "  Grid:        {}x{}x{} (dx = {})",
-               model.grid.shape[0], model.grid.shape[1], model.grid.shape[2], model.grid.dx);
-  std::println(std::cout, "  Species:     {}", model.species[0].name);
-  std::println(std::cout, "  Temperature: T* = {}\n", model.temperature);
+               func.model.grid.shape[0], func.model.grid.shape[1], func.model.grid.shape[2], func.model.grid.dx);
+  std::println(std::cout, "  Species:     {}", func.model.species[0].name);
+  std::println(std::cout, "  Temperature: T* = {}\n", func.model.temperature);
 
   // Bulk thermodynamics.
 
-  auto bulk_weights = functionals::make_bulk_weights(
-      fmt_model, model.interactions, model.temperature
-  );
+  auto eos = func.bulk();
 
   arma::vec rho_grid = arma::linspace(0.01, 1.0, 200);
   arma::vec f_grid(rho_grid.n_elem), mu_grid(rho_grid.n_elem), p_grid(rho_grid.n_elem);
   for (arma::uword i = 0; i < rho_grid.n_elem; ++i) {
-    f_grid(i) = functionals::bulk::free_energy_density(arma::vec{rho_grid(i)}, model.species, bulk_weights);
-    mu_grid(i) = functionals::bulk::chemical_potential(arma::vec{rho_grid(i)}, model.species, bulk_weights, 0);
-    p_grid(i) = functionals::bulk::pressure(arma::vec{rho_grid(i)}, model.species, bulk_weights);
+    f_grid(i) = eos.free_energy_density(arma::vec{rho_grid(i)});
+    mu_grid(i) = eos.chemical_potential(arma::vec{rho_grid(i)}, 0);
+    p_grid(i) = eos.pressure(arma::vec{rho_grid(i)});
   }
 
   // Find coexistence.
 
-  functionals::bulk::PhaseSearchConfig search_config{
+  functionals::bulk::PhaseSearch search_config{
       .rho_max = 1.0,
       .rho_scan_step = 0.005,
       .newton = {.max_iterations = 300, .tolerance = 1e-10},
   };
 
-  auto coex = functionals::bulk::find_coexistence(model.species, bulk_weights, search_config);
+  auto coex = search_config.find_coexistence(eos);
   if (!coex) {
     std::cerr << "ERROR: coexistence not found\n";
     return 1;
   }
 
-  double mu_coex = functionals::bulk::chemical_potential(
-      arma::vec{coex->rho_vapor}, model.species, bulk_weights, 0
+  double mu_coex = eos.chemical_potential(
+      arma::vec{coex->rho_vapor}, 0
   );
-  double p_coex = functionals::bulk::pressure(
-      arma::vec{coex->rho_vapor}, model.species, bulk_weights
+  double p_coex = eos.pressure(
+      arma::vec{coex->rho_vapor}
   );
 
   std::println(std::cout, "  Coexistence:");
@@ -104,17 +102,15 @@ int main() {
 
   // Build DFT weights (FFT-based, full functional).
 
-  auto weights = functionals::make_weights(fmt_model, model);
-
   // Construct liquid slab initial profile.
 
-  long nx = model.grid.shape[0];
-  long ny = model.grid.shape[1];
-  long nz = model.grid.shape[2];
-  double center = model.grid.box_size[0] / 2.0;
-  double width = model.grid.box_size[0] / 4.0;
+  long nx = func.model.grid.shape[0];
+  long ny = func.model.grid.shape[1];
+  long nz = func.model.grid.shape[2];
+  double center = func.model.grid.box_size[0] / 2.0;
+  double width = func.model.grid.box_size[0] / 4.0;
 
-  arma::vec x_vals = arma::linspace(0.0, (nx - 1) * model.grid.dx, nx);
+  arma::vec x_vals = arma::linspace(0.0, (nx - 1) * func.model.grid.dx, nx);
   arma::vec profile_1d = coex->rho_vapor + 0.5 * (coex->rho_liquid - coex->rho_vapor) *
       (arma::tanh((x_vals - center + width) / interface_width) -
        arma::tanh((x_vals - center - width) / interface_width));
@@ -126,12 +122,11 @@ int main() {
 
   // Force function wrapping the full DFT functional.
 
-  auto force_fn = utils::make_force_fn(model, weights, mu_coex);
+  auto force_fn = func.grand_potential_callback(mu_coex);
 
   // Evaluate the initial functional.
 
-  auto initial_state = utils::make_state(model, slab_rho, mu_coex);
-  auto initial_result = functionals::total(model, initial_state, weights);
+  auto initial_result = func.evaluate(slab_rho, mu_coex);
 
   std::println(std::cout, "=== Initial slab (tanh profile) ===\n");
   std::println(std::cout, "  Free energy:      {:.6f}", initial_result.free_energy);
@@ -142,14 +137,14 @@ int main() {
 
   std::println(std::cout, "=== DDFT relaxation (split-operator) ===\n");
 
-  algorithms::dynamics::SimulationConfig sim_config{
+  algorithms::dynamics::Simulation sim_config{
       .step = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
       .n_steps = n_steps,
       .snapshot_interval = snapshot_interval,
       .log_interval = log_interval,
   };
 
-  auto sim = algorithms::dynamics::simulate({slab_rho}, model.grid, force_fn, sim_config);
+  auto sim = sim_config.run({slab_rho}, func.model.grid, force_fn);
 
   // Collect profile snapshots from the simulation.
 
@@ -175,8 +170,8 @@ int main() {
   auto p_range = arma::conv_to<std::vector<double>>::from(p_grid);
   auto f_range = arma::conv_to<std::vector<double>>::from(f_grid);
   auto mu_range = arma::conv_to<std::vector<double>>::from(mu_grid);
-  double f_v = functionals::bulk::free_energy_density(arma::vec{coex->rho_vapor}, model.species, bulk_weights);
-  double f_l = functionals::bulk::free_energy_density(arma::vec{coex->rho_liquid}, model.species, bulk_weights);
+  double f_v = eos.free_energy_density(arma::vec{coex->rho_vapor});
+  double f_l = eos.free_energy_density(arma::vec{coex->rho_liquid});
 
 #ifdef DFT_HAS_MATPLOTLIB
   plot::make_plots(rho_range, p_range, f_range, mu_range,

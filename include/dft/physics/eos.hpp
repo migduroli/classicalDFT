@@ -24,6 +24,17 @@ namespace dft::physics::eos {
     [[nodiscard]] auto excess_free_energy(T /*density*/) const -> T {
       return T(0.0);
     }
+
+    [[nodiscard]] auto d_excess_free_energy(double /*density*/) const -> double { return 0.0; }
+    [[nodiscard]] auto d2_excess_free_energy(double /*density*/) const -> double { return 0.0; }
+
+    [[nodiscard]] auto free_energy(double density) const -> double { return std::log(density) - 1.0; }
+
+    [[nodiscard]] auto excess_chemical_potential(double /*density*/) const -> double { return 0.0; }
+
+    [[nodiscard]] auto chemical_potential(double density) const -> double { return std::log(density); }
+
+    [[nodiscard]] auto pressure(double /*density*/) const -> double { return 1.0; }
   };
 
   // Percus-Yevick (compressibility route, wraps hard-sphere PY)
@@ -37,6 +48,36 @@ namespace dft::physics::eos {
     [[nodiscard]] auto excess_free_energy(T density) const -> T {
       T eta = hard_spheres::packing_fraction(density);
       return hard_spheres::PercusYevickCompressibility::excess_free_energy(eta);
+    }
+
+    [[nodiscard]] auto d_excess_free_energy(double density) const -> double {
+      auto [f, df] = math::derivatives_up_to_1(
+          [this](math::dual x) -> math::dual { return excess_free_energy(x); }, density
+      );
+      return df;
+    }
+
+    [[nodiscard]] auto d2_excess_free_energy(double density) const -> double {
+      auto [f, df, d2f] = math::derivatives_up_to_2(
+          [this](math::dual2nd x) -> math::dual2nd { return excess_free_energy(x); }, density
+      );
+      return d2f;
+    }
+
+    [[nodiscard]] auto free_energy(double density) const -> double {
+      return std::log(density) - 1.0 + static_cast<double>(excess_free_energy(density));
+    }
+
+    [[nodiscard]] auto excess_chemical_potential(double density) const -> double {
+      return static_cast<double>(excess_free_energy(density)) + density * d_excess_free_energy(density);
+    }
+
+    [[nodiscard]] auto chemical_potential(double density) const -> double {
+      return std::log(density) + excess_chemical_potential(density);
+    }
+
+    [[nodiscard]] auto pressure(double density) const -> double {
+      return 1.0 + density * d_excess_free_energy(density);
     }
   };
 
@@ -68,6 +109,36 @@ namespace dft::physics::eos {
         -1.131607632802822e2,  -8.867771540418822e3,  -3.986982844450543e1,  -4.689270299917261e3,
         2.593535277438717e2,   -2.694523589434903e3,  -7.218487631550215e2,  1.721802063863269e2,
     };
+
+    [[nodiscard]] auto d_excess_free_energy(double density) const -> double {
+      auto [f, df] = math::derivatives_up_to_1(
+          [this](math::dual x) -> math::dual { return excess_free_energy(x); }, density
+      );
+      return df;
+    }
+
+    [[nodiscard]] auto d2_excess_free_energy(double density) const -> double {
+      auto [f, df, d2f] = math::derivatives_up_to_2(
+          [this](math::dual2nd x) -> math::dual2nd { return excess_free_energy(x); }, density
+      );
+      return d2f;
+    }
+
+    [[nodiscard]] auto free_energy(double density) const -> double {
+      return std::log(density) - 1.0 + static_cast<double>(excess_free_energy(density));
+    }
+
+    [[nodiscard]] auto excess_chemical_potential(double density) const -> double {
+      return static_cast<double>(excess_free_energy(density)) + density * d_excess_free_energy(density);
+    }
+
+    [[nodiscard]] auto chemical_potential(double density) const -> double {
+      return std::log(density) + excess_chemical_potential(density);
+    }
+
+    [[nodiscard]] auto pressure(double density) const -> double {
+      return 1.0 + density * d_excess_free_energy(density);
+    }
   };
 
   // Lennard-Jones Mecke et al. EOS
@@ -110,6 +181,36 @@ namespace dft::physics::eos {
         {0.69427495094e-02, 0, 2, -1, 3},     {-0.22271531045e-07, -24, 5, -1, 4},
         {-0.22656880018e-03, -10, 2, -1, 4},  {0.24056013779e-02, -2, 10, -1, 4},
     }};
+
+    [[nodiscard]] auto d_excess_free_energy(double density) const -> double {
+      auto [f, df] = math::derivatives_up_to_1(
+          [this](math::dual x) -> math::dual { return excess_free_energy(x); }, density
+      );
+      return df;
+    }
+
+    [[nodiscard]] auto d2_excess_free_energy(double density) const -> double {
+      auto [f, df, d2f] = math::derivatives_up_to_2(
+          [this](math::dual2nd x) -> math::dual2nd { return excess_free_energy(x); }, density
+      );
+      return d2f;
+    }
+
+    [[nodiscard]] auto free_energy(double density) const -> double {
+      return std::log(density) - 1.0 + static_cast<double>(excess_free_energy(density));
+    }
+
+    [[nodiscard]] auto excess_chemical_potential(double density) const -> double {
+      return static_cast<double>(excess_free_energy(density)) + density * d_excess_free_energy(density);
+    }
+
+    [[nodiscard]] auto chemical_potential(double density) const -> double {
+      return std::log(density) + excess_chemical_potential(density);
+    }
+
+    [[nodiscard]] auto pressure(double density) const -> double {
+      return 1.0 + density * d_excess_free_energy(density);
+    }
   };
 
   using EosModel = std::variant<IdealGas, PercusYevick, LennardJonesJZG, LennardJonesMecke>;
@@ -134,70 +235,6 @@ namespace dft::physics::eos {
       -> LennardJonesJZG;
   [[nodiscard]] auto make_lennard_jones_mecke(double kT, double cutoff_radius = -1.0, bool shifted = false)
       -> LennardJonesMecke;
-
-  // Free functions operating on any EosModel
-
-  [[nodiscard]] inline auto excess_free_energy(const EosModel& model, double density) -> double {
-    return std::visit(
-        [density](const auto& m) { return static_cast<double>(m.excess_free_energy(density)); }, model
-    );
-  }
-
-  [[nodiscard]] inline auto d_excess_free_energy(const EosModel& model, double density) -> double {
-    return std::visit(
-        [density](const auto& m) {
-          auto [f, df] = math::derivatives_up_to_1(
-              [&](math::dual x) -> math::dual { return m.excess_free_energy(x); }, density
-          );
-          return df;
-        },
-        model
-    );
-  }
-
-  [[nodiscard]] inline auto d2_excess_free_energy(const EosModel& model, double density) -> double {
-    return std::visit(
-        [density](const auto& m) {
-          auto [f, df, d2f] = math::derivatives_up_to_2(
-              [&](math::dual2nd x) -> math::dual2nd { return m.excess_free_energy(x); }, density
-          );
-          return d2f;
-        },
-        model
-    );
-  }
-
-  [[nodiscard]] inline auto temperature(const EosModel& model) -> double {
-    return std::visit([](const auto& m) { return m.kT; }, model);
-  }
-
-  [[nodiscard]] inline auto name(const EosModel& model) -> std::string_view {
-    return std::visit([](const auto& m) -> std::string_view { return m.NAME; }, model);
-  }
-
-  // f = log(rho) - 1 + f_ex(rho)
-
-  [[nodiscard]] inline auto free_energy(const EosModel& model, double density) -> double {
-    return std::log(density) - 1.0 + excess_free_energy(model, density);
-  }
-
-  // mu_ex / kT = f_ex + rho * f_ex'
-
-  [[nodiscard]] inline auto excess_chemical_potential(const EosModel& model, double density) -> double {
-    return excess_free_energy(model, density) + density * d_excess_free_energy(model, density);
-  }
-
-  // mu / kT = log(rho) + f_ex + rho * f_ex'
-
-  [[nodiscard]] inline auto chemical_potential(const EosModel& model, double density) -> double {
-    return std::log(density) + excess_chemical_potential(model, density);
-  }
-
-  // P / (rho kT) = 1 + rho * f_ex'(rho)
-
-  [[nodiscard]] inline auto pressure(const EosModel& model, double density) -> double {
-    return 1.0 + density * d_excess_free_energy(model, density);
-  }
 
 }  // namespace dft::physics::eos
 

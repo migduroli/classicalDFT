@@ -15,7 +15,7 @@ static constexpr double EPS = 1.0;
 static constexpr double RCUT = 2.5;
 static constexpr double KT = 1.0;
 
-static auto lj_potential() -> pot::Potential {
+static auto lj_potential() -> pot::LennardJones {
   return pot::make_lennard_jones(SIGMA, EPS, RCUT);
 }
 

@@ -38,19 +38,21 @@ namespace dft::functionals {
     // Compute the cell weight at a single grid displacement using the
     // attractive part of the potential divided by kT.
 
-    [[nodiscard]] inline auto cell_weight_zero(
-        const physics::potentials::Potential& pot, physics::potentials::SplitScheme split,
+    template <typename P>
+    [[nodiscard]] auto cell_weight_zero(
+        const P& pot, physics::potentials::SplitScheme split,
         double kT, double dx, long sx, long sy, long sz
     ) -> double {
       double r2 = static_cast<double>(sx * sx + sy * sy + sz * sz) * dx * dx;
       double r = std::sqrt(r2);
-      return physics::potentials::attractive(pot, r, split) / kT;
+      return pot.attractive(r, split) / kT;
     }
 
     // Linear interpolation: average over the 8 corners of the cubic cell.
 
-    [[nodiscard]] inline auto cell_weight_linear(
-        const physics::potentials::Potential& pot, physics::potentials::SplitScheme split,
+    template <typename P>
+    [[nodiscard]] auto cell_weight_linear(
+        const P& pot, physics::potentials::SplitScheme split,
         double kT, double dx, long sx, long sy, long sz
     ) -> double {
       double sum = 0.0;
@@ -61,7 +63,7 @@ namespace dft::functionals {
             double y = (static_cast<double>(sy) - 0.5 + static_cast<double>(dj)) * dx;
             double z = (static_cast<double>(sz) - 0.5 + static_cast<double>(dk)) * dx;
             double r = std::sqrt(x * x + y * y + z * z);
-            sum += physics::potentials::attractive(pot, r, split) / kT;
+            sum += pot.attractive(r, split) / kT;
           }
         }
       }
@@ -72,8 +74,9 @@ namespace dft::functionals {
     // with equal weights 1/3 (27-point rule).  Matches Lutsko's
     // Interaction_Interpolation_QF exactly.
 
-    [[nodiscard]] inline auto cell_weight_quadratic_f(
-        const physics::potentials::Potential& pot, physics::potentials::SplitScheme split,
+    template <typename P>
+    [[nodiscard]] auto cell_weight_quadratic_f(
+        const P& pot, physics::potentials::SplitScheme split,
         double kT, double dx, long sx, long sy, long sz
     ) -> double {
       static constexpr double vv[] = {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
@@ -87,7 +90,7 @@ namespace dft::functionals {
             double ry = (static_cast<double>(sy) + pt[j]) * dx;
             double rz = (static_cast<double>(sz) + pt[k]) * dx;
             double r = std::sqrt(rx * rx + ry * ry + rz * rz);
-            sum += vv[i] * vv[j] * vv[k] * physics::potentials::attractive(pot, r, split) / kT;
+            sum += vv[i] * vv[j] * vv[k] * pot.attractive(r, split) / kT;
           }
         }
       }
@@ -99,19 +102,19 @@ namespace dft::functionals {
     [[nodiscard]] inline auto cell_weight(
         const physics::Interaction& inter, double kT, double dx, long sx, long sy, long sz
     ) -> double {
+      const auto& pot = inter.potential;
       using physics::WeightScheme;
       switch (inter.weight_scheme) {
         case WeightScheme::InterpolationZero:
-          return cell_weight_zero(inter.potential, inter.split, kT, dx, sx, sy, sz);
+          return cell_weight_zero(pot, inter.split, kT, dx, sx, sy, sz);
         case WeightScheme::InterpolationLinearE:
         case WeightScheme::InterpolationLinearF:
-          return cell_weight_linear(inter.potential, inter.split, kT, dx, sx, sy, sz);
+          return cell_weight_linear(pot, inter.split, kT, dx, sx, sy, sz);
         case WeightScheme::InterpolationQuadraticF:
-          return cell_weight_quadratic_f(inter.potential, inter.split, kT, dx, sx, sy, sz);
+          return cell_weight_quadratic_f(pot, inter.split, kT, dx, sx, sy, sz);
         case WeightScheme::GaussE: [[fallthrough]];
         case WeightScheme::GaussF:
-          // TODO: implement Gaussian quadrature; using linear interpolation as placeholder
-          return cell_weight_linear(inter.potential, inter.split, kT, dx, sx, sy, sz);
+          return cell_weight_linear(pot, inter.split, kT, dx, sx, sy, sz);
       }
       return 0.0;
     }
@@ -136,9 +139,7 @@ namespace dft::functionals {
       double dv = grid.cell_volume();
       double inv_n = 1.0 / static_cast<double>(grid.total_points());
 
-      double r_cutoff = std::visit(
-          [](const auto& p) -> double { return p.r_cutoff; }, inter.potential
-      );
+      double r_cutoff = inter.potential.r_cutoff();
       // Expand the early-skip radius to account for sub-cell quadrature
       // offsets.  The farthest sub-cell point from the cell center lies
       // at offset sqrt(3) * 0.5 * dx (half the cell diagonal).  Any cell

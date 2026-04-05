@@ -46,7 +46,7 @@ TEST_CASE("WhiteBearII f1, f2, f3 match legacy", "[integration][fmt]") {
 
 TEST_CASE("esFMT f1, f2, f3 match legacy", "[integration][fmt]") {
   for (double eta : ETAS) {
-    auto esfmt = fmt::EsFMT{1.0, 0.0};
+    auto esfmt = fmt::EsFMT{.A = 1.0, .B = 0.0};
     CHECK(esfmt.f1(eta) == Approx(legacy::fmt::esFMT_model::f1(eta)).margin(1e-10));
     CHECK(esfmt.f2(eta) == Approx(legacy::fmt::esFMT_model::f2(eta)).margin(1e-10));
     CHECK(esfmt.f3(eta) == Approx(legacy::fmt::esFMT_model::f3(eta)).margin(1e-10));
@@ -85,7 +85,7 @@ static auto make_test_measures(double eta, double n2, double v_mag, double T_dia
       0.1 * v_mag / (4. * std::numbers::pi * R)
   };
   m.T = {{T_diag, 0.1, -0.05}, {0.1, T_diag * 0.8, 0.02}, {-0.05, 0.02, T_diag * 0.6}};
-  m.products = fmt::inner_products(m);
+  m.products = m.inner_products();
   return m;
 }
 
@@ -114,7 +114,7 @@ TEST_CASE("esFMT Phi3 and derivatives match legacy", "[integration][fmt]") {
   auto fm = to_legacy_fm(m);
 
   for (auto [A, B] : std::vector<std::pair<double, double>>{{1.0, 0.0}, {1.0, -1.0}}) {
-    auto model = fmt::EsFMT{A, B};
+    auto model = fmt::EsFMT{.A = A, .B = B};
     INFO("A=" << A << " B=" << B);
     CHECK(model.phi3(m) == Approx(legacy::fmt::esFMT_model::Phi3(A, B, fm)).margin(1e-10));
     CHECK(model.d_phi3_d_n2(m) == Approx(legacy::fmt::esFMT_model::dPhi3_dS2(A, B, fm)).margin(1e-10));

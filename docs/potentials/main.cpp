@@ -56,9 +56,9 @@ int main() {
 
   // Hard-sphere diameters (Barker-Henderson integral).
 
-  double d_lj = pot::hard_sphere_diameter(plj, kT, pot::SplitScheme::WeeksChandlerAndersen);
-  double d_twf = pot::hard_sphere_diameter(ptwf, kT, pot::SplitScheme::WeeksChandlerAndersen);
-  double d_wrdf = pot::hard_sphere_diameter(pwrdf, kT, pot::SplitScheme::WeeksChandlerAndersen);
+  double d_lj = plj.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
+  double d_twf = ptwf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
+  double d_wrdf = pwrdf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
 
   console::info("Hard-sphere diameters (kT = 1.0)");
   std::println(std::cout, "  LJ:   d_HS = {:.6f}", d_lj);
@@ -67,7 +67,7 @@ int main() {
 
   // Van der Waals integral.
 
-  double a_lj = pot::vdw_integral(plj, kT, pot::SplitScheme::WeeksChandlerAndersen);
+  double a_lj = plj.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen);
   console::info("Van der Waals integral (LJ, kT=1)");
   std::println(std::cout, "  a_vdw = {:.6f}", a_lj);
 

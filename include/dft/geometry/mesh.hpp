@@ -11,26 +11,6 @@
 
 namespace dft::geometry {
 
-  struct UniformMesh2D {
-    double dx;
-    std::vector<double> dimensions;
-    std::vector<double> origin;
-    std::vector<long> shape;
-    std::vector<Vertex> vertices;
-    std::vector<SquareBox2D> elements;
-  };
-
-  struct UniformMesh3D {
-    double dx;
-    std::vector<double> dimensions;
-    std::vector<double> origin;
-    std::vector<long> shape;
-    std::vector<Vertex> vertices;
-    std::vector<SquareBox3D> elements;
-  };
-
-  using Mesh = std::variant<UniformMesh2D, UniformMesh3D>;
-
   // Mesh index helpers (dimension-independent)
 
   namespace detail {
@@ -72,6 +52,86 @@ namespace dft::geometry {
     }
 
   }  // namespace detail
+
+  struct UniformMesh2D {
+    double dx;
+    std::vector<double> dimensions;
+    std::vector<double> origin;
+    std::vector<long> shape;
+    std::vector<Vertex> vertices;
+    std::vector<SquareBox2D> elements;
+
+    [[nodiscard]] auto volume() const -> double { return dimensions[0] * dimensions[1]; }
+    [[nodiscard]] auto element_volume() const -> double { return dx * dx; }
+    [[nodiscard]] auto spacing() const -> double { return dx; }
+
+    [[nodiscard]] auto flat_index(std::vector<long> idx) const -> long {
+      auto wrapped = detail::validate_indices(std::move(idx), shape);
+      return detail::flat_index_impl(wrapped, shape);
+    }
+
+    [[nodiscard]] auto cartesian_index(long idx) const -> std::vector<long> {
+      return detail::cartesian_index_impl(idx, shape);
+    }
+
+    [[nodiscard]] auto vertex(std::vector<long> idx) const -> const Vertex& {
+      auto wrapped = detail::validate_indices(std::move(idx), shape);
+      auto flat = detail::flat_index_impl(wrapped, shape);
+      return vertices.at(static_cast<size_t>(flat));
+    }
+
+    [[nodiscard]] auto wrap(const Vertex& position) const -> Vertex {
+      auto coords = position.coordinates;
+      for (auto [coord, dim] : std::views::zip(coords, dimensions)) {
+        coord = std::fmod(coord, dim);
+        if (coord < 0.0) {
+          coord += dim;
+        }
+      }
+      return Vertex{std::move(coords)};
+    }
+  };
+
+  struct UniformMesh3D {
+    double dx;
+    std::vector<double> dimensions;
+    std::vector<double> origin;
+    std::vector<long> shape;
+    std::vector<Vertex> vertices;
+    std::vector<SquareBox3D> elements;
+
+    [[nodiscard]] auto volume() const -> double { return dimensions[0] * dimensions[1] * dimensions[2]; }
+    [[nodiscard]] auto element_volume() const -> double { return dx * dx * dx; }
+    [[nodiscard]] auto spacing() const -> double { return dx; }
+
+    [[nodiscard]] auto flat_index(std::vector<long> idx) const -> long {
+      auto wrapped = detail::validate_indices(std::move(idx), shape);
+      return detail::flat_index_impl(wrapped, shape);
+    }
+
+    [[nodiscard]] auto cartesian_index(long idx) const -> std::vector<long> {
+      return detail::cartesian_index_impl(idx, shape);
+    }
+
+    [[nodiscard]] auto vertex(std::vector<long> idx) const -> const Vertex& {
+      auto wrapped = detail::validate_indices(std::move(idx), shape);
+      auto flat = detail::flat_index_impl(wrapped, shape);
+      return vertices.at(static_cast<size_t>(flat));
+    }
+
+    [[nodiscard]] auto wrap(const Vertex& position) const -> Vertex {
+      auto coords = position.coordinates;
+      for (auto [coord, dim] : std::views::zip(coords, dimensions)) {
+        coord = std::fmod(coord, dim);
+        if (coord < 0.0) {
+          coord += dim;
+        }
+      }
+      return Vertex{std::move(coords)};
+    }
+  };
+
+  using Mesh = std::variant<UniformMesh2D, UniformMesh3D>;
 
   // Factory functions
 
@@ -154,103 +214,6 @@ namespace dft::geometry {
         .vertices = std::move(vertices),
         .elements = std::move(elements),
     };
-  }
-
-  // Free functions on concrete mesh types
-
-  [[nodiscard]] inline auto volume(const UniformMesh2D& mesh) -> double {
-    return mesh.dimensions[0] * mesh.dimensions[1];
-  }
-
-  [[nodiscard]] inline auto volume(const UniformMesh3D& mesh) -> double {
-    return mesh.dimensions[0] * mesh.dimensions[1] * mesh.dimensions[2];
-  }
-
-  [[nodiscard]] inline auto element_volume(const UniformMesh2D& mesh) -> double { return mesh.dx * mesh.dx; }
-
-  [[nodiscard]] inline auto element_volume(const UniformMesh3D& mesh) -> double {
-    return mesh.dx * mesh.dx * mesh.dx;
-  }
-
-  [[nodiscard]] inline auto spacing(const UniformMesh2D& mesh) -> double { return mesh.dx; }
-
-  [[nodiscard]] inline auto spacing(const UniformMesh3D& mesh) -> double { return mesh.dx; }
-
-  // Free functions on variant Mesh
-
-  [[nodiscard]] inline auto volume(const Mesh& mesh) -> double {
-    return std::visit(
-        [](const auto& m) -> double {
-          using T = std::decay_t<decltype(m)>;
-          if constexpr (std::is_same_v<T, UniformMesh2D>) {
-            return m.dimensions[0] * m.dimensions[1];
-          } else {
-            return m.dimensions[0] * m.dimensions[1] * m.dimensions[2];
-          }
-        },
-        mesh
-    );
-  }
-
-  [[nodiscard]] inline auto element_volume(const Mesh& mesh) -> double {
-    return std::visit(
-        [](const auto& m) -> double {
-          using T = std::decay_t<decltype(m)>;
-          if constexpr (std::is_same_v<T, UniformMesh2D>) {
-            return m.dx * m.dx;
-          } else {
-            return m.dx * m.dx * m.dx;
-          }
-        },
-        mesh
-    );
-  }
-
-  [[nodiscard]] inline auto spacing(const Mesh& mesh) -> double {
-    return std::visit([](const auto& m) { return m.dx; }, mesh);
-  }
-
-  [[nodiscard]] inline auto flat_index(const Mesh& mesh, std::vector<long> idx) -> long {
-    return std::visit(
-        [&idx](const auto& m) -> long {
-          auto wrapped = detail::validate_indices(std::move(idx), m.shape);
-          return detail::flat_index_impl(wrapped, m.shape);
-        },
-        mesh
-    );
-  }
-
-  [[nodiscard]] inline auto cartesian_index(const Mesh& mesh, long idx) -> std::vector<long> {
-    return std::visit(
-        [idx](const auto& m) { return detail::cartesian_index_impl(idx, m.shape); }, mesh
-    );
-  }
-
-  [[nodiscard]] inline auto vertex(const Mesh& mesh, std::vector<long> idx) -> const Vertex& {
-    return std::visit(
-        [&idx](const auto& m) -> const Vertex& {
-          auto wrapped = detail::validate_indices(std::move(idx), m.shape);
-          auto flat = detail::flat_index_impl(wrapped, m.shape);
-          return m.vertices.at(static_cast<size_t>(flat));
-        },
-        mesh
-    );
-  }
-
-  [[nodiscard]] inline auto wrap(const Mesh& mesh, const Vertex& position) -> Vertex {
-    return std::visit(
-        [&position](const auto& m) -> Vertex {
-          auto coords = position.coordinates;
-          for (auto [coord, dim] : std::views::zip(coords, m.dimensions)) {
-            coord = std::fmod(coord, dim);
-            if (coord < 0.0) {
-              coord += dim;
-            }
-          }
-          return Vertex{std::move(coords)};
-        },
-        mesh
-    );
   }
 
 }  // namespace dft::geometry

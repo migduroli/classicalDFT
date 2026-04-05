@@ -109,13 +109,93 @@ toward the analytical value as $\Delta x \to 0$. At coarse grids
 ($\Delta x = 0.5\sigma$) the error can reach several percent; at
 $\Delta x = 0.1\sigma$ it is below $10^{-4}$.
 
-## What the code does
+---
 
-1. Evaluates $w_{\mathrm{att}}(r)$ under both WCA and BH splitting.
-2. Computes $a_{\mathrm{vdw}}$ analytically.
-3. Evaluates $f_{\mathrm{mf}}(\rho)$ and $\mu_{\mathrm{mf}}(\rho)$ from bulk weights.
-4. Builds mean-field weights at 8 grid spacings and tracks the convergence of
-   $a_{\mathrm{vdw}}$ toward the analytical value.
+## Step-by-step code walkthrough
+
+### Step 1: Define the LJ system
+
+A standard LJ fluid with $\sigma = \varepsilon = 1$, cutoff $r_c = 2.5\sigma$
+at $kT = 1$:
+
+```cpp
+physics::Model model{
+    .grid = make_grid(0.1, {6.0, 6.0, 6.0}),
+    .species = {Species{.name = "LJ", .hard_sphere_diameter = 1.0}},
+    .interactions = {{
+        .species_i = 0, .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+    }},
+    .temperature = 1.0,
+};
+```
+
+### Step 2: Evaluate the attractive tail
+
+The full LJ potential and both WCA / BH attractive tails are sampled on a
+fine radial grid:
+
+```cpp
+v_full_arma(i) = pot.energy(r_arma(i));
+watt_wca_arma(i) = pot.attractive(r_arma(i), SplitScheme::WeeksChandlerAndersen);
+watt_bh_arma(i) = pot.attractive(r_arma(i), SplitScheme::BarkerHenderson);
+```
+
+Under WCA splitting, $w_{\mathrm{att}}(r) = 0$ for $r < r_{\min}$ and
+$w_{\mathrm{att}}(r) = v(r)$ for $r \geq r_{\min}$. Under BH splitting,
+$w_{\mathrm{att}}(r) = v(r_{\min})$ (constant) for $r < r_{\min}$.
+
+### Step 3: Compute the analytical vdW parameter
+
+The continuum integral $a_{\mathrm{vdw}} = 2 \int_0^\infty w_{\mathrm{att}}(r)\, 4\pi r^2\, dr$
+is evaluated numerically via adaptive quadrature:
+
+```cpp
+double a_vdw = 2.0 * pot.vdw_integral(model.temperature, split);
+```
+
+This is the reference value for the grid convergence study.
+
+### Step 4: Build bulk weights and evaluate mean-field thermodynamics
+
+Bulk weights are constructed from the FMT model and interactions:
+
+```cpp
+auto weights = functionals::make_bulk_weights(
+    functionals::fmt::WhiteBearII{}, model.interactions, model.temperature
+);
+```
+
+The mean-field free energy density $f_{\mathrm{mf}}(\rho) = \frac{1}{2} a_{\mathrm{vdw}} \rho^2$
+and chemical potential $\mu_{\mathrm{mf}}(\rho) = a_{\mathrm{vdw}} \rho$ are
+evaluated on a 100-point density grid:
+
+```cpp
+f_arma(i) = bulk::mean_field::free_energy_density(weights.mean_field, arma::vec{rho_arma(i)});
+mu_arma(i) = bulk::mean_field::chemical_potential(weights.mean_field, arma::vec{rho_arma(i)}, 0);
+```
+
+### Step 5: Grid convergence of $a_{\mathrm{vdw}}$
+
+At 8 grid spacings ($\Delta x = 0.5$ down to $0.1$), inhomogeneous mean-field
+weights are built and the numerical $a_{\mathrm{vdw}}$ is compared against the
+analytical value:
+
+```cpp
+for (auto dxi : dx_vals) {
+    double L = std::ceil(std::max(5.0, 2.0 * 2.5 + 2.0 * dxi) / dxi) * dxi;
+    auto grid = make_grid(dxi, {L, L, L});
+    auto mf_weights = functionals::make_mean_field_weights(
+        grid, model.interactions, model.temperature);
+    a_conv[i] = mf_weights.interactions[0].a_vdw;
+}
+```
+
+The box size is adjusted to ensure the cutoff sphere fits entirely within the
+simulation cell. The relative error should converge as $O(\Delta x^2)$.
+
+---
 
 ## Cross-validation (`check/`)
 

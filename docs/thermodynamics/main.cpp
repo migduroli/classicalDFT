@@ -24,22 +24,22 @@ int main() {
   std::println(std::cout, "=== Hard-sphere fluid models ===\n");
   std::println(std::cout, "{:>8s}{:>16s}{:>16s}{:>16s}", "eta", "P/(rho kT) CS", "P/(rho kT) PYv", "P/(rho kT) PYc");
 
-  hard_spheres::HardSphereModel cs = hard_spheres::CarnahanStarling{};
-  hard_spheres::HardSphereModel pyv = hard_spheres::PercusYevickVirial{};
-  hard_spheres::HardSphereModel pyc = hard_spheres::PercusYevickCompressibility{};
+  hard_spheres::CarnahanStarling cs{};
+  hard_spheres::PercusYevickVirial pyv{};
+  hard_spheres::PercusYevickCompressibility pyc{};
 
   for (double eta = 0.05; eta <= 0.49; eta += 0.05) {
     std::println(std::cout, "{:>8.2f}{:>16.6f}{:>16.6f}{:>16.6f}",
-                 eta, hard_spheres::pressure(cs, eta), hard_spheres::pressure(pyv, eta), hard_spheres::pressure(pyc, eta));
+                 eta, cs.pressure(eta), pyv.pressure(eta), pyc.pressure(eta));
   }
 
   // Thermodynamic consistency check.
 
   std::println(std::cout, "\n=== Consistency check (CS, eta=0.3) ===");
   double rho = hard_spheres::density_from_eta(0.3);
-  double mu = hard_spheres::chemical_potential(cs, rho);
-  double f = hard_spheres::free_energy(cs, rho);
-  double p = hard_spheres::pressure(cs, 0.3);
+  double mu = cs.chemical_potential(rho);
+  double f = cs.free_energy(rho);
+  double p = cs.pressure(0.3);
   std::println(std::cout, "  mu/kT         = {:.6f}", mu);
   std::println(std::cout, "  f/kT          = {:.6f}", f);
   std::println(std::cout, "  P/(rho*kT)    = {:.6f}", p);
@@ -64,21 +64,21 @@ int main() {
 
   std::println(std::cout, "\n=== Equations of state (kT = 1.5) ===\n");
   double kT = 1.5;
-  eos::EosModel ideal = eos::IdealGas{.kT = kT};
-  eos::EosModel py_eos = eos::PercusYevick{.kT = kT};
-  eos::EosModel jzg = eos::make_lennard_jones_jzg(kT);
-  eos::EosModel mecke = eos::make_lennard_jones_mecke(kT);
+  auto ideal = eos::IdealGas{.kT = kT};
+  auto py_eos = eos::PercusYevick{.kT = kT};
+  auto jzg = eos::make_lennard_jones_jzg(kT);
+  auto mecke = eos::make_lennard_jones_mecke(kT);
 
   std::println(std::cout, "{:>8s}{:>14s}{:>14s}{:>14s}{:>14s}",
-               "rho", eos::name(ideal), eos::name(py_eos), eos::name(jzg), eos::name(mecke));
+               "rho", ideal.NAME, py_eos.NAME, jzg.NAME, mecke.NAME);
 
   for (double density = 0.05; density <= 0.8; density += 0.05) {
     std::println(std::cout, "{:>8.2f}{:>14.6f}{:>14.6f}{:>14.6f}{:>14.6f}",
                  density,
-                 eos::pressure(ideal, density),
-                 eos::pressure(py_eos, density),
-                 eos::pressure(jzg, density),
-                 eos::pressure(mecke, density));
+                 ideal.pressure(density),
+                 py_eos.pressure(density),
+                 jzg.pressure(density),
+                 mecke.pressure(density));
   }
 
   // Collect plot data.
@@ -87,9 +87,9 @@ int main() {
   arma::vec eta_a = arma::linspace(0.01, 0.49, M_hs);
   arma::vec cs_a(M_hs), pyv_a(M_hs), pyc_a(M_hs);
   for (arma::uword i = 0; i < eta_a.n_elem; ++i) {
-    cs_a(i) = hard_spheres::pressure(cs, eta_a(i));
-    pyv_a(i) = hard_spheres::pressure(pyv, eta_a(i));
-    pyc_a(i) = hard_spheres::pressure(pyc, eta_a(i));
+    cs_a(i) = cs.pressure(eta_a(i));
+    pyv_a(i) = pyv.pressure(eta_a(i));
+    pyc_a(i) = pyc.pressure(eta_a(i));
   }
   auto eta_v = arma::conv_to<std::vector<double>>::from(eta_a);
   auto cs_v = arma::conv_to<std::vector<double>>::from(cs_a);
