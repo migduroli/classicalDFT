@@ -79,7 +79,7 @@ build_local() {
   cmake -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DDFT_BUILD_TESTS=ON \
-    -DDFT_BUILD_EXAMPLES=ON \
+    -DDFT_BUILD_DOCS=ON \
     -DDFT_USE_GRACE=ON \
     -DDFT_USE_MATPLOTLIB=ON
 
@@ -96,7 +96,7 @@ install() {
   message "info" "classicalDFT local install"
   install_deps
   build_local
-  message "success" "Done. Run examples with: cd examples/<name> && make run-local"
+  message "success" "Done. Run docs with: cd docs/<name> && make run-local"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
