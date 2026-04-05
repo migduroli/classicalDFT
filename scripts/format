@@ -7,7 +7,7 @@ DOCKER_IMAGE="${DOCKER_IMAGE:-classicaldft:local}"
 
 format() {
   local files
-  files=$(find include src tests -name "*.h" -o -name "*.cpp")
+  files=$(find include src tests docs -name "*.hpp" -o -name "*.h" -o -name "*.cpp")
 
   if [[ "$1" == "--check" ]]; then
     message "info" "Format check"

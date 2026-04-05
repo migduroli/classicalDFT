@@ -15,11 +15,11 @@ static auto quadratic_force(const std::vector<arma::vec>& x) -> std::pair<double
     energy += 0.5 * arma::dot(x[s], x[s]);
     forces[s] = -x[s];
   }
-  return {energy, forces};
+  return { energy, forces };
 }
 
 TEST_CASE("fire initialize produces valid initial state", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{1.0, 2.0, 3.0}};
+  std::vector<arma::vec> x0 = { arma::vec{ 1.0, 2.0, 3.0 } };
   Fire config;
   auto state = config.initialize(x0, quadratic_force);
 
@@ -32,8 +32,8 @@ TEST_CASE("fire initialize produces valid initial state", "[fire]") {
 }
 
 TEST_CASE("fire step reduces energy on quadratic", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{1.0, 2.0, 3.0}};
-  Fire config{.dt = 0.01, .force_tolerance = 1e-6};
+  std::vector<arma::vec> x0 = { arma::vec{ 1.0, 2.0, 3.0 } };
+  Fire config{ .dt = 0.01, .force_tolerance = 1e-6 };
   auto state = config.initialize(x0, quadratic_force);
   auto [_, forces] = quadratic_force(state.x);
 
@@ -44,8 +44,8 @@ TEST_CASE("fire step reduces energy on quadratic", "[fire]") {
 }
 
 TEST_CASE("fire minimize converges on 1D quadratic", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{5.0}};
-  Fire config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
+  std::vector<arma::vec> x0 = { arma::vec{ 5.0 } };
+  Fire config{ .dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000 };
 
   auto result = config.minimize(x0, quadratic_force);
 
@@ -55,8 +55,8 @@ TEST_CASE("fire minimize converges on 1D quadratic", "[fire]") {
 }
 
 TEST_CASE("fire minimize converges on 3D quadratic", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{3.0, -2.0, 1.0}};
-  Fire config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
+  std::vector<arma::vec> x0 = { arma::vec{ 3.0, -2.0, 1.0 } };
+  Fire config{ .dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000 };
 
   auto result = config.minimize(x0, quadratic_force);
 
@@ -65,8 +65,8 @@ TEST_CASE("fire minimize converges on 3D quadratic", "[fire]") {
 }
 
 TEST_CASE("fire minimize handles multi-species", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{2.0, 1.0}, arma::vec{-1.0, 3.0}};
-  Fire config{.dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000};
+  std::vector<arma::vec> x0 = { arma::vec{ 2.0, 1.0 }, arma::vec{ -1.0, 3.0 } };
+  Fire config{ .dt = 0.01, .force_tolerance = 1e-6, .max_steps = 5000 };
 
   auto result = config.minimize(x0, quadratic_force);
 
@@ -83,16 +83,16 @@ static auto rosenbrock_force(const std::vector<arma::vec>& x) -> std::pair<doubl
   double energy = (1.0 - xi) * (1.0 - xi) + 100.0 * (yi - xi * xi) * (yi - xi * xi);
   double dfdx = -2.0 * (1.0 - xi) - 400.0 * xi * (yi - xi * xi);
   double dfdy = 200.0 * (yi - xi * xi);
-  return {energy, {arma::vec{-dfdx, -dfdy}}};
+  return { energy, { arma::vec{ -dfdx, -dfdy } } };
 }
 
 TEST_CASE("fire minimize makes progress on Rosenbrock", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{-1.0, 1.0}};
+  std::vector<arma::vec> x0 = { arma::vec{ -1.0, 1.0 } };
   Fire config{
-      .dt = 1e-4,
-      .dt_max = 1e-3,
-      .force_tolerance = 0.1,
-      .max_steps = 50000,
+    .dt = 1e-4,
+    .dt_max = 1e-3,
+    .force_tolerance = 0.1,
+    .max_steps = 50000,
   };
 
   auto result = config.minimize(x0, rosenbrock_force);
@@ -103,8 +103,8 @@ TEST_CASE("fire minimize makes progress on Rosenbrock", "[fire]") {
 }
 
 TEST_CASE("fire at minimum reports converged", "[fire]") {
-  std::vector<arma::vec> x0 = {arma::vec{0.0, 0.0, 0.0}};
-  Fire config{.force_tolerance = 1e-6};
+  std::vector<arma::vec> x0 = { arma::vec{ 0.0, 0.0, 0.0 } };
+  Fire config{ .force_tolerance = 1e-6 };
 
   auto state = config.initialize(x0, quadratic_force);
   CHECK(state.converged);
@@ -120,17 +120,17 @@ TEST_CASE("fire throws when max uphill steps exceeded", "[fire]") {
     eval_count++;
     double sign = (eval_count % 2 == 0) ? -1.0 : 1.0;
     double energy = sign * arma::dot(x[0], x[0]);
-    return {energy, {sign * (-2.0 * x[0])}};
+    return { energy, { sign * (-2.0 * x[0]) } };
   };
 
-  std::vector<arma::vec> x0 = {arma::vec{1.0, 1.0}};
+  std::vector<arma::vec> x0 = { arma::vec{ 1.0, 1.0 } };
   Fire config{
-      .dt = 0.5,
-      .dt_max = 0.5,
-      .n_delay = 0,
-      .max_uphill = 3,
-      .force_tolerance = 1e-10,
-      .max_steps = 5000,
+    .dt = 0.5,
+    .dt_max = 0.5,
+    .n_delay = 0,
+    .max_uphill = 3,
+    .force_tolerance = 1e-10,
+    .max_steps = 5000,
   };
 
   REQUIRE_THROWS_AS(config.minimize(x0, alternating_force), std::runtime_error);

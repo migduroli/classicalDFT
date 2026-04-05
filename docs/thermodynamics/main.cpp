@@ -29,8 +29,14 @@ int main() {
   hard_spheres::PercusYevickCompressibility pyc{};
 
   for (double eta = 0.05; eta <= 0.49; eta += 0.05) {
-    std::println(std::cout, "{:>8.2f}{:>16.6f}{:>16.6f}{:>16.6f}",
-                 eta, cs.pressure(eta), pyv.pressure(eta), pyc.pressure(eta));
+    std::println(
+        std::cout,
+        "{:>8.2f}{:>16.6f}{:>16.6f}{:>16.6f}",
+        eta,
+        cs.pressure(eta),
+        pyv.pressure(eta),
+        pyc.pressure(eta)
+    );
   }
 
   // Thermodynamic consistency check.
@@ -52,33 +58,38 @@ int main() {
 
   for (double density = 0.1; density <= 0.8; density += 0.1) {
     double chi = hard_spheres::contact_value(hard_spheres::packing_fraction(density));
-    std::println(std::cout, "{:>8.1f}{:>14.6f}{:>14.6f}{:>14.6f}{:>14.6f}",
-                 density,
-                 hard_spheres::transport::shear_viscosity(density, chi),
-                 hard_spheres::transport::bulk_viscosity(density, chi),
-                 hard_spheres::transport::thermal_conductivity(density, chi),
-                 hard_spheres::transport::sound_damping(density, chi));
+    std::println(
+        std::cout,
+        "{:>8.1f}{:>14.6f}{:>14.6f}{:>14.6f}{:>14.6f}",
+        density,
+        hard_spheres::transport::shear_viscosity(density, chi),
+        hard_spheres::transport::bulk_viscosity(density, chi),
+        hard_spheres::transport::thermal_conductivity(density, chi),
+        hard_spheres::transport::sound_damping(density, chi)
+    );
   }
 
   // Equations of state (kT = 1.5).
 
   std::println(std::cout, "\n=== Equations of state (kT = 1.5) ===\n");
   double kT = 1.5;
-  auto ideal = eos::IdealGas{.kT = kT};
-  auto py_eos = eos::PercusYevick{.kT = kT};
+  auto ideal = eos::IdealGas{ .kT = kT };
+  auto py_eos = eos::PercusYevick{ .kT = kT };
   auto jzg = eos::make_lennard_jones_jzg(kT);
   auto mecke = eos::make_lennard_jones_mecke(kT);
 
-  std::println(std::cout, "{:>8s}{:>14s}{:>14s}{:>14s}{:>14s}",
-               "rho", ideal.NAME, py_eos.NAME, jzg.NAME, mecke.NAME);
+  std::println(std::cout, "{:>8s}{:>14s}{:>14s}{:>14s}{:>14s}", "rho", ideal.NAME, py_eos.NAME, jzg.NAME, mecke.NAME);
 
   for (double density = 0.05; density <= 0.8; density += 0.05) {
-    std::println(std::cout, "{:>8.2f}{:>14.6f}{:>14.6f}{:>14.6f}{:>14.6f}",
-                 density,
-                 ideal.pressure(density),
-                 py_eos.pressure(density),
-                 jzg.pressure(density),
-                 mecke.pressure(density));
+    std::println(
+        std::cout,
+        "{:>8.2f}{:>14.6f}{:>14.6f}{:>14.6f}{:>14.6f}",
+        density,
+        ideal.pressure(density),
+        py_eos.pressure(density),
+        jzg.pressure(density),
+        mecke.pressure(density)
+    );
   }
 
   // Collect plot data.

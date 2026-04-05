@@ -21,7 +21,7 @@ static constexpr double KT = 1.0;
 static constexpr double SIGMA = 1.0;
 static constexpr double EPSILON = 1.0;
 static constexpr double R_CUTOFF = 2.5;
-static const Grid GRID = Grid{.dx = DX, .box_size = {1.6, 1.6, 1.6}, .shape = {16, 16, 16}};
+static const Grid GRID = Grid{ .dx = DX, .box_size = { 1.6, 1.6, 1.6 }, .shape = { 16, 16, 16 } };
 static constexpr long N = 16 * 16 * 16;
 
 static auto make_lj() -> Potential {
@@ -34,7 +34,7 @@ static auto uniform_state(double rho0, int n_species = 1) -> State {
   for (int s = 0; s < n_species; ++s) {
     arma::vec rho(N, arma::fill::value(rho0));
     state.species.push_back(SpeciesState{
-        .density = Density{.values = rho, .external_field = arma::zeros(N)},
+        .density = Density{ .values = rho, .external_field = arma::zeros(N) },
         .force = arma::zeros(N),
     });
   }
@@ -45,7 +45,7 @@ static auto uniform_state(double rho0, int n_species = 1) -> State {
 
 TEST_CASE("make_mean_field_weights generates one weight per interaction", "[mean_field]") {
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = make_lj()},
+    { .species_i = 0, .species_j = 0, .potential = make_lj() },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   CHECK(w.interactions.size() == 1);
@@ -53,9 +53,9 @@ TEST_CASE("make_mean_field_weights generates one weight per interaction", "[mean
 
 TEST_CASE("make_mean_field_weights handles multiple interactions", "[mean_field]") {
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = make_lj()},
-      {.species_i = 0, .species_j = 1, .potential = make_lj()},
-      {.species_i = 1, .species_j = 1, .potential = make_lj()},
+    { .species_i = 0, .species_j = 0, .potential = make_lj() },
+    { .species_i = 0, .species_j = 1, .potential = make_lj() },
+    { .species_i = 1, .species_j = 1, .potential = make_lj() },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   CHECK(w.interactions.size() == 3);
@@ -63,7 +63,7 @@ TEST_CASE("make_mean_field_weights handles multiple interactions", "[mean_field]
 
 TEST_CASE("a_vdw is negative for attractive LJ tail", "[mean_field]") {
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = make_lj()},
+    { .species_i = 0, .species_j = 0, .potential = make_lj() },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   CHECK(w.interactions[0].a_vdw < 0.0);
@@ -80,7 +80,7 @@ TEST_CASE("a_vdw matches 2 * vdw_integral when potential fits the grid", "[mean_
   double a_continuous = 2.0 * pot.vdw_integral(KT, split);
 
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot, .split = split},
+    { .species_i = 0, .species_j = 0, .potential = pot, .split = split },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
 
@@ -92,9 +92,9 @@ TEST_CASE("a_vdw matches 2 * vdw_integral when potential fits the grid", "[mean_
 TEST_CASE("mean_field free energy is (1/2) a_vdw rho^2 V for uniform density", "[mean_field]") {
   double rho0 = 0.5;
   auto pot = make_lj();
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   auto state = uniform_state(rho0);
@@ -108,9 +108,9 @@ TEST_CASE("mean_field free energy is (1/2) a_vdw rho^2 V for uniform density", "
 
 TEST_CASE("mean_field free energy scales with rho squared", "[mean_field]") {
   auto pot = make_lj();
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
 
@@ -127,9 +127,9 @@ TEST_CASE("mean_field free energy scales with rho squared", "[mean_field]") {
 TEST_CASE("mean_field forces are uniform for uniform density", "[mean_field]") {
   double rho0 = 0.4;
   auto pot = make_lj();
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   auto state = uniform_state(rho0);
@@ -147,9 +147,9 @@ TEST_CASE("mean_field forces are uniform for uniform density", "[mean_field]") {
 TEST_CASE("uniform force equals a_vdw * rho * dV for self-interaction", "[mean_field]") {
   double rho0 = 0.4;
   auto pot = make_lj();
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   auto state = uniform_state(rho0);
@@ -165,9 +165,9 @@ TEST_CASE("uniform force equals a_vdw * rho * dV for self-interaction", "[mean_f
 
 TEST_CASE("mean_field returns zero for zero density", "[mean_field]") {
   auto pot = make_lj();
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   auto state = uniform_state(0.0);
@@ -185,11 +185,11 @@ TEST_CASE("mean_field handles cross-interaction in binary mixture", "[mean_field
   double rho_b = 0.2;
   auto pot = make_lj();
   std::vector<Species> species = {
-      {.name = "A", .hard_sphere_diameter = 1.0},
-      {.name = "B", .hard_sphere_diameter = 0.8},
+    { .name = "A", .hard_sphere_diameter = 1.0 },
+    { .name = "B", .hard_sphere_diameter = 0.8 },
   };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 1, .potential = pot},
+    { .species_i = 0, .species_j = 1, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
 
@@ -234,10 +234,10 @@ TEST_CASE("mean_field handles cross-interaction in binary mixture", "[mean_field
 TEST_CASE("InterpolationZero produces different weight than Linear", "[mean_field]") {
   auto pot = make_lj();
   std::vector<Interaction> inter_zero = {
-      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationZero},
+    { .species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationZero },
   };
   std::vector<Interaction> inter_linear = {
-      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationLinearF},
+    { .species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationLinearF },
   };
 
   auto w_zero = make_mean_field_weights(GRID, inter_zero, KT);
@@ -253,9 +253,9 @@ TEST_CASE("InterpolationZero produces different weight than Linear", "[mean_fiel
 
 TEST_CASE("mean_field weights are reusable across evaluations", "[mean_field]") {
   auto pot = make_lj();
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
 
@@ -270,11 +270,11 @@ TEST_CASE("mean_field weights are reusable across evaluations", "[mean_field]") 
 TEST_CASE("mean_field returns one force vector per species", "[mean_field]") {
   auto pot = make_lj();
   std::vector<Species> species = {
-      {.name = "A", .hard_sphere_diameter = 1.0},
-      {.name = "B", .hard_sphere_diameter = 0.8},
+    { .name = "A", .hard_sphere_diameter = 1.0 },
+    { .name = "B", .hard_sphere_diameter = 0.8 },
   };
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 1, .potential = pot},
+    { .species_i = 0, .species_j = 1, .potential = pot },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   auto state = uniform_state(0.3, 2);
@@ -289,7 +289,7 @@ TEST_CASE("mean_field returns one force vector per species", "[mean_field]") {
 TEST_CASE("QuadraticF weight scheme produces valid a_vdw", "[mean_field]") {
   auto pot = make_lj();
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationQuadraticF},
+    { .species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::InterpolationQuadraticF },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   CHECK(w.interactions[0].a_vdw < 0.0);
@@ -298,7 +298,7 @@ TEST_CASE("QuadraticF weight scheme produces valid a_vdw", "[mean_field]") {
 TEST_CASE("GaussE weight scheme produces valid a_vdw", "[mean_field]") {
   auto pot = make_lj();
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::GaussE},
+    { .species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::GaussE },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   CHECK(w.interactions[0].a_vdw < 0.0);
@@ -307,7 +307,7 @@ TEST_CASE("GaussE weight scheme produces valid a_vdw", "[mean_field]") {
 TEST_CASE("GaussF weight scheme produces valid a_vdw", "[mean_field]") {
   auto pot = make_lj();
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::GaussF},
+    { .species_i = 0, .species_j = 0, .potential = pot, .weight_scheme = WeightScheme::GaussF },
   };
   auto w = make_mean_field_weights(GRID, interactions, KT);
   CHECK(w.interactions[0].a_vdw < 0.0);

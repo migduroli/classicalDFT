@@ -87,10 +87,10 @@ int main() {
   check("WHDF Vmin", our_whdf.v_min, jim_whdf.Vmin);
   check("WHDF hard_core", pot::hard_core_diameter(pwhdf), jim_whdf.getHardCore());
 
-  std::cout << "  LJ:   shift=" << our_lj.epsilon_shift << " rmin=" << our_lj.r_min
-            << " Vmin=" << our_lj.v_min << " r0=" << our_lj.r_zero << "\n";
-  std::cout << "  tWF:  shift=" << our_twf.epsilon_shift << " rmin=" << our_twf.r_min
-            << " Vmin=" << our_twf.v_min << " r0=" << our_twf.r_zero << "\n";
+  std::cout << "  LJ:   shift=" << our_lj.epsilon_shift << " rmin=" << our_lj.r_min << " Vmin=" << our_lj.v_min
+            << " r0=" << our_lj.r_zero << "\n";
+  std::cout << "  tWF:  shift=" << our_twf.epsilon_shift << " rmin=" << our_twf.r_min << " Vmin=" << our_twf.v_min
+            << " r0=" << our_twf.r_zero << "\n";
   std::cout << "  WHDF: eps_eff=" << our_whdf.epsilon_effective << " rmin=" << our_whdf.r_min
             << " Vmin=" << our_whdf.v_min << "\n";
 
@@ -265,22 +265,22 @@ int main() {
 
   section("Step 7: Hard-sphere diameter HSD(kT) [WCA]");
 
-  std::vector<double> temperatures = {0.5, 0.7, 1.0, 1.5, 2.0, 5.0};
+  std::vector<double> temperatures = { 0.5, 0.7, 1.0, 1.5, 2.0, 5.0 };
 
   for (double kT : temperatures) {
     double our_d = plj.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_d = legacy::potentials::getHSD(jim_lj, kT);
     check("LJ HSD(kT=" + std::to_string(kT) + ")", our_d, jim_d, 1e-6);
-    std::cout << "  LJ  HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d
-              << " diff=" << std::abs(our_d - jim_d) << "\n";
+    std::cout << "  LJ  HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d << " diff=" << std::abs(our_d - jim_d)
+              << "\n";
   }
 
   for (double kT : temperatures) {
     double our_d = ptwf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_d = legacy::potentials::getHSD(jim_twf, kT);
     check("tWF HSD(kT=" + std::to_string(kT) + ")", our_d, jim_d, 1e-6);
-    std::cout << "  tWF HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d
-              << " diff=" << std::abs(our_d - jim_d) << "\n";
+    std::cout << "  tWF HSD(kT=" << kT << "): ours=" << our_d << " jim=" << jim_d << " diff=" << std::abs(our_d - jim_d)
+              << "\n";
   }
 
   for (double kT : temperatures) {

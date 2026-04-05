@@ -9,21 +9,21 @@ using namespace dft::algorithms::solvers;
 // Unit circle: x^2 + lambda^2 - 1 = 0
 // The curve is the unit circle parametrized by arclength.
 static auto circle_residual(const arma::vec& x, double lambda) -> arma::vec {
-  return arma::vec{x(0) * x(0) + lambda * lambda - 1.0};
+  return arma::vec{ x(0) * x(0) + lambda * lambda - 1.0 };
 }
 
 TEST_CASE("continuation step advances along unit circle", "[continuation]") {
   // Start at (x=0, lambda=1) with tangent along +x direction
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.1,
-      .newton = {.max_iterations = 50, .tolerance = 1e-12},
+    .initial_step = 0.1,
+    .newton = { .max_iterations = 50, .tolerance = 1e-12 },
   };
 
   auto next = config.step(start, circle_residual, 0.1);
@@ -42,19 +42,19 @@ TEST_CASE("continuation step advances along unit circle", "[continuation]") {
 TEST_CASE("continuation traces quarter circle", "[continuation]") {
   // Start at (0, 1), trace to (1, 0) — a quarter of the unit circle.
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.05,
-      .max_step = 0.2,
-      .min_step = 1e-4,
-      .growth_factor = 1.2,
-      .shrink_factor = 0.5,
-      .newton = {.max_iterations = 50, .tolerance = 1e-10},
+    .initial_step = 0.05,
+    .max_step = 0.2,
+    .min_step = 1e-4,
+    .growth_factor = 1.2,
+    .shrink_factor = 0.5,
+    .newton = { .max_iterations = 50, .tolerance = 1e-10 },
   };
 
   auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.lambda < 0.05; });
@@ -76,24 +76,24 @@ TEST_CASE("continuation handles turning point on folded cubic", "[continuation]"
   // Folded curve: lambda - x^3 + x = 0, which has a turning point.
   // Rewritten: R(x, lambda) = lambda - x^3 + x = 0
   auto cubic_residual = [](const arma::vec& x, double lambda) -> arma::vec {
-    return arma::vec{lambda - x(0) * x(0) * x(0) + x(0)};
+    return arma::vec{ lambda - x(0) * x(0) * x(0) + x(0) };
   };
 
   // Start at (x=0, lambda=0) with tangent dx/ds = 0, dlambda/ds = 1
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 0.0,
-      .dx_ds = arma::vec{0.0},
-      .dlambda_ds = 1.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 0.0,
+    .dx_ds = arma::vec{ 0.0 },
+    .dlambda_ds = 1.0,
   };
 
   Continuation config{
-      .initial_step = 0.05,
-      .max_step = 0.1,
-      .min_step = 1e-4,
-      .growth_factor = 1.1,
-      .shrink_factor = 0.5,
-      .newton = {.max_iterations = 50, .tolerance = 1e-10},
+    .initial_step = 0.05,
+    .max_step = 0.1,
+    .min_step = 1e-4,
+    .growth_factor = 1.1,
+    .shrink_factor = 0.5,
+    .newton = { .max_iterations = 50, .tolerance = 1e-10 },
   };
 
   // Trace until lambda starts decreasing (past the turning point)
@@ -122,19 +122,19 @@ TEST_CASE("continuation handles turning point on folded cubic", "[continuation]"
 TEST_CASE("continuation step returns nullopt for impossible step", "[continuation]") {
   // Trivial residual that has no solution for lambda != 0
   auto bad_residual = [](const arma::vec& x, double lambda) -> arma::vec {
-    return arma::vec{x(0) * x(0) + lambda * lambda + 1.0};
+    return arma::vec{ x(0) * x(0) + lambda * lambda + 1.0 };
   };
 
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 0.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 0.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.1,
-      .newton = {.max_iterations = 10, .tolerance = 1e-12},
+    .initial_step = 0.1,
+    .newton = { .max_iterations = 10, .tolerance = 1e-12 },
   };
 
   auto next = config.step(start, bad_residual, 0.1);
@@ -146,19 +146,19 @@ TEST_CASE("trace shrinks step on failed steps and continues", "[continuation]") 
   // R(x, lambda) = x^2 + lambda^2 - 1 (unit circle) with a very strict
   // newton tolerance so that large steps fail, forcing shrinkage.
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.5,
-      .max_step = 0.5,
-      .min_step = 0.01,
-      .growth_factor = 1.1,
-      .shrink_factor = 0.5,
-      .newton = {.max_iterations = 3, .tolerance = 1e-14},
+    .initial_step = 0.5,
+    .max_step = 0.5,
+    .min_step = 0.01,
+    .growth_factor = 1.1,
+    .shrink_factor = 0.5,
+    .newton = { .max_iterations = 3, .tolerance = 1e-14 },
   };
 
   auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.x(0) > 0.5; });
@@ -172,23 +172,23 @@ TEST_CASE("trace shrinks step on failed steps and continues", "[continuation]") 
 
 TEST_CASE("trace returns start point when all steps fail", "[continuation]") {
   auto bad_residual = [](const arma::vec& x, double lambda) -> arma::vec {
-    return arma::vec{x(0) * x(0) + lambda * lambda + 1.0};
+    return arma::vec{ x(0) * x(0) + lambda * lambda + 1.0 };
   };
 
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 0.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 0.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.1,
-      .max_step = 0.1,
-      .min_step = 0.01,
-      .growth_factor = 1.1,
-      .shrink_factor = 0.5,
-      .newton = {.max_iterations = 5, .tolerance = 1e-12},
+    .initial_step = 0.1,
+    .max_step = 0.1,
+    .min_step = 0.01,
+    .growth_factor = 1.1,
+    .shrink_factor = 0.5,
+    .newton = { .max_iterations = 5, .tolerance = 1e-12 },
   };
 
   auto curve = config.trace(start, bad_residual);
@@ -204,21 +204,21 @@ TEST_CASE("trace catches exceptions in step and returns curve so far", "[continu
     if (call_count > 3) {
       throw std::runtime_error("deliberate failure");
     }
-    return arma::vec{x(0) * x(0) + lambda * lambda - 1.0};
+    return arma::vec{ x(0) * x(0) + lambda * lambda - 1.0 };
   };
 
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.05,
-      .max_step = 0.1,
-      .min_step = 0.01,
-      .newton = {.max_iterations = 50, .tolerance = 1e-10},
+    .initial_step = 0.05,
+    .max_step = 0.1,
+    .min_step = 0.01,
+    .newton = { .max_iterations = 50, .tolerance = 1e-10 },
   };
 
   auto curve = config.trace(start, throwing_residual);
@@ -229,19 +229,19 @@ TEST_CASE("trace catches exceptions in step and returns curve so far", "[continu
 
 TEST_CASE("trace grows step after successful steps", "[continuation]") {
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   Continuation config{
-      .initial_step = 0.01,
-      .max_step = 0.5,
-      .min_step = 1e-4,
-      .growth_factor = 2.0,
-      .shrink_factor = 0.5,
-      .newton = {.max_iterations = 50, .tolerance = 1e-10},
+    .initial_step = 0.01,
+    .max_step = 0.5,
+    .min_step = 1e-4,
+    .growth_factor = 2.0,
+    .shrink_factor = 0.5,
+    .newton = { .max_iterations = 50, .tolerance = 1e-10 },
   };
 
   auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.x(0) > 0.3; });
@@ -254,16 +254,15 @@ TEST_CASE("trace grows step after successful steps", "[continuation]") {
 
 TEST_CASE("matrix-free continuation step advances along unit circle", "[continuation]") {
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   MatrixFreeContinuation config{
-      .initial_step = 0.1,
-      .newton = {.max_iterations = 50, .tolerance = 1e-10,
-                 .gmres = {.tolerance = 1e-12}},
+    .initial_step = 0.1,
+    .newton = { .max_iterations = 50, .tolerance = 1e-10, .gmres = { .tolerance = 1e-12 } },
   };
 
   auto next = config.step(start, circle_residual, 0.1);
@@ -278,18 +277,17 @@ TEST_CASE("matrix-free continuation step advances along unit circle", "[continua
 
 TEST_CASE("matrix-free continuation traces quarter circle", "[continuation]") {
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 1.0,
-      .dx_ds = arma::vec{1.0},
-      .dlambda_ds = 0.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 1.0,
+    .dx_ds = arma::vec{ 1.0 },
+    .dlambda_ds = 0.0,
   };
 
   MatrixFreeContinuation config{
-      .initial_step = 0.05,
-      .max_step = 0.2,
-      .min_step = 1e-4,
-      .newton = {.max_iterations = 50, .tolerance = 1e-8,
-                 .gmres = {.tolerance = 1e-10}},
+    .initial_step = 0.05,
+    .max_step = 0.2,
+    .min_step = 1e-4,
+    .newton = { .max_iterations = 50, .tolerance = 1e-8, .gmres = { .tolerance = 1e-10 } },
   };
 
   auto curve = config.trace(start, circle_residual, [](const CurvePoint& p) { return p.lambda < 0.05; });
@@ -306,22 +304,21 @@ TEST_CASE("matrix-free continuation traces quarter circle", "[continuation]") {
 
 TEST_CASE("matrix-free continuation handles turning point", "[continuation]") {
   auto cubic_residual = [](const arma::vec& x, double lambda) -> arma::vec {
-    return arma::vec{lambda - x(0) * x(0) * x(0) + x(0)};
+    return arma::vec{ lambda - x(0) * x(0) * x(0) + x(0) };
   };
 
   CurvePoint start{
-      .x = arma::vec{0.0},
-      .lambda = 0.0,
-      .dx_ds = arma::vec{0.0},
-      .dlambda_ds = 1.0,
+    .x = arma::vec{ 0.0 },
+    .lambda = 0.0,
+    .dx_ds = arma::vec{ 0.0 },
+    .dlambda_ds = 1.0,
   };
 
   MatrixFreeContinuation config{
-      .initial_step = 0.05,
-      .max_step = 0.1,
-      .min_step = 1e-4,
-      .newton = {.max_iterations = 50, .tolerance = 1e-8,
-                 .gmres = {.tolerance = 1e-10}},
+    .initial_step = 0.05,
+    .max_step = 0.1,
+    .min_step = 1e-4,
+    .newton = { .max_iterations = 50, .tolerance = 1e-8, .gmres = { .tolerance = 1e-10 } },
   };
 
   double prev_lambda = start.lambda;

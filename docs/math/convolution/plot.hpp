@@ -18,10 +18,16 @@ namespace plot {
       namespace plt = matplotlibcpp;
       plt::figure_size(800, 500);
 
-      plt::plot(x, analytical,
-                {{"color", "#656775"}, {"linewidth", "2.0"}, {"label", R"(Analytical $g * g$)"}});
-      plt::plot(x, numerical,
-                {{"color", "#008080"}, {"linewidth", "1.5"}, {"linestyle", "--"}, {"label", "FFT convolution"}});
+      plt::plot(
+          x,
+          analytical,
+          { { "color", "#656775" }, { "linewidth", "2.0" }, { "label", R"(Analytical $g * g$)" } }
+      );
+      plt::plot(
+          x,
+          numerical,
+          { { "color", "#008080" }, { "linewidth", "1.5" }, { "linestyle", "--" }, { "label", "FFT convolution" } }
+      );
 
       plt::xlabel(R"($x$)");
       plt::ylabel(R"($(g * g)(x)$)");

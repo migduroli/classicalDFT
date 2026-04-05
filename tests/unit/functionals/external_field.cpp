@@ -10,11 +10,11 @@ static auto make_state_with_field(double rho_val, double vext_val, long n, doubl
   arma::vec rho(n, arma::fill::value(rho_val));
   arma::vec vext(n, arma::fill::value(vext_val));
   return State{
-      .species = {SpeciesState{
-          .density = Density{.values = rho, .external_field = vext},
-          .force = arma::vec(n, arma::fill::zeros),
-      }},
-      .temperature = kT,
+    .species = { SpeciesState{
+        .density = Density{ .values = rho, .external_field = vext },
+        .force = arma::vec(n, arma::fill::zeros),
+    } },
+    .temperature = kT,
   };
 }
 
@@ -23,7 +23,7 @@ static auto make_state_with_field(double rho_val, double vext_val, long n, doubl
 TEST_CASE("external field energy for uniform density and field", "[functionals][external_field]") {
   double rho = 0.5;
   double vext = 3.0;
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   auto state = make_state_with_field(rho, vext, grid.total_points(), 1.0);
 
   auto result = external_field(grid, state);
@@ -34,7 +34,7 @@ TEST_CASE("external field energy for uniform density and field", "[functionals][
 }
 
 TEST_CASE("external field energy is zero when field is zero", "[functionals][external_field]") {
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   auto state = make_state_with_field(0.8, 0.0, grid.total_points(), 1.0);
 
   auto result = external_field(grid, state);
@@ -43,7 +43,7 @@ TEST_CASE("external field energy is zero when field is zero", "[functionals][ext
 
 TEST_CASE("external field force is V_ext times dV", "[functionals][external_field]") {
   double vext = 2.5;
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   auto state = make_state_with_field(0.5, vext, grid.total_points(), 1.0);
 
   auto result = external_field(grid, state);
@@ -52,18 +52,18 @@ TEST_CASE("external field force is V_ext times dV", "[functionals][external_fiel
 }
 
 TEST_CASE("external field handles non-uniform field", "[functionals][external_field]") {
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   long n = grid.total_points();
   arma::vec rho(n, arma::fill::ones);
   arma::vec vext = arma::linspace(0.0, 1.0, n);
   arma::vec force(n, arma::fill::zeros);
 
   State state{
-      .species = {SpeciesState{
-          .density = {.values = rho, .external_field = vext},
-          .force = force,
-      }},
-      .temperature = 1.0,
+    .species = { SpeciesState{
+        .density = { .values = rho, .external_field = vext },
+        .force = force,
+    } },
+    .temperature = 1.0,
   };
 
   auto result = external_field(grid, state);
@@ -73,7 +73,7 @@ TEST_CASE("external field handles non-uniform field", "[functionals][external_fi
 }
 
 TEST_CASE("external field handles multiple species", "[functionals][external_field]") {
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   long n = grid.total_points();
   arma::vec rho1(n, arma::fill::value(0.3));
   arma::vec rho2(n, arma::fill::value(0.6));

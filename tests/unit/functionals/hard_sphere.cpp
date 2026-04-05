@@ -16,32 +16,32 @@ using dft::State;
 
 static constexpr double DX = 0.1;
 static constexpr double DIAMETER = 1.0;
-static const Grid GRID = Grid{.dx = DX, .box_size = {1.6, 1.6, 1.6}, .shape = {16, 16, 16}};
+static const Grid GRID = Grid{ .dx = DX, .box_size = { 1.6, 1.6, 1.6 }, .shape = { 16, 16, 16 } };
 static constexpr long N = 16 * 16 * 16;
 
 static auto uniform_state(double rho0, double kT = 1.0) -> State {
   arma::vec rho(N, arma::fill::value(rho0));
   return State{
-      .species = {SpeciesState{
-          .density = Density{.values = rho, .external_field = arma::zeros(N)},
-          .force = arma::zeros(N),
-      }},
-      .temperature = kT,
+    .species = { SpeciesState{
+        .density = Density{ .values = rho, .external_field = arma::zeros(N) },
+        .force = arma::zeros(N),
+    } },
+    .temperature = kT,
   };
 }
 
 // Workspace allocation
 
 TEST_CASE("make_fmt_weights generates one WeightSet per species", "[fmt][hard_sphere]") {
-  std::vector<Species> species = {{.name = "A", .hard_sphere_diameter = 1.0}};
+  std::vector<Species> species = { { .name = "A", .hard_sphere_diameter = 1.0 } };
   auto w = make_fmt_weights(GRID, species);
   CHECK(w.per_species.size() == 1);
 }
 
 TEST_CASE("make_fmt_weights handles multiple species", "[fmt][hard_sphere]") {
   std::vector<Species> species = {
-      {.name = "A", .hard_sphere_diameter = 1.0},
-      {.name = "B", .hard_sphere_diameter = 0.8},
+    { .name = "A", .hard_sphere_diameter = 1.0 },
+    { .name = "B", .hard_sphere_diameter = 0.8 },
   };
   auto w = make_fmt_weights(GRID, species);
   CHECK(w.per_species.size() == 2);
@@ -52,7 +52,7 @@ TEST_CASE("make_fmt_weights handles multiple species", "[fmt][hard_sphere]") {
 TEST_CASE("hard_sphere free energy matches bulk for Rosenfeld", "[fmt][hard_sphere]") {
   double rho0 = 0.5;
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -68,7 +68,7 @@ TEST_CASE("hard_sphere free energy matches bulk for Rosenfeld", "[fmt][hard_sphe
 TEST_CASE("hard_sphere free energy matches bulk for WhiteBearII", "[fmt][hard_sphere]") {
   double rho0 = 0.5;
   FMTModel model = WhiteBearII{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -84,7 +84,7 @@ TEST_CASE("hard_sphere free energy matches bulk for WhiteBearII", "[fmt][hard_sp
 TEST_CASE("hard_sphere free energy matches bulk for RSLT", "[fmt][hard_sphere]") {
   double rho0 = 0.5;
   FMTModel model = RSLT{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -100,7 +100,7 @@ TEST_CASE("hard_sphere free energy matches bulk for RSLT", "[fmt][hard_sphere]")
 TEST_CASE("hard_sphere free energy matches bulk for WhiteBearI", "[fmt][hard_sphere]") {
   double rho0 = 0.5;
   FMTModel model = WhiteBearI{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -118,7 +118,7 @@ TEST_CASE("hard_sphere free energy matches bulk for WhiteBearI", "[fmt][hard_sph
 TEST_CASE("hard_sphere forces are uniform for uniform density", "[fmt][hard_sphere]") {
   double rho0 = 0.4;
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -135,7 +135,7 @@ TEST_CASE("hard_sphere forces are uniform for uniform density", "[fmt][hard_sphe
 TEST_CASE("uniform force equals excess_chemical_potential * dV for Rosenfeld", "[fmt][hard_sphere]") {
   double rho0 = 0.4;
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -150,7 +150,7 @@ TEST_CASE("uniform force equals excess_chemical_potential * dV for Rosenfeld", "
 TEST_CASE("uniform force equals excess_chemical_potential * dV for WhiteBearII", "[fmt][hard_sphere]") {
   double rho0 = 0.4;
   FMTModel model = WhiteBearII{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 
@@ -166,7 +166,7 @@ TEST_CASE("uniform force equals excess_chemical_potential * dV for WhiteBearII",
 
 TEST_CASE("hard_sphere free energy increases with density", "[fmt][hard_sphere]") {
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
 
   auto result_low = hard_sphere(model, GRID, uniform_state(0.2), species, w);
@@ -179,7 +179,7 @@ TEST_CASE("hard_sphere free energy increases with density", "[fmt][hard_sphere]"
 
 TEST_CASE("hard_sphere returns zero for zero density", "[fmt][hard_sphere]") {
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(0.0);
 
@@ -193,7 +193,7 @@ TEST_CASE("hard_sphere returns zero for zero density", "[fmt][hard_sphere]") {
 
 TEST_CASE("hard_sphere returns one force vector per species", "[fmt][hard_sphere]") {
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(0.5);
 
@@ -210,8 +210,8 @@ TEST_CASE("hard_sphere handles binary mixture", "[fmt][hard_sphere]") {
   double rho_b = 0.2;
   FMTModel model = Rosenfeld{};
   std::vector<Species> species = {
-      {.name = "A", .hard_sphere_diameter = 1.0},
-      {.name = "B", .hard_sphere_diameter = 0.8},
+    { .name = "A", .hard_sphere_diameter = 1.0 },
+    { .name = "B", .hard_sphere_diameter = 0.8 },
   };
   auto w = make_fmt_weights(GRID, species);
 
@@ -251,7 +251,7 @@ TEST_CASE("hard_sphere handles binary mixture", "[fmt][hard_sphere]") {
 
 TEST_CASE("weights are reusable across evaluations", "[fmt][hard_sphere]") {
   FMTModel model = Rosenfeld{};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
 
   auto result1 = hard_sphere(model, GRID, uniform_state(0.4), species, w);
@@ -262,8 +262,8 @@ TEST_CASE("weights are reusable across evaluations", "[fmt][hard_sphere]") {
 
 TEST_CASE("hard_sphere free energy matches bulk for EsFMT", "[fmt][hard_sphere]") {
   double rho0 = 0.5;
-  FMTModel model = EsFMT{.A = 1.0, .B = 0.0};
-  std::vector<Species> species = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+  FMTModel model = EsFMT{ .A = 1.0, .B = 0.0 };
+  std::vector<Species> species = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
   auto w = make_fmt_weights(GRID, species);
   auto state = uniform_state(rho0);
 

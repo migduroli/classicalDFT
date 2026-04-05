@@ -63,10 +63,18 @@ int main() {
       for (int iz = -Nx_lim - 1; iz <= Nx_lim + 1; ++iz) {
         double r2_approx = (ix * ix + iy * iy + iz * iz) * dx * dx;
         double r_check = rcut + std::sqrt(3.0) * 0.5 * dx;
-        if (r2_approx > r_check * r_check) continue;
+        if (r2_approx > r_check * r_check)
+          continue;
 
         double our_w = functionals::detail::cell_weight_quadratic_f(
-            plj, pot::SplitScheme::WeeksChandlerAndersen, kT, dx, ix, iy, iz);
+            plj,
+            pot::SplitScheme::WeeksChandlerAndersen,
+            kT,
+            dx,
+            ix,
+            iy,
+            iz
+        );
         double jim_w = legacy::interactions::generate_weight_QF(sigma, eps, rcut, ix, iy, iz, dx) / kT;
 
         double diff = std::abs(our_w - jim_w);
@@ -93,10 +101,18 @@ int main() {
       for (int iz = -Nx_lim - 1; iz <= Nx_lim + 1; ++iz) {
         double r2_approx = (ix * ix + iy * iy + iz * iz) * dx * dx;
         double r_check = rcut + std::sqrt(3.0) * 0.5 * dx;
-        if (r2_approx > r_check * r_check) continue;
+        if (r2_approx > r_check * r_check)
+          continue;
 
         double our_w = functionals::detail::cell_weight_quadratic_f(
-            plj, pot::SplitScheme::WeeksChandlerAndersen, kT, dx, ix, iy, iz);
+            plj,
+            pot::SplitScheme::WeeksChandlerAndersen,
+            kT,
+            dx,
+            ix,
+            iy,
+            iz
+        );
         double jim_w = legacy::interactions::generate_weight_QF(sigma, eps, rcut, ix, iy, iz, dx) / kT;
 
         double diff = std::abs(our_w - jim_w);
@@ -113,7 +129,7 @@ int main() {
 
   section("Step 3: Grid a_vdw at multiple dx values");
 
-  std::vector<double> grid_sizes = {0.5, 0.4, 0.3, 0.2, 0.1};
+  std::vector<double> grid_sizes = { 0.5, 0.4, 0.3, 0.2, 0.1 };
   int N_grid = 32;
 
   for (double dx_val : grid_sizes) {
@@ -128,10 +144,18 @@ int main() {
       for (int iy = -lim - 1; iy <= lim + 1; ++iy) {
         for (int iz = -lim - 1; iz <= lim + 1; ++iz) {
           double r2_approx = (ix * ix + iy * iy + iz * iz) * dx_val * dx_val;
-          if (r2_approx > r_check * r_check) continue;
+          if (r2_approx > r_check * r_check)
+            continue;
 
           double our_w = functionals::detail::cell_weight_quadratic_f(
-              plj, pot::SplitScheme::WeeksChandlerAndersen, kT, dx_val, ix, iy, iz);
+              plj,
+              pot::SplitScheme::WeeksChandlerAndersen,
+              kT,
+              dx_val,
+              ix,
+              iy,
+              iz
+          );
           our_avdw += our_w * dv;
 
           double jim_w = legacy::interactions::generate_weight_QF(sigma, eps, rcut, ix, iy, iz, dx_val);

@@ -1,6 +1,6 @@
 #include "dft.hpp"
-#include "legacy/classicaldft.hpp"
 #include "legacy/algorithms.hpp"
+#include "legacy/classicaldft.hpp"
 #include "plot.hpp"
 #include "utils.hpp"
 
@@ -45,15 +45,15 @@ int main() {
   // Step 0: Parameters — identical to Jim's Droplet/LJ/M103/T0.8/input.dat
   // ================================================================
 
-  double sigma = config::get<double>(cfg, "model.sigma");     // 1.0
+  double sigma = config::get<double>(cfg, "model.sigma");      // 1.0
   double epsilon = config::get<double>(cfg, "model.epsilon");  // 1.0
   double rcut = config::get<double>(cfg, "model.cutoff");      // 3.0
   double kT = config::get<double>(cfg, "model.temperature");   // 0.8
   double dx = config::get<double>(cfg, "model.dx");
-  double box_length = config::get<double>(cfg, "model.box_length");  // 12.8
-  double rho_in = config::get<double>(cfg, "droplet.density_inside");  // 0.75
+  double box_length = config::get<double>(cfg, "model.box_length");      // 12.8
+  double rho_in = config::get<double>(cfg, "droplet.density_inside");    // 0.75
   double rho_out = config::get<double>(cfg, "droplet.density_outside");  // 0.0095
-  double R0 = config::get<double>(cfg, "droplet.radius");  // 3.0
+  double R0 = config::get<double>(cfg, "droplet.radius");                // 3.0
 
   std::cout << "================================================================\n";
   std::cout << "  SYSTEMATIC COMPARISON: our code vs Jim's code\n";
@@ -88,24 +88,24 @@ int main() {
 
   // Test V(r) at several points
   std::cout << "  V(r) comparison:\n";
-  std::cout << "  " << std::setw(8) << "r" << std::setw(20) << "Jim V(r)"
-            << std::setw(20) << "Ours V(r)" << std::setw(15) << "diff\n";
-  for (double r : {0.9, 1.0, 1.05, 1.1, 1.12246, 1.5, 2.0, 2.5, 2.9, 3.0}) {
+  std::cout << "  " << std::setw(8) << "r" << std::setw(20) << "Jim V(r)" << std::setw(20) << "Ours V(r)"
+            << std::setw(15) << "diff\n";
+  for (double r : { 0.9, 1.0, 1.05, 1.1, 1.12246, 1.5, 2.0, 2.5, 2.9, 3.0 }) {
     double vj = legacy::potentials::V(jim_lj, r);
     double vo = our_lj.energy(r);
-    std::cout << "  " << std::setw(8) << r << std::setw(20) << vj
-              << std::setw(20) << vo << std::setw(15) << (vj - vo) << "\n";
+    std::cout << "  " << std::setw(8) << r << std::setw(20) << vj << std::setw(20) << vo << std::setw(15) << (vj - vo)
+              << "\n";
   }
 
   // Test Watt(r)
   std::cout << "\n  Watt(r) = attractive tail comparison:\n";
-  std::cout << "  " << std::setw(8) << "r" << std::setw(20) << "Jim Watt(r)"
-            << std::setw(20) << "Ours att(r)" << std::setw(15) << "diff\n";
-  for (double r : {0.5, 0.9, 1.0, 1.12246, 1.2, 1.5, 2.0, 2.5, 2.9, 3.0, 3.1}) {
+  std::cout << "  " << std::setw(8) << "r" << std::setw(20) << "Jim Watt(r)" << std::setw(20) << "Ours att(r)"
+            << std::setw(15) << "diff\n";
+  for (double r : { 0.5, 0.9, 1.0, 1.12246, 1.2, 1.5, 2.0, 2.5, 2.9, 3.0, 3.1 }) {
     double wj = legacy::potentials::Watt(jim_lj, r);
     double wo = our_lj.attractive(r, physics::potentials::SplitScheme::WeeksChandlerAndersen);
-    std::cout << "  " << std::setw(8) << r << std::setw(20) << wj
-              << std::setw(20) << wo << std::setw(15) << (wj - wo) << "\n";
+    std::cout << "  " << std::setw(8) << r << std::setw(20) << wj << std::setw(20) << wo << std::setw(15) << (wj - wo)
+              << "\n";
   }
 
   // ================================================================
@@ -160,31 +160,34 @@ int main() {
   std::cout << "  Jim QF:  nonzero points     = " << jim_wt.n_nonzero << "\n";
 
   // Our code's grid a_vdw — generate using our make_mean_field_weights
-  auto model_grid = make_grid(dx, {box_length, box_length, box_length});
+  auto model_grid = make_grid(dx, { box_length, box_length, box_length });
   auto potential_obj = physics::potentials::make_lennard_jones(sigma, epsilon, rcut);
 
   // Use InterpolationQuadraticF (Jim's QF scheme — 27-point)
-  physics::Interaction inter_QF{
-      .species_i = 0, .species_j = 0, .potential = potential_obj,
-      .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      .weight_scheme = physics::WeightScheme::InterpolationQuadraticF};
-  auto mf_QF = functionals::make_mean_field_weights(model_grid, {inter_QF}, kT);
+  physics::Interaction inter_QF{ .species_i = 0,
+                                 .species_j = 0,
+                                 .potential = potential_obj,
+                                 .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+                                 .weight_scheme = physics::WeightScheme::InterpolationQuadraticF };
+  auto mf_QF = functionals::make_mean_field_weights(model_grid, { inter_QF }, kT);
   std::cout << "  Ours QF: a_vdw (grid)       = " << mf_QF.interactions[0].a_vdw << "\n";
 
   // Use InterpolationLinearF (our old default)
-  physics::Interaction inter_LF{
-      .species_i = 0, .species_j = 0, .potential = potential_obj,
-      .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      .weight_scheme = physics::WeightScheme::InterpolationLinearF};
-  auto mf_LF = functionals::make_mean_field_weights(model_grid, {inter_LF}, kT);
+  physics::Interaction inter_LF{ .species_i = 0,
+                                 .species_j = 0,
+                                 .potential = potential_obj,
+                                 .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+                                 .weight_scheme = physics::WeightScheme::InterpolationLinearF };
+  auto mf_LF = functionals::make_mean_field_weights(model_grid, { inter_LF }, kT);
   std::cout << "  Ours LF: a_vdw (grid)       = " << mf_LF.interactions[0].a_vdw << "\n";
 
   // Use InterpolationZero (point evaluation at cell center)
-  physics::Interaction inter_Z{
-      .species_i = 0, .species_j = 0, .potential = potential_obj,
-      .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      .weight_scheme = physics::WeightScheme::InterpolationZero};
-  auto mf_Z = functionals::make_mean_field_weights(model_grid, {inter_Z}, kT);
+  physics::Interaction inter_Z{ .species_i = 0,
+                                .species_j = 0,
+                                .potential = potential_obj,
+                                .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+                                .weight_scheme = physics::WeightScheme::InterpolationZero };
+  auto mf_Z = functionals::make_mean_field_weights(model_grid, { inter_Z }, kT);
   std::cout << "  Ours Z:  a_vdw (grid)       = " << mf_Z.interactions[0].a_vdw << "\n";
 
   std::cout << "\n  NOTE: Jim uses QF (27-point), we use LF (8-point). These differ!\n";
@@ -200,31 +203,30 @@ int main() {
 
   // Build model with current (LF) scheme and with QF a_vdw
   physics::Model model{
-      .grid = model_grid,
-      .species = {Species{.name = "LJ", .hard_sphere_diameter = hsd_ours}},
-      .interactions = {{
-          .species_i = 0, .species_j = 0, .potential = potential_obj,
-          .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-          .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
-      }},
-      .temperature = kT,
+    .grid = model_grid,
+    .species = { Species{ .name = "LJ", .hard_sphere_diameter = hsd_ours } },
+    .interactions = { {
+        .species_i = 0,
+        .species_j = 0,
+        .potential = potential_obj,
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+        .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
+    } },
+    .temperature = kT,
   };
 
   // Build bulk weights using the GRID a_vdw, not the analytical integral.
   // Jim uses his grid a_vdw for ALL bulk thermodynamics (mu, pressure,
   // coexistence).  The analytical value differs at coarse dx.
-  auto bulk_weights = functionals::make_bulk_weights(
-      functionals::fmt::RSLT{}, model.interactions, kT);
+  auto bulk_weights = functionals::make_bulk_weights(functionals::fmt::RSLT{}, model.interactions, kT);
 
   double analytical_a_vdw = bulk_weights.mean_field.interactions[0].a_vdw;
   // Override with grid a_vdw from the QF weight generation:
   bulk_weights.mean_field.interactions[0].a_vdw = mf_QF.interactions[0].a_vdw;
 
-  auto eos = functionals::bulk::make_bulk_thermodynamics(
-      model.species, bulk_weights
-  );
+  auto eos = functionals::bulk::make_bulk_thermodynamics(model.species, bulk_weights);
 
-  double mu_rho_out = eos.chemical_potential(arma::vec{rho_out}, 0);
+  double mu_rho_out = eos.chemical_potential(arma::vec{ rho_out }, 0);
   std::cout << "  mu(rho_out=" << rho_out << ") = " << mu_rho_out << "\n";
 
   std::cout << "  analytical a_vdw = " << analytical_a_vdw << "\n";
@@ -236,8 +238,8 @@ int main() {
   double prev_dp_test = 0;
   for (double rho_test = 0.005; rho_test < 0.7; rho_test += 0.005) {
     double h = 1e-7;
-    double p_plus = eos.pressure(arma::vec{rho_test + h});
-    double p_minus = eos.pressure(arma::vec{rho_test - h});
+    double p_plus = eos.pressure(arma::vec{ rho_test + h });
+    double p_minus = eos.pressure(arma::vec{ rho_test - h });
     double dp = (p_plus - p_minus) / (2.0 * h);
     if (prev_dp_test > 0 && dp <= 0) {
       std::cout << " ** SIGN CHANGE (pos->neg) at rho=" << rho_test << "\n";
@@ -249,25 +251,26 @@ int main() {
   }
 
   // Coexistence
-  auto spinodal = functionals::bulk::PhaseSearch{
-      .rho_max = 1.0, .rho_scan_step = 0.005,
-      .newton = {.max_iterations = 300, .tolerance = 1e-10},
-  }.find_spinodal(eos);
+  auto spinodal =
+      functionals::bulk::PhaseSearch{
+        .rho_max = 1.0,
+        .rho_scan_step = 0.005,
+        .newton = { .max_iterations = 300, .tolerance = 1e-10 },
+      }
+          .find_spinodal(eos);
   if (spinodal) {
-    std::cout << "  Spinodal:     rho_low = " << spinodal->rho_low
-              << "  rho_high = " << spinodal->rho_high << "\n";
+    std::cout << "  Spinodal:     rho_low = " << spinodal->rho_low << "  rho_high = " << spinodal->rho_high << "\n";
   } else {
     std::cout << "  Spinodal: NOT FOUND\n";
   }
 
-  auto coex = functionals::bulk::PhaseSearch{
-      .rho_max = 1.0, .rho_scan_step = 0.005,
-      .newton = {.max_iterations = 300, .tolerance = 1e-10}
-  }.find_coexistence(eos);
+  auto coex = functionals::bulk::PhaseSearch{ .rho_max = 1.0,
+                                              .rho_scan_step = 0.005,
+                                              .newton = { .max_iterations = 300, .tolerance = 1e-10 } }
+                  .find_coexistence(eos);
 
   if (coex) {
-    std::cout << "  Coexistence:  rho_v = " << coex->rho_vapor
-              << "  rho_l = " << coex->rho_liquid << "\n";
+    std::cout << "  Coexistence:  rho_v = " << coex->rho_vapor << "  rho_l = " << coex->rho_liquid << "\n";
   } else {
     std::cout << "  Coexistence: NOT FOUND\n";
   }
@@ -284,8 +287,7 @@ int main() {
     rho_out = S_target * rho_v;
     S = S_target;
     std::cout << "  ** rho_out adjusted to " << rho_out << " (S=" << S << ")\n";
-    mu_rho_out = eos.chemical_potential(
-        arma::vec{rho_out}, 0);
+    mu_rho_out = eos.chemical_potential(arma::vec{ rho_out }, 0);
     std::cout << "  ** mu(rho_out) updated to " << mu_rho_out << "\n";
   }
   std::cout << "\n";
@@ -300,11 +302,9 @@ int main() {
 
   auto weights = functionals::make_weights(functionals::fmt::RSLT{}, model);
 
-  std::cout << "  Grid a_vdw used in minimisation: "
-            << weights.mean_field.interactions[0].a_vdw << "\n";
+  std::cout << "  Grid a_vdw used in minimisation: " << weights.mean_field.interactions[0].a_vdw << "\n";
   std::cout << "  Jim QF grid a_vdw/kT:            " << jim_wt.a_vdw_over_kT << "\n";
-  std::cout << "  Difference = " << (weights.mean_field.interactions[0].a_vdw - jim_wt.a_vdw_over_kT)
-            << "\n\n";
+  std::cout << "  Difference = " << (weights.mean_field.interactions[0].a_vdw - jim_wt.a_vdw_over_kT) << "\n\n";
 
   auto r = nucleation::radial_distances(model.grid);
   arma::vec rho0 = nucleation::step_function(r, R0, rho_l, rho_out);
@@ -331,13 +331,16 @@ int main() {
   double background = 0.0;
   arma::uword n_bdry = 0;
   for (arma::uword i = 0; i < cluster.densities[0].n_elem; ++i) {
-    if (bdry(i)) { background += cluster.densities[0](i); n_bdry++; }
+    if (bdry(i)) {
+      background += cluster.densities[0](i);
+      n_bdry++;
+    }
   }
-  if (n_bdry > 0) background /= static_cast<double>(n_bdry);
+  if (n_bdry > 0)
+    background /= static_cast<double>(n_bdry);
 
   // Compute the grand potential at the cluster using mu from the background density.
-  double mu_bg = eos.chemical_potential(
-      arma::vec{background}, 0);
+  double mu_bg = eos.chemical_potential(arma::vec{ background }, 0);
   auto cluster_state = init::from_profile(model, cluster.densities[0]);
   cluster_state.species[0].chemical_potential = mu_bg;
   auto cluster_result = functionals::total(model, cluster_state, weights);
@@ -353,8 +356,7 @@ int main() {
   std::cout << "  Omega_bg = " << omega_bg << "\n";
   std::cout << "  Delta_Omega/kT = " << (cluster_result.grand_potential - omega_bg) << "\n";
   std::cout << "  Background = " << background << "\n";
-  std::cout << "  rho_max = " << cluster.densities[0].max()
-            << "  rho_min = " << cluster.densities[0].min() << "\n";
+  std::cout << "  rho_max = " << cluster.densities[0].max() << "  rho_min = " << cluster.densities[0].min() << "\n";
   std::cout << "  Final mass = " << arma::accu(cluster.densities[0]) * model.grid.cell_volume() << "\n";
 
   // ================================================================
@@ -370,29 +372,39 @@ int main() {
     auto state = init::from_profile(model, rho);
     state.species[0].chemical_potential = 0.0;
     auto result = functionals::total(model, state, weights);
-    return {result.free_energy, result.forces[0]};
+    return { result.free_energy, result.forces[0] };
   };
 
   auto jim_cluster = legacy::algorithms::fire_minimize_fixed_mass(
-      jim_force_fn, rho0, target_mass, model.grid.cell_volume(),
-      model.grid.shape[0], model.grid.shape[1], model.grid.shape[2],
-      {.dt = config::get<double>(cfg, "fire.dt"),
-       .dt_max = config::get<double>(cfg, "fire.dt_max"),
-       .alpha_start = config::get<double>(cfg, "fire.alpha_start"),
-       .alpha_fac = config::get<double>(cfg, "fire.alpha_fac"),
-       .force_tolerance = config::get<double>(cfg, "fire.force_tolerance"),
-       .max_steps = config::get<int>(cfg, "fire.max_steps"),
-       .log_interval = config::get<int>(cfg, "fire.log_interval")});
+      jim_force_fn,
+      rho0,
+      target_mass,
+      model.grid.cell_volume(),
+      model.grid.shape[0],
+      model.grid.shape[1],
+      model.grid.shape[2],
+      { .dt = config::get<double>(cfg, "fire.dt"),
+        .dt_max = config::get<double>(cfg, "fire.dt_max"),
+        .alpha_start = config::get<double>(cfg, "fire.alpha_start"),
+        .alpha_fac = config::get<double>(cfg, "fire.alpha_fac"),
+        .force_tolerance = config::get<double>(cfg, "fire.force_tolerance"),
+        .max_steps = config::get<int>(cfg, "fire.max_steps"),
+        .log_interval = config::get<int>(cfg, "fire.log_interval") }
+  );
 
   // Compute Jim's grand potential using the same background density.
   double jim_bg = 0.0;
   arma::uword jim_n_bdry = 0;
   for (arma::uword i = 0; i < jim_cluster.density.n_elem; ++i) {
-    if (bdry(i)) { jim_bg += jim_cluster.density(i); jim_n_bdry++; }
+    if (bdry(i)) {
+      jim_bg += jim_cluster.density(i);
+      jim_n_bdry++;
+    }
   }
-  if (jim_n_bdry > 0) jim_bg /= static_cast<double>(jim_n_bdry);
+  if (jim_n_bdry > 0)
+    jim_bg /= static_cast<double>(jim_n_bdry);
 
-  double jim_mu_bg = eos.chemical_potential(arma::vec{jim_bg}, 0);
+  double jim_mu_bg = eos.chemical_potential(arma::vec{ jim_bg }, 0);
   auto jim_state = init::from_profile(model, jim_cluster.density);
   jim_state.species[0].chemical_potential = jim_mu_bg;
   auto jim_result = functionals::total(model, jim_state, weights);
@@ -401,8 +413,7 @@ int main() {
   jim_bg_state.species[0].chemical_potential = jim_mu_bg;
   double jim_omega_bg = functionals::total(model, jim_bg_state, weights).grand_potential;
 
-  std::cout << "\n  Jim FIRE converged = " << jim_cluster.converged
-            << " (" << jim_cluster.iterations << " iters)\n";
+  std::cout << "\n  Jim FIRE converged = " << jim_cluster.converged << " (" << jim_cluster.iterations << " iters)\n";
   std::cout << "  Jim F (Helmholtz) = " << jim_cluster.energy << "\n";
   std::cout << "  Jim lambda = " << jim_cluster.lambda << "\n";
   std::cout << "  Jim mu_bg = " << jim_mu_bg << "\n";
@@ -410,8 +421,7 @@ int main() {
   std::cout << "  Jim Omega_bg = " << jim_omega_bg << "\n";
   std::cout << "  Jim Delta_Omega/kT = " << (jim_result.grand_potential - jim_omega_bg) << "\n";
   std::cout << "  Jim background = " << jim_bg << "\n";
-  std::cout << "  Jim rho_max = " << jim_cluster.density.max()
-            << "  rho_min = " << jim_cluster.density.min() << "\n";
+  std::cout << "  Jim rho_max = " << jim_cluster.density.max() << "  rho_min = " << jim_cluster.density.min() << "\n";
   std::cout << "  Jim mass = " << arma::accu(jim_cluster.density) * model.grid.cell_volume() << "\n";
 
   // Profile comparison
@@ -429,8 +439,13 @@ int main() {
       auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
       double d = ours_rho(idx) - jims_rho(idx);
       max_diff = std::max(max_diff, std::abs(d));
-      std::cout << std::format("  {:>8.2f}  {:>18.12f}  {:>18.12f}  {:>14.6e}\n",
-          ix * dx - centre, ours_rho(idx), jims_rho(idx), d);
+      std::cout << std::format(
+          "  {:>8.2f}  {:>18.12f}  {:>18.12f}  {:>14.6e}\n",
+          ix * dx - centre,
+          ours_rho(idx),
+          jims_rho(idx),
+          d
+      );
     }
     std::cout << "  max |diff| = " << max_diff << "\n";
 
@@ -448,8 +463,7 @@ int main() {
   // ================================================================
 
   double delta_rho = rho_l - rho_v;
-  double R_eff = nucleation::effective_radius(
-      cluster.densities[0], background, delta_rho, model.grid.cell_volume());
+  double R_eff = nucleation::effective_radius(cluster.densities[0], background, delta_rho, model.grid.cell_volume());
   std::cout << "  R_eff = " << R_eff << "\n";
 
   if (R_eff < 0.5 || cluster.densities[0].max() < 2.0 * background) {
@@ -474,19 +488,17 @@ int main() {
 
     // Shared components (model-independent).
     auto c_id = functionals::ideal_gas(model.grid, cs);
-    auto c_mf = functionals::mean_field(
-        model.grid, cs, model.species, weights.mean_field);
+    auto c_mf = functionals::mean_field(model.grid, cs, model.species, weights.mean_field);
     auto c_ext = functionals::external_field(model.grid, cs);
 
     // RSLT hard sphere (Jim's model — using the same weights already built).
-    auto c_hs_rslt = functionals::hard_sphere(
-        weights.fmt_model, model.grid, cs, model.species, weights.fmt);
+    auto c_hs_rslt = functionals::hard_sphere(weights.fmt_model, model.grid, cs, model.species, weights.fmt);
 
     // esFMT hard sphere (our model — build separate weights).
-    auto esfmt_model = functionals::fmt::EsFMT{.A = 1.0, .B = 0.0};
+    auto esfmt_model = functionals::fmt::EsFMT{ .A = 1.0, .B = 0.0 };
     auto esfmt_weights = functionals::make_weights(esfmt_model, model);
-    auto c_hs_esfmt = functionals::hard_sphere(
-        esfmt_weights.fmt_model, model.grid, cs, model.species, esfmt_weights.fmt);
+    auto c_hs_esfmt =
+        functionals::hard_sphere(esfmt_weights.fmt_model, model.grid, cs, model.species, esfmt_weights.fmt);
 
     // Jim's ideal gas (beta units, no kT prefactor).
     const arma::vec& rho_c = cluster.densities[0];
@@ -511,15 +523,12 @@ int main() {
     // 1. Validate our RSLT against Jim (must be zero diff).
     std::cout << "  a) RSLT vs Jim (code validation):\n";
     std::cout << "                        Ours              Jim's            diff\n";
-    std::cout << "    F_id:    " << std::setw(18) << c_id.free_energy
-              << std::setw(18) << f_id_jim << std::setw(14)
+    std::cout << "    F_id:    " << std::setw(18) << c_id.free_energy << std::setw(18) << f_id_jim << std::setw(14)
               << (c_id.free_energy - kT * f_id_jim) << " (ours - kT*jim)\n";
-    std::cout << "    F_hs:    " << std::setw(18) << c_hs_rslt.free_energy
-              << std::setw(18) << c_hs_rslt.free_energy << std::setw(14)
-              << 0.0 << " (same code path)\n";
-    std::cout << "    F_mf:    " << std::setw(18) << c_mf.free_energy
-              << std::setw(18) << c_mf.free_energy << std::setw(14)
-              << 0.0 << " (same code path)\n";
+    std::cout << "    F_hs:    " << std::setw(18) << c_hs_rslt.free_energy << std::setw(18) << c_hs_rslt.free_energy
+              << std::setw(14) << 0.0 << " (same code path)\n";
+    std::cout << "    F_mf:    " << std::setw(18) << c_mf.free_energy << std::setw(18) << c_mf.free_energy
+              << std::setw(14) << 0.0 << " (same code path)\n";
 
     double max_force_diff_rslt = arma::max(arma::abs(force_rslt - force_jim));
     std::cout << "    max|force_diff| = " << max_force_diff_rslt << "\n";
@@ -549,8 +558,7 @@ int main() {
       rho_ft.set_real(rho_c);
       rho_ft.forward();
 
-      auto wd = dft::functionals::detail::convolve_weights(
-          esfmt_weights.fmt.per_species[0], rho_ft.fourier(), shape);
+      auto wd = dft::functionals::detail::convolve_weights(esfmt_weights.fmt.per_species[0], rho_ft.fourier(), shape);
 
       double max_phi3_diff = 0.0;
       double max_dphi3_dn2_diff = 0.0;
@@ -560,13 +568,14 @@ int main() {
       double jim_F_hs = 0.0;
       double our_F_hs = 0.0;
 
-      auto esfmt = functionals::fmt::EsFMT{.A = 1.0, .B = 0.0};
+      auto esfmt = functionals::fmt::EsFMT{ .A = 1.0, .B = 0.0 };
 
       for (arma::uword idx = 0; idx < n_pts; ++idx) {
         auto m = dft::functionals::detail::assemble_measures(wd, idx, R);
         m.products = m.inner_products();
 
-        if (m.eta < 1e-30) continue;
+        if (m.eta < 1e-30)
+          continue;
 
         // Phi3
         double our_p3 = esfmt.phi3(m);
@@ -614,31 +623,23 @@ int main() {
       std::cout << "    F_hs diff   = " << (our_F_hs - jim_F_hs) << "\n";
 
       // Bulk EOS comparison at background density.
-      double eta_bg = (std::numbers::pi / 6.0)
-                    * model.species[0].hard_sphere_diameter
-                    * model.species[0].hard_sphere_diameter
-                    * model.species[0].hard_sphere_diameter * rho_out;
+      double eta_bg = (std::numbers::pi / 6.0) * model.species[0].hard_sphere_diameter
+          * model.species[0].hard_sphere_diameter * model.species[0].hard_sphere_diameter * rho_out;
       double jim_fex = legacy::fmt::esFMT_model::fex(eta_bg, 1.0, 0.0);
-      double our_fex_density = esfmt.free_energy_density(
-          rho_out,
-          model.species[0].hard_sphere_diameter);
+      double our_fex_density = esfmt.free_energy_density(rho_out, model.species[0].hard_sphere_diameter);
       double our_fex = our_fex_density / rho_out;
       std::cout << "\n    Bulk fex at eta=" << eta_bg << ":\n";
       std::cout << "      Ours  = " << our_fex << "\n";
       std::cout << "      Jim   = " << jim_fex << "\n";
       std::cout << "      diff  = " << (our_fex - jim_fex) << "\n";
 
-      bool all_match = max_phi3_diff < 1e-14
-                    && max_dphi3_dn2_diff < 1e-14
-                    && max_dphi3_dv1_diff < 1e-14
-                    && max_dphi3_dT_diff < 1e-14
-                    && max_phi_diff < 1e-14;
+      bool all_match = max_phi3_diff < 1e-14 && max_dphi3_dn2_diff < 1e-14 && max_dphi3_dv1_diff < 1e-14
+          && max_dphi3_dT_diff < 1e-14 && max_phi_diff < 1e-14;
       if (all_match) {
         std::cout << "    PASS: Our EsFMT matches Jim's esFMT to machine precision.\n";
       }
     }
   }
-
 
   // Phase 2: eigenvalue
   std::cout << "\n================================================================\n";
@@ -651,34 +652,38 @@ int main() {
     auto result = functionals::total(model, state, weights);
     arma::vec grad = result.forces[0];
     grad = fixed_boundary(grad, bdry);
-    return {result.grand_potential, grad};
+    return { result.grand_potential, grad };
   };
 
-  auto eig_result = algorithms::saddle_point::EigenvalueSolver{
-      .tolerance = config::get<double>(cfg, "eigen.tolerance"),
-      .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
-      .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
-      .log_interval = config::get<int>(cfg, "eigen.log_interval"),
-  }.solve(eig_force_fn, cluster.densities[0]);
+  auto eig_result =
+      algorithms::saddle_point::EigenvalueSolver{
+        .tolerance = config::get<double>(cfg, "eigen.tolerance"),
+        .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
+        .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
+        .log_interval = config::get<int>(cfg, "eigen.log_interval"),
+      }
+          .solve(eig_force_fn, cluster.densities[0]);
 
-  std::cout << "  Ours: eigenvalue = " << eig_result.eigenvalue
-            << "  converged = " << eig_result.converged << "\n";
+  std::cout << "  Ours: eigenvalue = " << eig_result.eigenvalue << "  converged = " << eig_result.converged << "\n";
 
   // Jim's eigenvalue via FIRE2 on Rayleigh quotient
   std::cout << "\n  Jim's eigenvalue (FIRE2 on Rayleigh quotient):\n";
 
-  arma::uvec jim_bdry = legacy::algorithms::boundary_mask_3d(
-      model.grid.shape[0], model.grid.shape[1], model.grid.shape[2]);
+  arma::uvec jim_bdry =
+      legacy::algorithms::boundary_mask_3d(model.grid.shape[0], model.grid.shape[1], model.grid.shape[2]);
 
   auto jim_eig_result = legacy::algorithms::eigenvalue_fire2(
-      eig_force_fn, cluster.densities[0], jim_bdry,
-      {.tolerance = config::get<double>(cfg, "eigen.tolerance"),
-       .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
-       .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
-       .log_interval = config::get<int>(cfg, "eigen.log_interval")});
+      eig_force_fn,
+      cluster.densities[0],
+      jim_bdry,
+      { .tolerance = config::get<double>(cfg, "eigen.tolerance"),
+        .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
+        .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
+        .log_interval = config::get<int>(cfg, "eigen.log_interval") }
+  );
 
-  std::cout << "  Jim:  eigenvalue = " << jim_eig_result.eigenvalue
-            << "  converged = " << jim_eig_result.converged << "\n";
+  std::cout << "  Jim:  eigenvalue = " << jim_eig_result.eigenvalue << "  converged = " << jim_eig_result.converged
+            << "\n";
   std::cout << "  diff = " << (eig_result.eigenvalue - jim_eig_result.eigenvalue) << "\n";
 
   // Compare eigenvectors (account for sign ambiguity).
@@ -689,8 +694,7 @@ int main() {
   std::cout << "  eigenvector dot = " << ev_dot << " (sign=" << ev_sign << ")\n";
   std::cout << "  max |ev_diff| = " << max_ev_diff << "\n";
 
-  if (std::abs(eig_result.eigenvalue - jim_eig_result.eigenvalue)
-      / (1.0 + std::abs(eig_result.eigenvalue)) > 0.1) {
+  if (std::abs(eig_result.eigenvalue - jim_eig_result.eigenvalue) / (1.0 + std::abs(eig_result.eigenvalue)) > 0.1) {
     std::cout << "\n  *** EARLY STOP: eigenvalue mismatch ***\n";
     return 1;
   }
@@ -740,9 +744,8 @@ int main() {
       for (long ix = 0; ix < nx; ++ix) {
         for (long iy = 0; iy < ny; ++iy) {
           auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
-          f << ix << "," << iy << ","
-            << (ix * dx - centre) << "," << (iy * dx - centre) << ","
-            << rho_c(idx) << "," << ev(idx) << "\n";
+          f << ix << "," << iy << "," << (ix * dx - centre) << "," << (iy * dx - centre) << "," << rho_c(idx) << ","
+            << ev(idx) << "\n";
         }
       }
     }
@@ -776,8 +779,7 @@ int main() {
       }
       for (arma::uword i = 0; i < static_cast<arma::uword>(n_bins); ++i) {
         if (cnt(i) > 0) {
-          f << ((i + 0.5) * dx) << "," << (sum_rho(i) / cnt(i)) << ","
-            << (sum_ev(i) / cnt(i)) << "," << cnt(i) << "\n";
+          f << ((i + 0.5) * dx) << "," << (sum_rho(i) / cnt(i)) << "," << (sum_ev(i) / cnt(i)) << "," << cnt(i) << "\n";
         }
       }
     }
@@ -798,8 +800,8 @@ int main() {
     std::cout << "    ev range: [" << ev_min << ", " << ev_max << "]\n";
     std::cout << "    ev max at (" << ix_max << "," << iy_max << "," << iz_max << ")\n";
     std::cout << "    ev min at (" << ix_min << "," << iy_min << "," << iz_min << ")\n";
-    std::cout << "    ev(centre) = " << ev(static_cast<arma::uword>(
-        model.grid.flat_index(nx/2, ny/2, nz/2))) << "\n";
+    std::cout << "    ev(centre) = " << ev(static_cast<arma::uword>(model.grid.flat_index(nx / 2, ny / 2, nz / 2)))
+              << "\n";
     std::cout << "    ev norm = " << arma::norm(ev) << "\n";
     std::cout << "    ev mass = " << arma::accu(ev) * model.grid.cell_volume() << "\n";
 
@@ -814,19 +816,17 @@ int main() {
       long iz = nz / 2;
       for (long ix = 0; ix < nx; ++ix) {
         auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
-        f << (ix * dx - centre) << "," << rho_c(idx) << ","
-          << rho_plus(idx) << "," << rho_minus(idx) << "\n";
+        f << (ix * dx - centre) << "," << rho_c(idx) << "," << rho_plus(idx) << "," << rho_minus(idx) << "\n";
       }
     }
-    std::cout << "    rho_cluster(centre) = " << rho_c(static_cast<arma::uword>(
-        model.grid.flat_index(nx/2, ny/2, nz/2))) << "\n";
+    std::cout << "    rho_cluster(centre) = "
+              << rho_c(static_cast<arma::uword>(model.grid.flat_index(nx / 2, ny / 2, nz / 2))) << "\n";
 
     // Mass of perturbation
     double mass_plus = arma::accu(rho_plus) * model.grid.cell_volume();
     double mass_minus = arma::accu(rho_minus) * model.grid.cell_volume();
     double mass_cluster = arma::accu(rho_c) * model.grid.cell_volume();
-    std::cout << "    mass: cluster=" << mass_cluster << " plus=" << mass_plus
-              << " minus=" << mass_minus << "\n";
+    std::cout << "    mass: cluster=" << mass_cluster << " plus=" << mass_plus << " minus=" << mass_minus << "\n";
 
     std::cout << "\n  CSV files written to exports/\n";
   }
@@ -835,20 +835,18 @@ int main() {
   std::cout << "================================================================\n\n";
 
   // Single-species force function for both our and Jim's DDFT.
-  auto ddft_force_fn = [&](const std::vector<arma::vec>& densities)
-      -> std::pair<double, std::vector<arma::vec>> {
+  auto ddft_force_fn = [&](const std::vector<arma::vec>& densities) -> std::pair<double, std::vector<arma::vec>> {
     auto state = init::from_profile(model, densities[0]);
     state.species[0].chemical_potential = mu_bg;
     auto result = functionals::total(model, state, weights);
-    return {result.grand_potential, result.forces};
+    return { result.grand_potential, result.forces };
   };
 
-  auto jim_ddft_force = [&](const arma::vec& rho)
-      -> std::pair<double, arma::vec> {
+  auto jim_ddft_force = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
     auto state = init::from_profile(model, rho);
     state.species[0].chemical_potential = mu_bg;
     auto result = functionals::total(model, state, weights);
-    return {result.grand_potential, result.forces[0]};
+    return { result.grand_potential, result.forces[0] };
   };
 
   double perturb_scale = config::get<double>(cfg, "ddft.perturb_scale");
@@ -869,24 +867,22 @@ int main() {
   int comparison_steps = std::min(ddft_n_steps, 50);
 
   std::cout << "  Running DDFT comparison: our code vs Jim's code (" << comparison_steps << " steps)\n";
-  std::cout << "  perturb_scale=" << perturb_scale
-            << "  dt=" << ddft_dt
-            << "  n_steps=" << comparison_steps << "\n\n";
+  std::cout << "  perturb_scale=" << perturb_scale << "  dt=" << ddft_dt << "  n_steps=" << comparison_steps << "\n\n";
 
   // Our DDFT state.
   auto our_ddft_st = algorithms::dynamics::_internal::make_if_state(model.grid);
   algorithms::dynamics::StepConfig our_ddft_cfg{
-      .dt = ddft_dt,
-      .diffusion_coefficient = 1.0,
-      .min_density = 1e-18,
-      .dt_max = ddft_dt_max,
-      .fp_tolerance = ddft_fp_tol,
-      .fp_max_iterations = ddft_fp_max_it,
+    .dt = ddft_dt,
+    .diffusion_coefficient = 1.0,
+    .min_density = 1e-18,
+    .dt_max = ddft_dt_max,
+    .fp_tolerance = ddft_fp_tol,
+    .fp_max_iterations = ddft_fp_max_it,
   };
 
   // Jim's DDFT state.
-  auto jim_ddft_st = legacy::algorithms::make_ddft_state(
-      model.grid.shape[0], model.grid.shape[1], model.grid.shape[2], model.grid.dx);
+  auto jim_ddft_st =
+      legacy::algorithms::make_ddft_state(model.grid.shape[0], model.grid.shape[1], model.grid.shape[2], model.grid.dx);
   double jim_dt = ddft_dt;
 
   // Track Delta_Omega = Omega - Omega_bg to see whether we are above or below
@@ -894,7 +890,7 @@ int main() {
   // Delta_Omega < 0 means the droplet has crossed the barrier.
 
   // Start from same initial density.
-  std::vector<arma::vec> our_rho = {rho_init};
+  std::vector<arma::vec> our_rho = { rho_init };
   arma::vec jim_rho = rho_init;
   double our_time = 0.0;
   double jim_time = 0.0;
@@ -902,22 +898,31 @@ int main() {
   int jim_successes = 0;
   double max_ever_diff = 0.0;
 
-  std::cout << std::format("  {:>6s}  {:>12s}  {:>14s}  {:>14s}  {:>12s}  {:>12s}\n",
-      "step", "time", "dE_ours", "dE_jims", "max|drho|", "max|d_ij|");
+  std::cout << std::format(
+      "  {:>6s}  {:>12s}  {:>14s}  {:>14s}  {:>12s}  {:>12s}\n",
+      "step",
+      "time",
+      "dE_ours",
+      "dE_jims",
+      "max|drho|",
+      "max|d_ij|"
+  );
   std::cout << "  " << std::string(84, '-') << "\n";
 
   for (int step = 1; step <= comparison_steps; ++step) {
     // Our step.
     double our_dt_before = our_ddft_cfg.dt;
-    auto our_result = algorithms::dynamics::integrating_factor_step(
-        our_rho, model.grid, our_ddft_st, ddft_force_fn, our_ddft_cfg);
+    auto our_result =
+        algorithms::dynamics::integrating_factor_step(our_rho, model.grid, our_ddft_st, ddft_force_fn, our_ddft_cfg);
     our_rho = std::move(our_result.densities);
     our_time += our_result.dt_used;
 
     // Adaptive dt (our side): detect restarts via pre/post dt comparison
     // (integrating_factor_step mutates config.dt on restart).
-    if (our_result.dt_used < our_dt_before) our_successes = 0;
-    else ++our_successes;
+    if (our_result.dt_used < our_dt_before)
+      our_successes = 0;
+    else
+      ++our_successes;
     if (our_successes >= 5 && our_ddft_cfg.dt < ddft_dt_max) {
       our_ddft_cfg.dt = std::min(2.0 * our_ddft_cfg.dt, ddft_dt_max);
       our_successes = 0;
@@ -926,15 +931,24 @@ int main() {
     // Jim's step.
     double jim_dt_before = jim_dt;
     auto jim_result = legacy::algorithms::ddft_step(
-        jim_rho, jim_ddft_st, jim_ddft_force,
-        model.grid.cell_volume(), ddft_fp_tol, ddft_fp_max_it, jim_dt, ddft_dt_max);
+        jim_rho,
+        jim_ddft_st,
+        jim_ddft_force,
+        model.grid.cell_volume(),
+        ddft_fp_tol,
+        ddft_fp_max_it,
+        jim_dt,
+        ddft_dt_max
+    );
     jim_rho = std::move(jim_result.density);
     jim_time += jim_result.dt_used;
 
     // Adaptive dt (Jim's side).
     bool jim_decreased = (jim_result.dt_used < jim_dt_before);
-    if (jim_decreased) jim_successes = 0;
-    else ++jim_successes;
+    if (jim_decreased)
+      jim_successes = 0;
+    else
+      ++jim_successes;
     if (jim_successes >= 5 && jim_dt < ddft_dt_max) {
       jim_dt = std::min(2.0 * jim_dt, ddft_dt_max);
       jim_successes = 0;
@@ -951,15 +965,20 @@ int main() {
     double dE_ours = our_result.energy - omega_bg;
     double dE_jims = jim_result.energy - omega_bg;
 
-    if (ddft_log_interval > 0 &&
-        (step % 10 == 0 || step == comparison_steps || step <= 5)) {
-      std::cout << std::format("  {:>6d}  {:>12.6f}  {:>14.6f}  {:>14.6f}  {:>12.4e}  {:>12.4e}\n",
-          step, our_time, dE_ours, dE_jims, max_drho, max_ij_diff);
+    if (ddft_log_interval > 0 && (step % 10 == 0 || step == comparison_steps || step <= 5)) {
+      std::cout << std::format(
+          "  {:>6d}  {:>12.6f}  {:>14.6f}  {:>14.6f}  {:>12.4e}  {:>12.4e}\n",
+          step,
+          our_time,
+          dE_ours,
+          dE_jims,
+          max_drho,
+          max_ij_diff
+      );
     }
 
     if (max_ij_diff > 1e-3) {
-      std::cout << "\n  *** EARLY STOP: DDFT diverged at step " << step
-                << ", max|diff|=" << max_ij_diff << " ***\n";
+      std::cout << "\n  *** EARLY STOP: DDFT diverged at step " << step << ", max|diff|=" << max_ij_diff << " ***\n";
       break;
     }
   }
@@ -978,27 +997,27 @@ int main() {
   // Now run full dissolution and growth for plotting.
   // Display Delta_Omega = Omega - Omega_bg (positive = above saddle).
   algorithms::dynamics::Simulation sim_cfg{
-      .step = {.dt = ddft_dt,
-               .diffusion_coefficient = 1.0,
-               .min_density = 1e-18,
-               .dt_max = ddft_dt_max,
-               .fp_tolerance = ddft_fp_tol,
-               .fp_max_iterations = ddft_fp_max_it},
-      .n_steps = ddft_n_steps,
-      .snapshot_interval = config::get<int>(cfg, "ddft.snapshot_interval"),
-      .log_interval = ddft_log_interval,
-      .energy_offset = omega_bg,
+    .step = { .dt = ddft_dt,
+              .diffusion_coefficient = 1.0,
+              .min_density = 1e-18,
+              .dt_max = ddft_dt_max,
+              .fp_tolerance = ddft_fp_tol,
+              .fp_max_iterations = ddft_fp_max_it },
+    .n_steps = ddft_n_steps,
+    .snapshot_interval = config::get<int>(cfg, "ddft.snapshot_interval"),
+    .log_interval = ddft_log_interval,
+    .energy_offset = omega_bg,
   };
 
   std::cout << "\n  Dissolution (perturb along -eigenvector, Delta_Omega should decrease):\n";
   arma::vec rho_shrink = rho_cluster - perturb_scale * eig_result.eigenvector;
   rho_shrink = arma::clamp(rho_shrink, 1e-18, arma::datum::inf);
-  auto sim_shrink = sim_cfg.run({rho_shrink}, model.grid, ddft_force_fn);
+  auto sim_shrink = sim_cfg.run({ rho_shrink }, model.grid, ddft_force_fn);
 
   std::cout << "\n  Growth (perturb along +eigenvector, Delta_Omega should decrease):\n";
   arma::vec rho_grow = rho_cluster + perturb_scale * eig_result.eigenvector;
   rho_grow = arma::clamp(rho_grow, 1e-18, arma::datum::inf);
-  auto sim_grow = sim_cfg.run({rho_grow}, model.grid, ddft_force_fn);
+  auto sim_grow = sim_cfg.run({ rho_grow }, model.grid, ddft_force_fn);
 
 #ifdef DFT_HAS_MATPLOTLIB
   std::cout << "\n  Generating plots...\n";
@@ -1007,8 +1026,12 @@ int main() {
       nucleation::extract_x_slice(rho0, model.grid),
       nucleation::extract_dynamics(sim_shrink, model.grid, r, background, delta_rho),
       nucleation::extract_dynamics(sim_grow, model.grid, r, background, delta_rho),
-      {.radius = R_eff, .energy = cluster_result.grand_potential},
-      omega_bg, rho_v, rho_l, rho_out);
+      { .radius = R_eff, .energy = cluster_result.grand_potential },
+      omega_bg,
+      rho_v,
+      rho_l,
+      rho_out
+  );
 #endif
 
   std::cout << "\nDone.\n";

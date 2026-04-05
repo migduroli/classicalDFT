@@ -42,22 +42,28 @@ int main() {
   // Define the Lennard-Jones system.
 
   physics::Model model{
-      .grid = make_grid(dx, {box_x, box_y, box_z}),
-      .species = {Species{.name = "LJ", .hard_sphere_diameter = sigma}},
-      .interactions = {{
-          .species_i = 0,
-          .species_j = 0,
-          .potential = physics::potentials::make_lennard_jones(sigma, epsilon, cutoff),
-          .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      }},
-      .temperature = temperature,
+    .grid = make_grid(dx, { box_x, box_y, box_z }),
+    .species = { Species{ .name = "LJ", .hard_sphere_diameter = sigma } },
+    .interactions = { {
+        .species_i = 0,
+        .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(sigma, epsilon, cutoff),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+    } },
+    .temperature = temperature,
   };
 
   auto func = functionals::make_functional(functionals::fmt::WhiteBearII{}, model);
 
   std::println(std::cout, "=== DFT + DDFT: LJ liquid slab relaxation ===\n");
-  std::println(std::cout, "  Grid:        {}x{}x{} (dx = {})",
-               func.model.grid.shape[0], func.model.grid.shape[1], func.model.grid.shape[2], func.model.grid.dx);
+  std::println(
+      std::cout,
+      "  Grid:        {}x{}x{} (dx = {})",
+      func.model.grid.shape[0],
+      func.model.grid.shape[1],
+      func.model.grid.shape[2],
+      func.model.grid.dx
+  );
   std::println(std::cout, "  Species:     {}", func.model.species[0].name);
   std::println(std::cout, "  Temperature: T* = {}\n", func.model.temperature);
 
@@ -68,17 +74,17 @@ int main() {
   arma::vec rho_grid = arma::linspace(0.01, 1.0, 200);
   arma::vec f_grid(rho_grid.n_elem), mu_grid(rho_grid.n_elem), p_grid(rho_grid.n_elem);
   for (arma::uword i = 0; i < rho_grid.n_elem; ++i) {
-    f_grid(i) = eos.free_energy_density(arma::vec{rho_grid(i)});
-    mu_grid(i) = eos.chemical_potential(arma::vec{rho_grid(i)}, 0);
-    p_grid(i) = eos.pressure(arma::vec{rho_grid(i)});
+    f_grid(i) = eos.free_energy_density(arma::vec{ rho_grid(i) });
+    mu_grid(i) = eos.chemical_potential(arma::vec{ rho_grid(i) }, 0);
+    p_grid(i) = eos.pressure(arma::vec{ rho_grid(i) });
   }
 
   // Find coexistence.
 
   functionals::bulk::PhaseSearch search_config{
-      .rho_max = 1.0,
-      .rho_scan_step = 0.005,
-      .newton = {.max_iterations = 300, .tolerance = 1e-10},
+    .rho_max = 1.0,
+    .rho_scan_step = 0.005,
+    .newton = { .max_iterations = 300, .tolerance = 1e-10 },
   };
 
   auto coex = search_config.find_coexistence(eos);
@@ -87,12 +93,8 @@ int main() {
     return 1;
   }
 
-  double mu_coex = eos.chemical_potential(
-      arma::vec{coex->rho_vapor}, 0
-  );
-  double p_coex = eos.pressure(
-      arma::vec{coex->rho_vapor}
-  );
+  double mu_coex = eos.chemical_potential(arma::vec{ coex->rho_vapor }, 0);
+  double p_coex = eos.pressure(arma::vec{ coex->rho_vapor });
 
   std::println(std::cout, "  Coexistence:");
   std::println(std::cout, "    rho_vapor  = {:.6f}", coex->rho_vapor);
@@ -111,9 +113,10 @@ int main() {
   double width = func.model.grid.box_size[0] / 4.0;
 
   arma::vec x_vals = arma::linspace(0.0, (nx - 1) * func.model.grid.dx, nx);
-  arma::vec profile_1d = coex->rho_vapor + 0.5 * (coex->rho_liquid - coex->rho_vapor) *
-      (arma::tanh((x_vals - center + width) / interface_width) -
-       arma::tanh((x_vals - center - width) / interface_width));
+  arma::vec profile_1d = coex->rho_vapor
+      + 0.5 * (coex->rho_liquid - coex->rho_vapor)
+          * (arma::tanh((x_vals - center + width) / interface_width)
+             - arma::tanh((x_vals - center - width) / interface_width));
 
   arma::vec slab_rho = arma::repelem(profile_1d, ny * nz, 1);
 
@@ -138,13 +141,13 @@ int main() {
   std::println(std::cout, "=== DDFT relaxation (split-operator) ===\n");
 
   algorithms::dynamics::Simulation sim_config{
-      .step = {.dt = dt, .diffusion_coefficient = D, .min_density = 1e-18},
-      .n_steps = n_steps,
-      .snapshot_interval = snapshot_interval,
-      .log_interval = log_interval,
+    .step = { .dt = dt, .diffusion_coefficient = D, .min_density = 1e-18 },
+    .n_steps = n_steps,
+    .snapshot_interval = snapshot_interval,
+    .log_interval = log_interval,
   };
 
-  auto sim = sim_config.run({slab_rho}, func.model.grid, force_fn);
+  auto sim = sim_config.run({ slab_rho }, func.model.grid, force_fn);
 
   // Collect profile snapshots from the simulation.
 
@@ -161,8 +164,7 @@ int main() {
   std::println(std::cout, "  Grand potential:  {:.6f}", sim.energies.back());
   std::println(std::cout, "  Mass initial:     {:.6f}", sim.mass_initial);
   std::println(std::cout, "  Mass final:       {:.6f}", sim.mass_final);
-  std::println(std::cout, "  Rel. error:       {:.6e}",
-               std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial);
+  std::println(std::cout, "  Rel. error:       {:.6e}", std::abs(sim.mass_final - sim.mass_initial) / sim.mass_initial);
 
   // Plots.
 
@@ -170,15 +172,29 @@ int main() {
   auto p_range = arma::conv_to<std::vector<double>>::from(p_grid);
   auto f_range = arma::conv_to<std::vector<double>>::from(f_grid);
   auto mu_range = arma::conv_to<std::vector<double>>::from(mu_grid);
-  double f_v = eos.free_energy_density(arma::vec{coex->rho_vapor});
-  double f_l = eos.free_energy_density(arma::vec{coex->rho_liquid});
+  double f_v = eos.free_energy_density(arma::vec{ coex->rho_vapor });
+  double f_l = eos.free_energy_density(arma::vec{ coex->rho_liquid });
 
 #ifdef DFT_HAS_MATPLOTLIB
-  plot::make_plots(rho_range, p_range, f_range, mu_range,
-                   coex->rho_vapor, coex->rho_liquid, p_coex, f_v, f_l,
-                   mu_coex, model.temperature,
-                   x_coords, profile_snapshots, snapshot_times,
-                   initial_profile, final_profile,
-                   sim.times, sim.energies);
+  plot::make_plots(
+      rho_range,
+      p_range,
+      f_range,
+      mu_range,
+      coex->rho_vapor,
+      coex->rho_liquid,
+      p_coex,
+      f_v,
+      f_l,
+      mu_coex,
+      model.temperature,
+      x_coords,
+      profile_snapshots,
+      snapshot_times,
+      initial_profile,
+      final_profile,
+      sim.times,
+      sim.energies
+  );
 #endif
 }

@@ -21,8 +21,8 @@ namespace dft::functionals::bulk {
     arma::vec temperature;
     arma::vec rho_vapor;
     arma::vec rho_liquid;
-    double critical_temperature{0.0};
-    double critical_density{0.0};
+    double critical_temperature{ 0.0 };
+    double critical_density{ 0.0 };
   };
 
   // Result of tracing the spinodal curve from a starting temperature
@@ -33,8 +33,8 @@ namespace dft::functionals::bulk {
     arma::vec temperature;
     arma::vec rho_low;
     arma::vec rho_high;
-    double critical_temperature{0.0};
-    double critical_density{0.0};
+    double critical_temperature{ 0.0 };
+    double critical_density{ 0.0 };
   };
 
   // Phase boundaries at a single temperature: densities on both sides
@@ -43,10 +43,10 @@ namespace dft::functionals::bulk {
 
   struct PhaseBoundaries {
     double temperature;
-    double binodal_vapor{std::numeric_limits<double>::quiet_NaN()};
-    double binodal_liquid{std::numeric_limits<double>::quiet_NaN()};
-    double spinodal_low{std::numeric_limits<double>::quiet_NaN()};
-    double spinodal_high{std::numeric_limits<double>::quiet_NaN()};
+    double binodal_vapor{ std::numeric_limits<double>::quiet_NaN() };
+    double binodal_liquid{ std::numeric_limits<double>::quiet_NaN() };
+    double spinodal_low{ std::numeric_limits<double>::quiet_NaN() };
+    double spinodal_high{ std::numeric_limits<double>::quiet_NaN() };
   };
 
   // Full phase diagram containing both binodal and spinodal curves,
@@ -55,20 +55,18 @@ namespace dft::functionals::bulk {
   struct PhaseDiagram {
     CoexistenceCurve binodal;
     SpinodalCurve spinodal;
-    double critical_temperature{0.0};
-    double critical_density{0.0};
+    double critical_temperature{ 0.0 };
+    double critical_density{ 0.0 };
 
     [[nodiscard]] auto interpolate(double temperature) const -> PhaseBoundaries {
-      PhaseBoundaries result{.temperature = temperature};
+      PhaseBoundaries result{ .temperature = temperature };
 
       auto try_spline = [](const arma::vec& T, const arma::vec& y, double t) -> double {
         if (T.n_elem < 4 || t < T.front() || t > T.back()) {
           return std::numeric_limits<double>::quiet_NaN();
         }
-        math::CubicSpline spline(
-            std::span<const double>(T.memptr(), T.n_elem),
-            std::span<const double>(y.memptr(), y.n_elem)
-        );
+        math::CubicSpline
+            spline(std::span<const double>(T.memptr(), T.n_elem), std::span<const double>(y.memptr(), y.n_elem));
         return spline(t);
       };
 
@@ -102,74 +100,70 @@ namespace dft::functionals::bulk {
       std::vector<Species> species,
       std::vector<physics::Interaction> interactions
   ) -> EoSFactory {
-    return [fmt_model = std::move(fmt_model), species = std::move(species),
+    return [fmt_model = std::move(fmt_model),
+            species = std::move(species),
             interactions = std::move(interactions)](double kT) {
-      return make_bulk_thermodynamics(
-          species, make_bulk_weights(fmt_model, interactions, kT)
-      );
+      return make_bulk_thermodynamics(species, make_bulk_weights(fmt_model, interactions, kT));
     };
   }
 
   // Configuration for full phase diagram computation.
 
   struct PhaseDiagramBuilder {
-    double start_temperature{0.6};
-    double density_gap_tolerance{0.005};
-    double turning_point_margin{0.02};
-    double spinodal_temperature_step{0.01};
+    double start_temperature{ 0.6 };
+    double density_gap_tolerance{ 0.005 };
+    double turning_point_margin{ 0.02 };
+    double spinodal_temperature_step{ 0.01 };
     PhaseSearch search{};
     algorithms::continuation::Continuation continuation{
-        .initial_step = 0.005,
-        .max_step = 0.05,
-        .min_step = 1e-6,
-        .growth_factor = 1.5,
-        .shrink_factor = 0.5,
-        .newton = {.max_iterations = 300, .tolerance = 1e-10},
+      .initial_step = 0.005,
+      .max_step = 0.05,
+      .min_step = 1e-6,
+      .growth_factor = 1.5,
+      .shrink_factor = 0.5,
+      .newton = { .max_iterations = 300, .tolerance = 1e-10 },
     };
 
-    [[nodiscard]] auto binodal(
-        const EoSFactory& eos_factory
-    ) const -> std::optional<CoexistenceCurve>;
+    [[nodiscard]] auto binodal(const EoSFactory& eos_factory) const -> std::optional<CoexistenceCurve>;
 
-    [[nodiscard]] auto spinodal_curve(
-        const EoSFactory& eos_factory
-    ) const -> std::optional<SpinodalCurve>;
+    [[nodiscard]] auto spinodal_curve(const EoSFactory& eos_factory) const -> std::optional<SpinodalCurve>;
   };
 
   namespace _internal {
 
-  // Trace the coexistence curve as a function of temperature using
-  // pseudo-arclength continuation. The weight factory produces the
-  // precomputed Weights at each temperature.
-  //
-  // x = (rho_vapor, rho_liquid), lambda = kT
-  // R = (P_v - P_l, mu_v - mu_l) = 0
+    // Trace the coexistence curve as a function of temperature using
+    // pseudo-arclength continuation. The weight factory produces the
+    // precomputed Weights at each temperature.
+    //
+    // x = (rho_vapor, rho_liquid), lambda = kT
+    // R = (P_v - P_l, mu_v - mu_l) = 0
 
-  [[nodiscard]] inline auto trace_coexistence(
-      const Coexistence& start, double start_kT,
-      const EoSFactory& eos_factory,
-      const algorithms::continuation::Continuation& continuation = {},
-      std::function<bool(const algorithms::continuation::CurvePoint&)> stop = {}
-  ) -> std::vector<algorithms::continuation::CurvePoint> {
-    auto residual = [&](const arma::vec& x, double kT) -> arma::vec {
-      auto eos = eos_factory(kT);
-      arma::vec rv{x(0)};
-      arma::vec rl{x(1)};
-      return arma::vec{
+    [[nodiscard]] inline auto trace_coexistence(
+        const Coexistence& start,
+        double start_kT,
+        const EoSFactory& eos_factory,
+        const algorithms::continuation::Continuation& continuation = {},
+        std::function<bool(const algorithms::continuation::CurvePoint&)> stop = {}
+    ) -> std::vector<algorithms::continuation::CurvePoint> {
+      auto residual = [&](const arma::vec& x, double kT) -> arma::vec {
+        auto eos = eos_factory(kT);
+        arma::vec rv{ x(0) };
+        arma::vec rl{ x(1) };
+        return arma::vec{
           eos.pressure(rv) - eos.pressure(rl),
           eos.chemical_potential(rv, 0) - eos.chemical_potential(rl, 0),
+        };
       };
-    };
 
-    algorithms::continuation::CurvePoint start_point{
-        .x = arma::vec{start.rho_vapor, start.rho_liquid},
+      algorithms::continuation::CurvePoint start_point{
+        .x = arma::vec{ start.rho_vapor, start.rho_liquid },
         .lambda = start_kT,
-        .dx_ds = arma::vec{0.0, 0.0},
+        .dx_ds = arma::vec{ 0.0, 0.0 },
         .dlambda_ds = 1.0,
-    };
+      };
 
-    return continuation.trace(start_point, residual, std::move(stop));
-  }
+      return continuation.trace(start_point, residual, std::move(stop));
+    }
 
   }  // namespace _internal
 
@@ -178,9 +172,8 @@ namespace dft::functionals::bulk {
   // The curve is truncated at the maximum temperature (critical point);
   // beyond Tc the continuation follows an unphysical branch.
 
-  [[nodiscard]] inline auto PhaseDiagramBuilder::binodal(
-      const EoSFactory& eos_factory
-  ) const -> std::optional<CoexistenceCurve> {
+  [[nodiscard]] inline auto PhaseDiagramBuilder::binodal(const EoSFactory& eos_factory) const
+      -> std::optional<CoexistenceCurve> {
     auto eos_start = eos_factory(start_temperature);
     auto seed = search.find_coexistence(eos_start);
     if (!seed) {
@@ -189,12 +182,14 @@ namespace dft::functionals::bulk {
 
     double T_max_seen = start_temperature;
     auto curve = _internal::trace_coexistence(
-        *seed, start_temperature, eos_factory, continuation,
+        *seed,
+        start_temperature,
+        eos_factory,
+        continuation,
         [&](const algorithms::continuation::CurvePoint& pt) {
           T_max_seen = std::max(T_max_seen, pt.lambda);
           double gap = std::abs(pt.x(1) - pt.x(0));
-          return gap < density_gap_tolerance
-              || pt.lambda < T_max_seen - turning_point_margin;
+          return gap < density_gap_tolerance || pt.lambda < T_max_seen - turning_point_margin;
         }
     );
 
@@ -220,11 +215,11 @@ namespace dft::functionals::bulk {
     }
 
     return CoexistenceCurve{
-        .temperature = T.head(i_max + 1),
-        .rho_vapor = rv.head(i_max + 1),
-        .rho_liquid = rl.head(i_max + 1),
-        .critical_temperature = T(i_max),
-        .critical_density = 0.5 * (rv(i_max) + rl(i_max)),
+      .temperature = T.head(i_max + 1),
+      .rho_vapor = rv.head(i_max + 1),
+      .rho_liquid = rl.head(i_max + 1),
+      .critical_temperature = T(i_max),
+      .critical_density = 0.5 * (rv(i_max) + rl(i_max)),
     };
   }
 
@@ -234,9 +229,8 @@ namespace dft::functionals::bulk {
   // The temperature step is refined automatically near the critical
   // point where the density gap closes.
 
-  [[nodiscard]] inline auto PhaseDiagramBuilder::spinodal_curve(
-      const EoSFactory& eos_factory
-  ) const -> std::optional<SpinodalCurve> {
+  [[nodiscard]] inline auto PhaseDiagramBuilder::spinodal_curve(const EoSFactory& eos_factory) const
+      -> std::optional<SpinodalCurve> {
     std::vector<double> T_vals, lo_vals, hi_vals;
 
     // Bisection on dp_drho: guaranteed convergence within a bracket.
@@ -260,15 +254,15 @@ namespace dft::functionals::bulk {
     };
 
     // Bracket a root around a guess by expanding outward.
-    auto bracket_root = [&](double guess, double sign_left, double step,
-                            const BulkThermodynamics& eos) -> std::optional<std::pair<double, double>> {
+    auto bracket_root = [&](double guess, double sign_left, double step, const BulkThermodynamics& eos
+                        ) -> std::optional<std::pair<double, double>> {
       for (double delta = step; delta < 0.3; delta += step) {
         double a = std::max(guess - delta, 1e-6);
         double b = guess + delta;
         double fa = _internal::dp_drho(a, eos);
         double fb = _internal::dp_drho(b, eos);
         if (fa * fb < 0.0) {
-          return std::pair{a, b};
+          return std::pair{ a, b };
         }
       }
       return std::nullopt;
@@ -278,7 +272,7 @@ namespace dft::functionals::bulk {
     int consecutive_failures = 0;
 
     double dT = spinodal_temperature_step;
-    for (double T = start_temperature; ; T += dT) {
+    for (double T = start_temperature;; T += dT) {
       auto eos = eos_factory(T);
 
       std::optional<Spinodal> sp;
@@ -293,7 +287,7 @@ namespace dft::functionals::bulk {
           auto rlo = bisect_root(lo_bracket->first, lo_bracket->second, eos);
           auto rhi = bisect_root(hi_bracket->first, hi_bracket->second, eos);
           if (rlo && rhi && *rhi > *rlo) {
-            sp = Spinodal{.rho_low = *rlo, .rho_high = *rhi};
+            sp = Spinodal{ .rho_low = *rlo, .rho_high = *rhi };
           }
         }
       }
@@ -333,21 +327,19 @@ namespace dft::functionals::bulk {
     double rho_c = 0.5 * (lo_vals.back() + hi_vals.back());
 
     return SpinodalCurve{
-        .temperature = arma::vec(T_vals),
-        .rho_low = arma::vec(lo_vals),
-        .rho_high = arma::vec(hi_vals),
-        .critical_temperature = Tc,
-        .critical_density = rho_c,
+      .temperature = arma::vec(T_vals),
+      .rho_low = arma::vec(lo_vals),
+      .rho_high = arma::vec(hi_vals),
+      .critical_temperature = Tc,
+      .critical_density = rho_c,
     };
   }
 
   // Full phase diagram (binodal + spinodal) for a single-component system.
   // Returns nullopt only if both curves fail to compute.
 
-  [[nodiscard]] inline auto phase_diagram(
-      const EoSFactory& eos_factory,
-      const PhaseDiagramBuilder& builder = {}
-  ) -> std::optional<PhaseDiagram> {
+  [[nodiscard]] inline auto phase_diagram(const EoSFactory& eos_factory, const PhaseDiagramBuilder& builder = {})
+      -> std::optional<PhaseDiagram> {
     auto b = builder.binodal(eos_factory);
     auto s = builder.spinodal_curve(eos_factory);
 
@@ -366,10 +358,10 @@ namespace dft::functionals::bulk {
     }
 
     return PhaseDiagram{
-        .binodal = b.value_or(CoexistenceCurve{}),
-        .spinodal = s.value_or(SpinodalCurve{}),
-        .critical_temperature = Tc,
-        .critical_density = rho_c,
+      .binodal = b.value_or(CoexistenceCurve{}),
+      .spinodal = s.value_or(SpinodalCurve{}),
+      .critical_temperature = Tc,
+      .critical_density = rho_c,
     };
   }
 

@@ -106,20 +106,19 @@ namespace {
       // Model setup.
 
       auto lj = physics::potentials::make_lennard_jones(SIGMA, EPSILON, RCUT);
-      double hsd =
-          lj.hard_sphere_diameter(KT, physics::potentials::SplitScheme::WeeksChandlerAndersen);
+      double hsd = lj.hard_sphere_diameter(KT, physics::potentials::SplitScheme::WeeksChandlerAndersen);
 
       fx.model = physics::Model{
-          .grid = make_grid(DX, {BOX_LENGTH, BOX_LENGTH, BOX_LENGTH}),
-          .species = {Species{.name = "LJ", .hard_sphere_diameter = hsd}},
-          .interactions = {{
-              .species_i = 0,
-              .species_j = 0,
-              .potential = lj,
-              .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-              .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
-          }},
-          .temperature = KT,
+        .grid = make_grid(DX, { BOX_LENGTH, BOX_LENGTH, BOX_LENGTH }),
+        .species = { Species{ .name = "LJ", .hard_sphere_diameter = hsd } },
+        .interactions = { {
+            .species_i = 0,
+            .species_j = 0,
+            .potential = lj,
+            .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+            .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
+        } },
+        .temperature = KT,
       };
 
       // Bulk weights with grid a_vdw (matching Jim's approach).
@@ -128,17 +127,17 @@ namespace {
       fx.bulk_weights = functionals::make_bulk_weights(functionals::fmt::RSLT{}, fx.model.interactions, KT);
       fx.bulk_weights.mean_field.interactions[0].a_vdw = fx.weights.mean_field.interactions[0].a_vdw;
 
-      auto eos = functionals::bulk::make_bulk_thermodynamics(
-          fx.model.species, fx.bulk_weights
-      );
+      auto eos = functionals::bulk::make_bulk_thermodynamics(fx.model.species, fx.bulk_weights);
 
       // Coexistence.
 
-      auto coex = functionals::bulk::PhaseSearch{
-          .rho_max = 1.0,
-          .rho_scan_step = 0.005,
-          .newton = {.max_iterations = 300, .tolerance = 1e-10},
-      }.find_coexistence(eos);
+      auto coex =
+          functionals::bulk::PhaseSearch{
+            .rho_max = 1.0,
+            .rho_scan_step = 0.005,
+            .newton = { .max_iterations = 300, .tolerance = 1e-10 },
+          }
+              .find_coexistence(eos);
 
       double rho_v = coex ? coex->rho_vapor : RHO_OUT;
       double rho_l = coex ? coex->rho_liquid : RHO_IN;
@@ -150,8 +149,7 @@ namespace {
         rho_out_used = 1.1 * rho_v;
       }
 
-      double mu_rho_out =
-          eos.chemical_potential(arma::vec{rho_out_used}, 0);
+      double mu_rho_out = eos.chemical_potential(arma::vec{ rho_out_used }, 0);
 
       // Initial condition.
 
@@ -162,24 +160,19 @@ namespace {
 
       // FIRE minimization: ours.
 
-      auto cluster = algorithms::minimization::Minimizer{
-          .fire =
-               {.dt = 0.1,
-                .dt_max = 1.0,
-                .alpha_start = 0.01,
-                .f_alpha = 0.99,
-                .force_tolerance = 1e-6,
-                .max_steps = 200000},
-           .param = algorithms::minimization::Unbounded{.rho_min = 1e-99},
-           .use_homogeneous_boundary = true,
-           .log_interval = 0,
-      }.fixed_mass(
-          fx.model,
-          fx.weights,
-          fx.rho0,
-          mu_rho_out,
-          fx.target_mass
-      );
+      auto cluster =
+          algorithms::minimization::Minimizer{
+            .fire = { .dt = 0.1,
+                      .dt_max = 1.0,
+                      .alpha_start = 0.01,
+                      .f_alpha = 0.99,
+                      .force_tolerance = 1e-6,
+                      .max_steps = 200000 },
+            .param = algorithms::minimization::Unbounded{ .rho_min = 1e-99 },
+            .use_homogeneous_boundary = true,
+            .log_interval = 0,
+          }
+              .fixed_mass(fx.model, fx.weights, fx.rho0, mu_rho_out, fx.target_mass);
 
       fx.our_cluster = cluster.densities[0];
       fx.our_fire_converged = cluster.converged;
@@ -190,7 +183,7 @@ namespace {
         auto state = init::from_profile(fx.model, rho);
         state.species[0].chemical_potential = 0.0;
         auto result = functionals::total(fx.model, state, fx.weights);
-        return {result.free_energy, result.forces[0]};
+        return { result.free_energy, result.forces[0] };
       };
 
       long nx = fx.model.grid.shape[0];
@@ -205,13 +198,13 @@ namespace {
           nx,
           ny,
           nz,
-          {.dt = 0.1,
-           .dt_max = 1.0,
-           .alpha_start = 0.01,
-           .alpha_fac = 0.99,
-           .force_tolerance = 1e-6,
-           .max_steps = 200000,
-           .log_interval = 0}
+          { .dt = 0.1,
+            .dt_max = 1.0,
+            .alpha_start = 0.01,
+            .alpha_fac = 0.99,
+            .force_tolerance = 1e-6,
+            .max_steps = 200000,
+            .log_interval = 0 }
       );
 
       fx.jim_cluster = jim_cluster.density;
@@ -234,7 +227,7 @@ namespace {
       if (n_bdry > 0)
         fx.background /= static_cast<double>(n_bdry);
 
-      fx.mu_bg = eos.chemical_potential(arma::vec{fx.background}, 0);
+      fx.mu_bg = eos.chemical_potential(arma::vec{ fx.background }, 0);
 
       auto bg_state = init::from_profile(fx.model, arma::vec(fx.rho0.n_elem, arma::fill::value(fx.background)));
       bg_state.species[0].chemical_potential = fx.mu_bg;
@@ -248,15 +241,14 @@ namespace {
         auto result = functionals::total(fx.model, state, fx.weights);
         arma::vec grad = result.forces[0];
         grad = fixed_boundary(grad, fx.boundary);
-        return {result.grand_potential, grad};
+        return { result.grand_potential, grad };
       };
 
-      auto our_eig = algorithms::saddle_point::EigenvalueSolver{
-          .tolerance = 1e-4, .max_iterations = 300, .hessian_eps = 1e-6, .log_interval = 0
-      }.solve(
-          eig_force_fn,
-          fx.our_cluster
-      );
+      auto our_eig = algorithms::saddle_point::EigenvalueSolver{ .tolerance = 1e-4,
+                                                                 .max_iterations = 300,
+                                                                 .hessian_eps = 1e-6,
+                                                                 .log_interval = 0 }
+                         .solve(eig_force_fn, fx.our_cluster);
 
       fx.our_eigenvalue = our_eig.eigenvalue;
       fx.our_eigenvector = our_eig.eigenvector;
@@ -270,7 +262,7 @@ namespace {
           eig_force_fn,
           fx.our_cluster,
           jim_bdry,
-          {.tolerance = 1e-4, .max_iterations = 300, .hessian_eps = 1e-6, .log_interval = 0}
+          { .tolerance = 1e-4, .max_iterations = 300, .hessian_eps = 1e-6, .log_interval = 0 }
       );
 
       fx.jim_eigenvalue = jim_eig.eigenvalue;
@@ -283,14 +275,14 @@ namespace {
         auto state = init::from_profile(fx.model, densities[0]);
         state.species[0].chemical_potential = fx.mu_bg;
         auto result = functionals::total(fx.model, state, fx.weights);
-        return {result.grand_potential, result.forces};
+        return { result.grand_potential, result.forces };
       };
 
       auto jim_ddft_force = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
         auto state = init::from_profile(fx.model, rho);
         state.species[0].chemical_potential = fx.mu_bg;
         auto result = functionals::total(fx.model, state, fx.weights);
-        return {result.grand_potential, result.forces[0]};
+        return { result.grand_potential, result.forces[0] };
       };
 
       double ddft_dt = 1e-2;
@@ -305,20 +297,18 @@ namespace {
 
       // Our DDFT state.
       auto our_ddft_st = algorithms::dynamics::_internal::make_if_state(fx.model.grid);
-      algorithms::dynamics::StepConfig our_ddft_cfg{
-          .dt = ddft_dt,
-          .diffusion_coefficient = 1.0,
-          .min_density = 1e-18,
-          .dt_max = ddft_dt_max,
-          .fp_tolerance = ddft_fp_tol,
-          .fp_max_iterations = ddft_fp_max_it
-      };
+      algorithms::dynamics::StepConfig our_ddft_cfg{ .dt = ddft_dt,
+                                                     .diffusion_coefficient = 1.0,
+                                                     .min_density = 1e-18,
+                                                     .dt_max = ddft_dt_max,
+                                                     .fp_tolerance = ddft_fp_tol,
+                                                     .fp_max_iterations = ddft_fp_max_it };
 
       // Jim's DDFT state.
       auto jim_ddft_st = legacy::algorithms::make_ddft_state(nx, ny, nz, DX);
       double jim_dt = ddft_dt;
 
-      std::vector<arma::vec> our_rho = {rho_init};
+      std::vector<arma::vec> our_rho = { rho_init };
       arma::vec jim_rho = rho_init;
       int our_successes = 0;
       int jim_successes = 0;
@@ -327,7 +317,11 @@ namespace {
       for (int step = 1; step <= fx.ddft_comparison_steps; ++step) {
         double our_dt_before = our_ddft_cfg.dt;
         auto our_result = algorithms::dynamics::integrating_factor_step(
-            our_rho, fx.model.grid, our_ddft_st, ddft_force_fn, our_ddft_cfg
+            our_rho,
+            fx.model.grid,
+            our_ddft_st,
+            ddft_force_fn,
+            our_ddft_cfg
         );
         our_rho = std::move(our_result.densities);
 

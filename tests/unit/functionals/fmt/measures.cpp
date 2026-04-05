@@ -33,8 +33,8 @@ TEST_CASE("inner products default measures is all zero", "[fmt][measures]") {
 
 TEST_CASE("inner products with nonzero vectors", "[fmt][measures]") {
   Measures m;
-  m.v0 = {1.0, 2.0, 3.0};
-  m.v1 = {4.0, 5.0, 6.0};
+  m.v0 = { 1.0, 2.0, 3.0 };
+  m.v1 = { 4.0, 5.0, 6.0 };
   m.T.eye();
   auto p = m.inner_products();
 

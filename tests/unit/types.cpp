@@ -16,7 +16,7 @@ TEST_CASE("density default-constructs with empty vectors", "[density]") {
 
 TEST_CASE("density values are directly assignable", "[density]") {
   Density d;
-  d.values = arma::vec{1.0, 2.0, 3.0};
+  d.values = arma::vec{ 1.0, 2.0, 3.0 };
   CHECK(d.values.n_elem == 3);
   CHECK(d.values(0) == 1.0);
   CHECK(d.values(2) == 3.0);
@@ -24,8 +24,8 @@ TEST_CASE("density values are directly assignable", "[density]") {
 
 TEST_CASE("density supports designated initializer construction", "[density]") {
   Density d{
-      .values = arma::vec(100, arma::fill::ones),
-      .external_field = arma::vec(100, arma::fill::zeros),
+    .values = arma::vec(100, arma::fill::ones),
+    .external_field = arma::vec(100, arma::fill::zeros),
   };
   CHECK(d.values.n_elem == 100);
   CHECK(d.external_field.n_elem == 100);
@@ -33,8 +33,8 @@ TEST_CASE("density supports designated initializer construction", "[density]") {
 
 TEST_CASE("density is copyable", "[density]") {
   Density original{
-      .values = arma::vec{1.0, 2.0, 3.0},
-      .external_field = arma::vec{0.1, 0.2, 0.3},
+    .values = arma::vec{ 1.0, 2.0, 3.0 },
+    .external_field = arma::vec{ 0.1, 0.2, 0.3 },
   };
   Density copy = original;
   CHECK(copy.values.n_elem == 3);
@@ -47,8 +47,8 @@ TEST_CASE("density is copyable", "[density]") {
 
 TEST_CASE("density is movable", "[density]") {
   Density original{
-      .values = arma::vec{1.0, 2.0, 3.0},
-      .external_field = arma::vec(3, arma::fill::zeros),
+    .values = arma::vec{ 1.0, 2.0, 3.0 },
+    .external_field = arma::vec(3, arma::fill::zeros),
   };
   Density moved = std::move(original);
   CHECK(moved.values.n_elem == 3);
@@ -58,13 +58,13 @@ TEST_CASE("density is movable", "[density]") {
 // --- Species ---
 
 TEST_CASE("species stores identity data", "[species]") {
-  Species s{.name = "Argon", .hard_sphere_diameter = 3.405};
+  Species s{ .name = "Argon", .hard_sphere_diameter = 3.405 };
   CHECK(s.name == "Argon");
   CHECK(s.hard_sphere_diameter == 3.405);
 }
 
 TEST_CASE("species supports direct field modification", "[species]") {
-  Species s{.name = "Krypton", .hard_sphere_diameter = 1.0};
+  Species s{ .name = "Krypton", .hard_sphere_diameter = 1.0 };
   s.hard_sphere_diameter = 3.6;
   CHECK(s.hard_sphere_diameter == 3.6);
 }
@@ -79,10 +79,10 @@ TEST_CASE("species state default-constructs with zero chemical potential", "[spe
 
 TEST_CASE("species state supports designated initializer construction", "[species]") {
   SpeciesState ss{
-      .density = Density{.values = arma::vec(10, arma::fill::ones), .external_field = arma::vec(10, arma::fill::zeros)},
-      .force = arma::vec(10, arma::fill::zeros),
-      .chemical_potential = -2.5,
-      .fixed_mass = 100.0,
+    .density = Density{ .values = arma::vec(10, arma::fill::ones), .external_field = arma::vec(10, arma::fill::zeros) },
+    .force = arma::vec(10, arma::fill::zeros),
+    .chemical_potential = -2.5,
+    .fixed_mass = 100.0,
   };
   CHECK(ss.density.values.n_elem == 10);
   CHECK(ss.chemical_potential == -2.5);
@@ -108,13 +108,13 @@ TEST_CASE("state default-constructs with empty species list", "[state]") {
 
 TEST_CASE("state supports designated initializer construction", "[state]") {
   State s{
-      .species = {SpeciesState{
-          .density =
-              Density{.values = arma::vec(8, arma::fill::ones), .external_field = arma::vec(8, arma::fill::zeros)},
-          .force = arma::vec(8, arma::fill::zeros),
-          .chemical_potential = -1.0,
-      }},
-      .temperature = 1.5,
+    .species = { SpeciesState{
+        .density = Density{ .values = arma::vec(8, arma::fill::ones),
+                            .external_field = arma::vec(8, arma::fill::zeros) },
+        .force = arma::vec(8, arma::fill::zeros),
+        .chemical_potential = -1.0,
+    } },
+    .temperature = 1.5,
   };
   CHECK(s.species.size() == 1);
   CHECK(s.temperature == 1.5);
@@ -146,11 +146,11 @@ TEST_CASE("state with multiple species", "[state]") {
 
 TEST_CASE("state is movable", "[state]") {
   State original{
-      .species = {SpeciesState{
-          .density = Density{.values = arma::vec{1.0, 2.0, 3.0}},
-          .force = arma::vec(3, arma::fill::zeros),
-      }},
-      .temperature = 1.0,
+    .species = { SpeciesState{
+        .density = Density{ .values = arma::vec{ 1.0, 2.0, 3.0 } },
+        .force = arma::vec(3, arma::fill::zeros),
+    } },
+    .temperature = 1.0,
   };
   State moved = std::move(original);
   CHECK(moved.species.size() == 1);
@@ -164,7 +164,7 @@ TEST_CASE("build_lattice BCC 001 single cell has 2 atoms", "[lattice]") {
   auto lattice = build_lattice(Structure::BCC, Orientation::_001);
   CHECK(lattice.positions.n_rows == 2);
   CHECK(lattice.positions.n_cols == 3);
-  CHECK(lattice.shape == std::vector<long>{1, 1, 1});
+  CHECK(lattice.shape == std::vector<long>{ 1, 1, 1 });
 }
 
 TEST_CASE("build_lattice FCC 001 single cell has 4 atoms", "[lattice]") {
@@ -178,12 +178,12 @@ TEST_CASE("build_lattice HCP 001 single cell has 4 atoms", "[lattice]") {
 }
 
 TEST_CASE("build_lattice replicates unit cells", "[lattice]") {
-  auto lattice = build_lattice(Structure::BCC, Orientation::_001, {2, 2, 2});
+  auto lattice = build_lattice(Structure::BCC, Orientation::_001, { 2, 2, 2 });
   CHECK(lattice.positions.n_rows == 2 * 8);
 }
 
 TEST_CASE("build_lattice BCC nearest neighbor distance is 1", "[lattice]") {
-  auto lattice = build_lattice(Structure::BCC, Orientation::_001, {3, 3, 3});
+  auto lattice = build_lattice(Structure::BCC, Orientation::_001, { 3, 3, 3 });
   double min_dist = arma::datum::inf;
   for (arma::uword i = 0; i < lattice.positions.n_rows; ++i) {
     for (arma::uword j = i + 1; j < lattice.positions.n_rows; ++j) {
@@ -196,7 +196,7 @@ TEST_CASE("build_lattice BCC nearest neighbor distance is 1", "[lattice]") {
 }
 
 TEST_CASE("build_lattice FCC nearest neighbor distance is 1", "[lattice]") {
-  auto lattice = build_lattice(Structure::FCC, Orientation::_001, {3, 3, 3});
+  auto lattice = build_lattice(Structure::FCC, Orientation::_001, { 3, 3, 3 });
   double min_dist = arma::datum::inf;
   for (arma::uword i = 0; i < lattice.positions.n_rows; ++i) {
     for (arma::uword j = i + 1; j < lattice.positions.n_rows; ++j) {
@@ -209,16 +209,16 @@ TEST_CASE("build_lattice FCC nearest neighbor distance is 1", "[lattice]") {
 }
 
 TEST_CASE("build_lattice dimensions scale with shape", "[lattice]") {
-  auto single = build_lattice(Structure::BCC, Orientation::_001, {1, 1, 1});
-  auto doubled = build_lattice(Structure::BCC, Orientation::_001, {2, 3, 4});
+  auto single = build_lattice(Structure::BCC, Orientation::_001, { 1, 1, 1 });
+  auto doubled = build_lattice(Structure::BCC, Orientation::_001, { 2, 3, 4 });
   CHECK(doubled.dimensions(0) == Catch::Approx(2.0 * single.dimensions(0)));
   CHECK(doubled.dimensions(1) == Catch::Approx(3.0 * single.dimensions(1)));
   CHECK(doubled.dimensions(2) == Catch::Approx(4.0 * single.dimensions(2)));
 }
 
 TEST_CASE("build_lattice rejects invalid shape", "[lattice]") {
-  REQUIRE_THROWS_AS(build_lattice(Structure::BCC, Orientation::_001, {1, 1}), std::invalid_argument);
-  REQUIRE_THROWS_AS(build_lattice(Structure::BCC, Orientation::_001, {0, 1, 1}), std::invalid_argument);
+  REQUIRE_THROWS_AS(build_lattice(Structure::BCC, Orientation::_001, { 1, 1 }), std::invalid_argument);
+  REQUIRE_THROWS_AS(build_lattice(Structure::BCC, Orientation::_001, { 0, 1, 1 }), std::invalid_argument);
 }
 
 TEST_CASE("build_lattice HCP rejects unsupported orientations", "[lattice]") {
@@ -234,8 +234,8 @@ TEST_CASE("scaled_positions by dnn multiplies uniformly", "[lattice]") {
 }
 
 TEST_CASE("scaled_positions by box rescales anisotropically", "[lattice]") {
-  auto lattice = build_lattice(Structure::FCC, Orientation::_001, {2, 2, 2});
-  arma::rowvec3 box = {10.0, 20.0, 30.0};
+  auto lattice = build_lattice(Structure::FCC, Orientation::_001, { 2, 2, 2 });
+  arma::rowvec3 box = { 10.0, 20.0, 30.0 };
   auto scaled = lattice.scaled_positions(box);
   CHECK(arma::max(scaled.col(0)) < 10.0 + 1e-10);
   CHECK(arma::max(scaled.col(1)) < 20.0 + 1e-10);

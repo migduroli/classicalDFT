@@ -10,12 +10,12 @@ using namespace dft::physics::potentials;
 TEST_CASE("Interaction can be constructed with designated initialisers", "[interactions]") {
   auto lj = make_lennard_jones(1.0, 1.0, 2.5);
   Interaction inter{
-      .species_i = 0,
-      .species_j = 1,
-      .potential = Potential{lj},
-      .split = potentials::SplitScheme::BarkerHenderson,
-      .weight_scheme = WeightScheme::GaussE,
-      .gauss_order = 10,
+    .species_i = 0,
+    .species_j = 1,
+    .potential = Potential{ lj },
+    .split = potentials::SplitScheme::BarkerHenderson,
+    .weight_scheme = WeightScheme::GaussE,
+    .gauss_order = 10,
   };
 
   CHECK(inter.species_i == 0);
@@ -27,9 +27,9 @@ TEST_CASE("Interaction can be constructed with designated initialisers", "[inter
 
 TEST_CASE("Interaction defaults are sensible", "[interactions]") {
   Interaction inter{
-      .species_i = 0,
-      .species_j = 0,
-      .potential = Potential{make_lennard_jones(1.0, 1.0, 2.5)},
+    .species_i = 0,
+    .species_j = 0,
+    .potential = Potential{ make_lennard_jones(1.0, 1.0, 2.5) },
   };
 
   CHECK(inter.split == potentials::SplitScheme::WeeksChandlerAndersen);
@@ -40,9 +40,9 @@ TEST_CASE("Interaction defaults are sensible", "[interactions]") {
 TEST_CASE("Interaction stores variant potential correctly", "[interactions]") {
   auto twf = make_ten_wolde_frenkel(1.0, 1.0, 2.5, 50.0);
   Interaction inter{
-      .species_i = 0,
-      .species_j = 0,
-      .potential = Potential{twf},
+    .species_i = 0,
+    .species_j = 0,
+    .potential = Potential{ twf },
   };
 
   CHECK(inter.potential.name() == "TenWoldeFrenkel");

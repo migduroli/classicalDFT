@@ -8,20 +8,20 @@ namespace dft::functionals::fmt {
 
   // Pre-computed contractions of the vector and tensor weighted densities.
   struct InnerProducts {
-    double dot_v0_v1{0.0};
-    double dot_v1_v1{0.0};
-    double trace_T2{0.0};
-    double trace_T3{0.0};
-    double quadratic_form{0.0};
+    double dot_v0_v1{ 0.0 };
+    double dot_v1_v1{ 0.0 };
+    double trace_T2{ 0.0 };
+    double trace_T3{ 0.0 };
+    double quadratic_form{ 0.0 };
   };
 
   // The 19-component set of weighted densities in Fundamental Measure Theory.
   // Scalars: eta, n0, n1, n2. Vectors: v0, v1. Tensor: T (symmetric 3x3).
   struct Measures {
-    double eta{0.0};
-    double n0{0.0};
-    double n1{0.0};
-    double n2{0.0};
+    double eta{ 0.0 };
+    double n0{ 0.0 };
+    double n1{ 0.0 };
+    double n2{ 0.0 };
 
     arma::rowvec3 v0 = arma::zeros<arma::rowvec>(3);
     arma::rowvec3 v1 = arma::zeros<arma::rowvec>(3);
@@ -59,7 +59,7 @@ namespace dft::functionals::fmt {
     m.n0 = density;
     m.v0.zeros();
     m.v1.zeros();
-    m.T = arma::diagmat(arma::rowvec3{t_diag, t_diag, t_diag});
+    m.T = arma::diagmat(arma::rowvec3{ t_diag, t_diag, t_diag });
     m.products = m.inner_products();
     return m;
   }
@@ -69,10 +69,10 @@ namespace dft::functionals::fmt {
   // holds dPhi/d(field) instead of the weighted density itself.
 
   struct MeasureDerivatives {
-    double d_eta{0.0};
-    double d_n0{0.0};
-    double d_n1{0.0};
-    double d_n2{0.0};
+    double d_eta{ 0.0 };
+    double d_n0{ 0.0 };
+    double d_n1{ 0.0 };
+    double d_n2{ 0.0 };
 
     arma::rowvec3 d_v0 = arma::zeros<arma::rowvec>(3);
     arma::rowvec3 d_v1 = arma::zeros<arma::rowvec>(3);

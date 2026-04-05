@@ -14,7 +14,7 @@ TEST_CASE("kahan_sum of empty span returns 0", "[arithmetic]") {
 }
 
 TEST_CASE("kahan_sum of single element returns that element", "[arithmetic]") {
-  std::array<double, 1> v{42.0};
+  std::array<double, 1> v{ 42.0 };
   CHECK(kahan_sum(v) == 42.0);
 }
 
@@ -32,7 +32,7 @@ TEST_CASE("neumaier_sum of empty span returns 0", "[arithmetic]") {
 
 TEST_CASE("neumaier_sum handles large-then-small pattern", "[arithmetic]") {
   // Pattern where naive sum loses precision: big + small - big
-  std::vector<double> v{1e16, 1.0, -1e16};
+  std::vector<double> v{ 1e16, 1.0, -1e16 };
   CHECK(neumaier_sum(v) == 1.0);
 }
 
@@ -49,7 +49,7 @@ TEST_CASE("klein_sum of empty span returns 0", "[arithmetic]") {
 }
 
 TEST_CASE("klein_sum handles large-then-small pattern", "[arithmetic]") {
-  std::vector<double> v{1e16, 1.0, -1e16};
+  std::vector<double> v{ 1e16, 1.0, -1e16 };
   CHECK(klein_sum(v) == 1.0);
 }
 
@@ -61,14 +61,14 @@ TEST_CASE("klein_sum accumulates small values accurately", "[arithmetic]") {
 }
 
 TEST_CASE("all three sums agree on well-conditioned input", "[arithmetic]") {
-  std::vector<double> v{1.0, 2.0, 3.0, 4.0, 5.0};
+  std::vector<double> v{ 1.0, 2.0, 3.0, 4.0, 5.0 };
   CHECK(kahan_sum(v) == 15.0);
   CHECK(neumaier_sum(v) == 15.0);
   CHECK(klein_sum(v) == 15.0);
 }
 
 TEST_CASE("compensated sums handle negative values", "[arithmetic]") {
-  std::vector<double> v{-1.0, -2.0, -3.0, -4.0, -5.0};
+  std::vector<double> v{ -1.0, -2.0, -3.0, -4.0, -5.0 };
   CHECK(kahan_sum(v) == -15.0);
   CHECK(neumaier_sum(v) == -15.0);
   CHECK(klein_sum(v) == -15.0);

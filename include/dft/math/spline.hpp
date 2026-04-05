@@ -13,19 +13,22 @@ namespace dft::math {
 
   struct GslSplineDeleter {
     void operator()(gsl_spline* p) const noexcept {
-      if (p) gsl_spline_free(p);
+      if (p)
+        gsl_spline_free(p);
     }
   };
 
   struct GslSpline2dDeleter {
     void operator()(gsl_spline2d* p) const noexcept {
-      if (p) gsl_spline2d_free(p);
+      if (p)
+        gsl_spline2d_free(p);
     }
   };
 
   struct GslAccelDeleter {
     void operator()(gsl_interp_accel* p) const noexcept {
-      if (p) gsl_interp_accel_free(p);
+      if (p)
+        gsl_interp_accel_free(p);
     }
   };
 

@@ -62,7 +62,9 @@ namespace dft::geometry {
     std::vector<SquareBox2D> elements;
 
     [[nodiscard]] auto volume() const -> double { return dimensions[0] * dimensions[1]; }
+
     [[nodiscard]] auto element_volume() const -> double { return dx * dx; }
+
     [[nodiscard]] auto spacing() const -> double { return dx; }
 
     [[nodiscard]] auto flat_index(std::vector<long> idx) const -> long {
@@ -88,7 +90,7 @@ namespace dft::geometry {
           coord += dim;
         }
       }
-      return Vertex{std::move(coords)};
+      return Vertex{ std::move(coords) };
     }
   };
 
@@ -101,7 +103,9 @@ namespace dft::geometry {
     std::vector<SquareBox3D> elements;
 
     [[nodiscard]] auto volume() const -> double { return dimensions[0] * dimensions[1] * dimensions[2]; }
+
     [[nodiscard]] auto element_volume() const -> double { return dx * dx * dx; }
+
     [[nodiscard]] auto spacing() const -> double { return dx; }
 
     [[nodiscard]] auto flat_index(std::vector<long> idx) const -> long {
@@ -127,7 +131,7 @@ namespace dft::geometry {
           coord += dim;
         }
       }
-      return Vertex{std::move(coords)};
+      return Vertex{ std::move(coords) };
     }
   };
 
@@ -140,7 +144,7 @@ namespace dft::geometry {
     auto nx = static_cast<long>((dims[0] + detail::SCALING * dx) / dx) + 1;
     auto ny = static_cast<long>((dims[1] + detail::SCALING * dx) / dx) + 1;
 
-    std::vector<long> shape = {nx, ny};
+    std::vector<long> shape = { nx, ny };
     auto n_vertices = static_cast<size_t>(nx * ny);
     auto n_elements = static_cast<size_t>((nx - 1) * (ny - 1));
 
@@ -153,9 +157,9 @@ namespace dft::geometry {
     for (long i = 0; i < nx; ++i) {
       auto y = orig[1];
       for (long j = 0; j < ny; ++j) {
-        vertices[vertex_index] = Vertex{{x, y}};
+        vertices[vertex_index] = Vertex{ { x, y } };
         if (i < nx - 1 && j < ny - 1) {
-          elements.push_back(make_square_box_2d(dx, {x, y}));
+          elements.push_back(make_square_box_2d(dx, { x, y }));
         }
         ++vertex_index;
         y += dx;
@@ -164,12 +168,12 @@ namespace dft::geometry {
     }
 
     return UniformMesh2D{
-        .dx = dx,
-        .dimensions = std::move(dims),
-        .origin = std::move(orig),
-        .shape = std::move(shape),
-        .vertices = std::move(vertices),
-        .elements = std::move(elements),
+      .dx = dx,
+      .dimensions = std::move(dims),
+      .origin = std::move(orig),
+      .shape = std::move(shape),
+      .vertices = std::move(vertices),
+      .elements = std::move(elements),
     };
   }
 
@@ -179,7 +183,7 @@ namespace dft::geometry {
     auto ny = static_cast<long>((dims[1] + detail::SCALING * dx) / dx) + 1;
     auto nz = static_cast<long>((dims[2] + detail::SCALING * dx) / dx) + 1;
 
-    std::vector<long> shape = {nx, ny, nz};
+    std::vector<long> shape = { nx, ny, nz };
     auto n_vertices = static_cast<size_t>(nx * ny * nz);
     auto n_elements = static_cast<size_t>((nx - 1) * (ny - 1) * (nz - 1));
 
@@ -194,9 +198,9 @@ namespace dft::geometry {
       for (long j = 0; j < ny; ++j) {
         auto z = orig[2];
         for (long k = 0; k < nz; ++k) {
-          vertices[vertex_index] = Vertex{{x, y, z}};
+          vertices[vertex_index] = Vertex{ { x, y, z } };
           if (i < nx - 1 && j < ny - 1 && k < nz - 1) {
-            elements.push_back(make_square_box_3d(dx, {x, y, z}));
+            elements.push_back(make_square_box_3d(dx, { x, y, z }));
           }
           ++vertex_index;
           z += dx;
@@ -207,12 +211,12 @@ namespace dft::geometry {
     }
 
     return UniformMesh3D{
-        .dx = dx,
-        .dimensions = std::move(dims),
-        .origin = std::move(orig),
-        .shape = std::move(shape),
-        .vertices = std::move(vertices),
-        .elements = std::move(elements),
+      .dx = dx,
+      .dimensions = std::move(dims),
+      .origin = std::move(orig),
+      .shape = std::move(shape),
+      .vertices = std::move(vertices),
+      .elements = std::move(elements),
     };
   }
 

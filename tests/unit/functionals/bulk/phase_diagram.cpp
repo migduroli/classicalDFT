@@ -25,11 +25,11 @@ static constexpr double EPSILON = 1.0;
 static constexpr double R_CUTOFF = 2.5;
 static constexpr double KT = 0.8;
 
-static const std::vector<Species> SPECIES = {{.name = "LJ", .hard_sphere_diameter = SIGMA}};
+static const std::vector<Species> SPECIES = { { .name = "LJ", .hard_sphere_diameter = SIGMA } };
 
 static auto make_lj_interactions() -> std::vector<Interaction> {
   auto pot = make_lennard_jones(SIGMA, EPSILON, R_CUTOFF);
-  return {{.species_i = 0, .species_j = 0, .potential = pot}};
+  return { { .species_i = 0, .species_j = 0, .potential = pot } };
 }
 
 static auto make_lj_weights() -> Weights {
@@ -48,14 +48,12 @@ static auto make_lj_eos_at(double kT) -> BulkThermodynamics {
   return make_bulk_thermodynamics(SPECIES, make_lj_weights_at(kT));
 }
 
-static const PhaseSearch CONFIG{.rho_max = 0.9, .rho_scan_step = 0.005};
+static const PhaseSearch CONFIG{ .rho_max = 0.9, .rho_scan_step = 0.005 };
 
 // density_from_chemical_potential
 
 TEST_CASE("density_from_chemical_potential finds ideal gas density", "[phase_diagram]") {
-  auto eos = make_bulk_thermodynamics(
-      SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0)
-  );
+  auto eos = make_bulk_thermodynamics(SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0));
 
   double target_mu = ideal::chemical_potential(0.001);
   auto result = density_from_chemical_potential(target_mu, 0.001, eos);
@@ -64,9 +62,7 @@ TEST_CASE("density_from_chemical_potential finds ideal gas density", "[phase_dia
 }
 
 TEST_CASE("density_from_chemical_potential returns nullopt for bad guess", "[phase_diagram]") {
-  auto eos = make_bulk_thermodynamics(
-      SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0)
-  );
+  auto eos = make_bulk_thermodynamics(SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0));
 
   // A negative initial guess should fail
   auto result = density_from_chemical_potential(100.0, -1.0, eos);
@@ -92,24 +88,22 @@ TEST_CASE("spinodal densities bound the unstable region", "[phase_diagram]") {
 
   // At the spinodal, dP/drho ~ 0.
   // P at rho_low should be a local maximum
-  double p_low = eos.pressure(arma::vec{sp->rho_low});
-  double p_left = eos.pressure(arma::vec{sp->rho_low - 0.001});
-  double p_right = eos.pressure(arma::vec{sp->rho_low + 0.001});
+  double p_low = eos.pressure(arma::vec{ sp->rho_low });
+  double p_left = eos.pressure(arma::vec{ sp->rho_low - 0.001 });
+  double p_right = eos.pressure(arma::vec{ sp->rho_low + 0.001 });
   CHECK(p_low >= p_left - 1e-6);
   CHECK(p_low >= p_right - 1e-6);
 
   // P at rho_high should be a local minimum
-  double p_high = eos.pressure(arma::vec{sp->rho_high});
-  double p_left2 = eos.pressure(arma::vec{sp->rho_high - 0.001});
-  double p_right2 = eos.pressure(arma::vec{sp->rho_high + 0.001});
+  double p_high = eos.pressure(arma::vec{ sp->rho_high });
+  double p_left2 = eos.pressure(arma::vec{ sp->rho_high - 0.001 });
+  double p_right2 = eos.pressure(arma::vec{ sp->rho_high + 0.001 });
   CHECK(p_high <= p_left2 + 1e-6);
   CHECK(p_high <= p_right2 + 1e-6);
 }
 
 TEST_CASE("find_spinodal returns nullopt for purely repulsive system", "[phase_diagram]") {
-  auto eos = make_bulk_thermodynamics(
-      SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0)
-  );
+  auto eos = make_bulk_thermodynamics(SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0));
 
   auto result = CONFIG.find_spinodal(eos);
   CHECK_FALSE(result.has_value());
@@ -131,8 +125,8 @@ TEST_CASE("coexistence densities satisfy equal pressure", "[phase_diagram]") {
   auto coex = CONFIG.find_coexistence(eos);
   REQUIRE(coex.has_value());
 
-  double p_v = eos.pressure(arma::vec{coex->rho_vapor});
-  double p_l = eos.pressure(arma::vec{coex->rho_liquid});
+  double p_v = eos.pressure(arma::vec{ coex->rho_vapor });
+  double p_l = eos.pressure(arma::vec{ coex->rho_liquid });
   CHECK(p_v == Catch::Approx(p_l).epsilon(1e-6));
 }
 
@@ -141,8 +135,8 @@ TEST_CASE("coexistence densities satisfy equal chemical potential", "[phase_diag
   auto coex = CONFIG.find_coexistence(eos);
   REQUIRE(coex.has_value());
 
-  double mu_v = eos.chemical_potential(arma::vec{coex->rho_vapor}, 0);
-  double mu_l = eos.chemical_potential(arma::vec{coex->rho_liquid}, 0);
+  double mu_v = eos.chemical_potential(arma::vec{ coex->rho_vapor }, 0);
+  double mu_l = eos.chemical_potential(arma::vec{ coex->rho_liquid }, 0);
   CHECK(mu_v == Catch::Approx(mu_l).epsilon(1e-6));
 }
 
@@ -158,9 +152,7 @@ TEST_CASE("coexistence densities lie outside spinodal densities", "[phase_diagra
 }
 
 TEST_CASE("find_coexistence returns nullopt for pure hard spheres", "[phase_diagram]") {
-  auto eos = make_bulk_thermodynamics(
-      SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0)
-  );
+  auto eos = make_bulk_thermodynamics(SPECIES, make_bulk_weights(Rosenfeld{}, {}, 1.0));
 
   auto result = CONFIG.find_coexistence(eos);
   CHECK_FALSE(result.has_value());
@@ -191,13 +183,15 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
   auto coex = CONFIG.find_coexistence(eos);
   REQUIRE(coex.has_value());
 
-  EoSFactory factory = [](double kT) -> BulkThermodynamics { return make_lj_eos_at(kT); };
+  EoSFactory factory = [](double kT) -> BulkThermodynamics {
+    return make_lj_eos_at(kT);
+  };
 
   dft::algorithms::continuation::Continuation cont_config{
-      .initial_step = 0.005,
-      .max_step = 0.02,
-      .min_step = 1e-4,
-      .newton = {.max_iterations = 100, .tolerance = 1e-8},
+    .initial_step = 0.005,
+    .max_step = 0.02,
+    .min_step = 1e-4,
+    .newton = { .max_iterations = 100, .tolerance = 1e-8 },
   };
 
   auto curve = _internal::trace_coexistence(
@@ -214,20 +208,22 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
   // Each point on the curve should satisfy equal pressure and mu
   for (const auto& pt : curve) {
     auto eos_at_T = make_lj_eos_at(pt.lambda);
-    double pv = eos_at_T.pressure(arma::vec{pt.x(0)});
-    double pl = eos_at_T.pressure(arma::vec{pt.x(1)});
+    double pv = eos_at_T.pressure(arma::vec{ pt.x(0) });
+    double pl = eos_at_T.pressure(arma::vec{ pt.x(1) });
     CHECK(pv == Catch::Approx(pl).epsilon(1e-4));
   }
 }
 
 // binodal
 
-static const EoSFactory EOS_FACTORY = [](double kT) -> BulkThermodynamics { return make_lj_eos_at(kT); };
+static const EoSFactory EOS_FACTORY = [](double kT) -> BulkThermodynamics {
+  return make_lj_eos_at(kT);
+};
 
 TEST_CASE("binodal returns a coexistence curve for LJ system", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = pd_config.binodal(EOS_FACTORY);
@@ -242,8 +238,8 @@ TEST_CASE("binodal returns a coexistence curve for LJ system", "[phase_diagram]"
 
 TEST_CASE("binodal vapor density is less than liquid at all temperatures", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = pd_config.binodal(EOS_FACTORY);
@@ -256,8 +252,8 @@ TEST_CASE("binodal vapor density is less than liquid at all temperatures", "[pha
 
 TEST_CASE("binodal temperature is monotonically increasing", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = pd_config.binodal(EOS_FACTORY);
@@ -270,8 +266,8 @@ TEST_CASE("binodal temperature is monotonically increasing", "[phase_diagram]") 
 
 TEST_CASE("binodal satisfies equal pressure along the curve", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = pd_config.binodal(EOS_FACTORY);
@@ -279,8 +275,8 @@ TEST_CASE("binodal satisfies equal pressure along the curve", "[phase_diagram]")
 
   for (arma::uword i = 0; i < result->temperature.n_elem; ++i) {
     auto eos_at_T = EOS_FACTORY(result->temperature(i));
-    double pv = eos_at_T.pressure(arma::vec{result->rho_vapor(i)});
-    double pl = eos_at_T.pressure(arma::vec{result->rho_liquid(i)});
+    double pv = eos_at_T.pressure(arma::vec{ result->rho_vapor(i) });
+    double pl = eos_at_T.pressure(arma::vec{ result->rho_liquid(i) });
     CHECK(pv == Catch::Approx(pl).epsilon(1e-3));
   }
 }
@@ -298,8 +294,8 @@ TEST_CASE("binodal returns nullopt for purely repulsive system", "[phase_diagram
 
 TEST_CASE("spinodal returns a curve for LJ system", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = pd_config.spinodal_curve(EOS_FACTORY);
@@ -314,8 +310,8 @@ TEST_CASE("spinodal returns a curve for LJ system", "[phase_diagram]") {
 
 TEST_CASE("spinodal low density is less than high density", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = pd_config.spinodal_curve(EOS_FACTORY);
@@ -328,8 +324,8 @@ TEST_CASE("spinodal low density is less than high density", "[phase_diagram]") {
 
 TEST_CASE("spinodal lies inside the binodal", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto b = pd_config.binodal(EOS_FACTORY);
@@ -355,8 +351,8 @@ TEST_CASE("spinodal returns nullopt for purely repulsive system", "[phase_diagra
 
 TEST_CASE("phase_diagram returns both binodal and spinodal", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto result = phase_diagram(EOS_FACTORY, pd_config);
@@ -381,8 +377,8 @@ TEST_CASE("phase_diagram returns nullopt for purely repulsive system", "[phase_d
 
 TEST_CASE("interpolate returns phase boundaries at a known temperature", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto pd = phase_diagram(EOS_FACTORY, pd_config);
@@ -400,8 +396,8 @@ TEST_CASE("interpolate returns phase boundaries at a known temperature", "[phase
 
 TEST_CASE("interpolate returns NaN above the critical temperature", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto pd = phase_diagram(EOS_FACTORY, pd_config);
@@ -414,8 +410,8 @@ TEST_CASE("interpolate returns NaN above the critical temperature", "[phase_diag
 
 TEST_CASE("interpolate returns NaN below the traced range", "[phase_diagram]") {
   PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = CONFIG,
+    .start_temperature = 0.6,
+    .search = CONFIG,
   };
 
   auto pd = phase_diagram(EOS_FACTORY, pd_config);

@@ -13,9 +13,7 @@ namespace dft::algorithms::picard {
   // Force function: given densities, returns (grand potential, forces).
   // Same signature as fire::ForceFunction and ddft::ForceCallback.
 
-  using ForceFunction = std::function<std::pair<double, std::vector<arma::vec>>(
-      const std::vector<arma::vec>&
-  )>;
+  using ForceFunction = std::function<std::pair<double, std::vector<arma::vec>>(const std::vector<arma::vec>&)>;
 
   // Optional projection applied after each density update.
   // Returns a copy with the constraint enforced (e.g. fixed total mass).
@@ -31,15 +29,17 @@ namespace dft::algorithms::picard {
   };
 
   struct Picard {
-    double mixing{0.01};
-    double min_density{1e-30};
-    double tolerance{1e-6};
-    int max_iterations{5000};
-    int log_interval{500};
+    double mixing{ 0.01 };
+    double min_density{ 1e-30 };
+    double tolerance{ 1e-6 };
+    int max_iterations{ 5000 };
+    int log_interval{ 500 };
 
     [[nodiscard]] auto solve(
-        std::vector<arma::vec> densities, const ForceFunction& compute,
-        double cell_volume, const Constraint& constraint = {}
+        std::vector<arma::vec> densities,
+        const ForceFunction& compute,
+        double cell_volume,
+        const Constraint& constraint = {}
     ) const -> PicardResult;
   };
 
@@ -61,8 +61,10 @@ namespace dft::algorithms::picard {
   // detected when Omega stops changing between iterations.
 
   [[nodiscard]] inline auto Picard::solve(
-      std::vector<arma::vec> densities, const ForceFunction& compute,
-      double cell_volume, const Constraint& constraint
+      std::vector<arma::vec> densities,
+      const ForceFunction& compute,
+      double cell_volume,
+      const Constraint& constraint
   ) const -> PicardResult {
     double residual = 0.0;
     double omega = 0.0;
@@ -113,12 +115,11 @@ namespace dft::algorithms::picard {
     }
 
     return PicardResult{
-        .densities = std::move(densities),
-        .grand_potential = omega,
-        .residual = residual,
-        .iterations = iter,
-        .converged = residual < tolerance
-                     || (iter > 0 && std::abs(omega - omega_prev) < tolerance),
+      .densities = std::move(densities),
+      .grand_potential = omega,
+      .residual = residual,
+      .iterations = iter,
+      .converged = residual < tolerance || (iter > 0 && std::abs(omega - omega_prev) < tolerance),
     };
   }
 

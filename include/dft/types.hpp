@@ -33,7 +33,7 @@ namespace dft {
   struct SpeciesState {
     Density density;
     arma::vec force;
-    double chemical_potential{0.0};
+    double chemical_potential{ 0.0 };
     std::optional<double> fixed_mass;
   };
 
@@ -48,11 +48,26 @@ namespace dft {
 
   // Crystal
 
-  enum class Structure { BCC, FCC, HCP };
+  enum class Structure {
+    BCC,
+    FCC,
+    HCP
+  };
 
-  enum class Orientation { _001, _010, _100, _110, _101, _011, _111 };
+  enum class Orientation {
+    _001,
+    _010,
+    _100,
+    _110,
+    _101,
+    _011,
+    _111
+  };
 
-  enum class ExportFormat { XYZ, CSV };
+  enum class ExportFormat {
+    XYZ,
+    CSV
+  };
 
   struct Lattice {
     Structure structure;
@@ -66,9 +81,8 @@ namespace dft {
     void export_to(const std::string& filename, ExportFormat format = ExportFormat::XYZ) const;
   };
 
-  [[nodiscard]] auto build_lattice(
-      Structure structure, Orientation orientation, const std::vector<long>& shape = {1, 1, 1}
-  ) -> Lattice;
+  [[nodiscard]] auto
+  build_lattice(Structure structure, Orientation orientation, const std::vector<long>& shape = { 1, 1, 1 }) -> Lattice;
 
 }  // namespace dft
 

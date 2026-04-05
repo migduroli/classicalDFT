@@ -44,7 +44,8 @@ TEST_CASE("derivatives_up_to_3 of polynomial", "[autodiff]") {
   // f(x) = x^4 + x^3 + x^2 + x + 1
   // f(1) = 5, f'(1) = 4+3+2+1 = 10, f''(1) = 12+6+2 = 20, f'''(1) = 24+6 = 30
   auto [f, df, d2f, d3f] = derivatives_up_to_3(
-      [](dual3rd x) -> dual3rd { return x * x * x * x + x * x * x + x * x + x + dual3rd(1.0); }, 1.0
+      [](dual3rd x) -> dual3rd { return x * x * x * x + x * x * x + x * x + x + dual3rd(1.0); },
+      1.0
   );
   CHECK(f == Catch::Approx(5.0));
   CHECK(df == Catch::Approx(10.0));

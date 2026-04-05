@@ -76,21 +76,20 @@ namespace dft::math {
   }
 
   auto FourierTransform::real() -> std::span<double> {
-    return {real_data_.get(), static_cast<std::size_t>(total())};
+    return { real_data_.get(), static_cast<std::size_t>(total()) };
   }
 
   auto FourierTransform::real() const -> std::span<const double> {
-    return {real_data_.get(), static_cast<std::size_t>(total())};
+    return { real_data_.get(), static_cast<std::size_t>(total()) };
   }
 
   auto FourierTransform::fourier() -> std::span<std::complex<double>> {
-    return {reinterpret_cast<std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())};
+    return { reinterpret_cast<std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total()) };
   }
 
   auto FourierTransform::fourier() const -> std::span<const std::complex<double>> {
-    return {
-        reinterpret_cast<const std::complex<double>*>(fourier_data_.get()), static_cast<std::size_t>(fourier_total())
-    };
+    return { reinterpret_cast<const std::complex<double>*>(fourier_data_.get()),
+             static_cast<std::size_t>(fourier_total()) };
   }
 
   void FourierTransform::forward() {
@@ -105,7 +104,7 @@ namespace dft::math {
     auto r = real();
     std::ranges::fill(r, 0.0);
     auto f = fourier();
-    std::ranges::fill(f, std::complex<double>{0.0, 0.0});
+    std::ranges::fill(f, std::complex<double>{ 0.0, 0.0 });
   }
 
   void FourierTransform::scale(double factor) {
@@ -146,9 +145,11 @@ namespace dft::math {
   auto FourierConvolution::input_a() -> std::span<double> {
     return a_.real();
   }
+
   auto FourierConvolution::input_b() -> std::span<double> {
     return b_.real();
   }
+
   auto FourierConvolution::result() const -> std::span<const double> {
     return c_.real();
   }
@@ -167,6 +168,7 @@ namespace dft::math {
   auto FourierConvolution::shape() const -> const std::vector<long>& {
     return a_.shape();
   }
+
   auto FourierConvolution::total() const -> long {
     return a_.total();
   }

@@ -7,7 +7,7 @@
 
 using namespace dft::math;
 
-static const std::vector<long> SHAPE = {4, 4, 4};
+static const std::vector<long> SHAPE = { 4, 4, 4 };
 static constexpr long N = 64;
 
 TEST_CASE("convolve with unit weight returns IFFT(rho_k)", "[convolution]") {
@@ -20,7 +20,7 @@ TEST_CASE("convolve with unit weight returns IFFT(rho_k)", "[convolution]") {
   }
   rho_ft.forward();
 
-  std::vector<std::complex<double>> weight_k(n, {1.0 / static_cast<double>(N), 0.0});
+  std::vector<std::complex<double>> weight_k(n, { 1.0 / static_cast<double>(N), 0.0 });
   auto rho_k = rho_ft.fourier();
 
   auto result = convolve(weight_k, rho_k, SHAPE);
@@ -34,8 +34,8 @@ TEST_CASE("convolve with zero weight returns zero", "[convolution]") {
   FourierTransform tmp(SHAPE);
   auto n = tmp.fourier_total();
 
-  std::vector<std::complex<double>> weight_k(n, {0.0, 0.0});
-  std::vector<std::complex<double>> rho_k(n, {1.0, 0.0});
+  std::vector<std::complex<double>> weight_k(n, { 0.0, 0.0 });
+  std::vector<std::complex<double>> rho_k(n, { 1.0, 0.0 });
 
   auto result = convolve(weight_k, rho_k, SHAPE);
   for (arma::uword i = 0; i < result.n_elem; ++i) {
@@ -48,7 +48,7 @@ TEST_CASE("back_convolve computes weight_k * FFT(derivative)", "[convolution]") 
   auto n = tmp.fourier_total();
 
   arma::vec derivative(N, arma::fill::ones);
-  std::vector<std::complex<double>> weight_k(n, {1.0, 0.0});
+  std::vector<std::complex<double>> weight_k(n, { 1.0, 0.0 });
 
   auto result = back_convolve(weight_k, derivative, SHAPE);
 
@@ -62,7 +62,7 @@ TEST_CASE("back_convolve with conjugate flag uses conj(weight)", "[convolution]"
 
   arma::vec derivative(N, arma::fill::ones);
   // weight with imaginary part
-  std::vector<std::complex<double>> weight_k(n, {0.0, 1.0});
+  std::vector<std::complex<double>> weight_k(n, { 0.0, 1.0 });
 
   auto result = back_convolve(weight_k, derivative, SHAPE, true);
 
@@ -76,7 +76,7 @@ TEST_CASE("back_convolve results can be summed for accumulation", "[convolution]
   auto n = tmp.fourier_total();
 
   arma::vec derivative(N, arma::fill::ones);
-  std::vector<std::complex<double>> weight_k(n, {1.0, 0.0});
+  std::vector<std::complex<double>> weight_k(n, { 1.0, 0.0 });
 
   auto r1 = back_convolve(weight_k, derivative, SHAPE);
   auto r2 = back_convolve(weight_k, derivative, SHAPE);

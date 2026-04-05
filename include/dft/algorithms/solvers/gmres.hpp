@@ -2,8 +2,8 @@
 #define DFT_ALGORITHMS_SOLVERS_GMRES_HPP
 
 #include <armadillo>
-#include <concepts>
 #include <cmath>
+#include <concepts>
 
 namespace dft::algorithms::solvers {
 
@@ -25,9 +25,9 @@ namespace dft::algorithms::solvers {
   // A is a LinearOperator (callable), not an explicit matrix.
 
   struct GMRES {
-    int max_iterations{100};
-    int restart{30};
-    double tolerance{1e-6};
+    int max_iterations{ 100 };
+    int restart{ 30 };
+    double tolerance{ 1e-6 };
 
     template <LinearOperator Op>
     [[nodiscard]] auto solve(Op&& A, const arma::vec& b, arma::vec x0 = {}) const -> GMRESResult {
@@ -44,7 +44,7 @@ namespace dft::algorithms::solvers {
         double beta = arma::norm(r);
 
         if (beta < tolerance) {
-          return {.solution = std::move(x0), .iterations = total_iters, .final_residual = beta, .converged = true};
+          return { .solution = std::move(x0), .iterations = total_iters, .final_residual = beta, .converged = true };
         }
 
         int m = std::min(restart, static_cast<int>(n));
@@ -111,27 +111,25 @@ namespace dft::algorithms::solvers {
         // Back-substitution: solve H(0:j-1, 0:j-1) * y = g(0:j-1).
         auto jj = static_cast<arma::uword>(j);
         if (jj == 0) {
-          return {.solution = std::move(x0), .iterations = total_iters, .final_residual = beta, .converged = false};
+          return { .solution = std::move(x0), .iterations = total_iters, .final_residual = beta, .converged = false };
         }
-        arma::vec y = arma::solve(
-            arma::trimatu(H.submat(0, 0, jj - 1, jj - 1)),
-            g.head(jj));
+        arma::vec y = arma::solve(arma::trimatu(H.submat(0, 0, jj - 1, jj - 1)), g.head(jj));
 
         // Update solution.
         x0 += V.head_cols(jj) * y;
 
         double res = arma::norm(b - A(x0));
         if (res < tolerance) {
-          return {.solution = std::move(x0), .iterations = total_iters, .final_residual = res, .converged = true};
+          return { .solution = std::move(x0), .iterations = total_iters, .final_residual = res, .converged = true };
         }
       }
 
       double final_res = arma::norm(b - A(x0));
       return {
-          .solution = std::move(x0),
-          .iterations = total_iters,
-          .final_residual = final_res,
-          .converged = final_res < tolerance,
+        .solution = std::move(x0),
+        .iterations = total_iters,
+        .final_residual = final_res,
+        .converged = final_res < tolerance,
       };
     }
   };

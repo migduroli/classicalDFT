@@ -8,7 +8,7 @@ using namespace dft::geometry;
 // 2D mesh tests
 
 TEST_CASE("uniform_mesh_2d computes correct shape", "[mesh]") {
-  auto mesh = uniform_mesh_2d(0.5, {1.0, 1.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(0.5, { 1.0, 1.0 }, { 0.0, 0.0 });
   CHECK(mesh.shape[0] == 3);
   CHECK(mesh.shape[1] == 3);
   CHECK(mesh.vertices.size() == 9);
@@ -16,24 +16,24 @@ TEST_CASE("uniform_mesh_2d computes correct shape", "[mesh]") {
 }
 
 TEST_CASE("uniform_mesh_2d volume equals product of dimensions", "[mesh]") {
-  auto mesh = uniform_mesh_2d(0.5, {2.0, 3.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(0.5, { 2.0, 3.0 }, { 0.0, 0.0 });
   CHECK(mesh.volume() == Catch::Approx(6.0));
 }
 
 TEST_CASE("uniform_mesh_2d element volume is dx squared", "[mesh]") {
-  auto mesh = uniform_mesh_2d(0.25, {1.0, 1.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(0.25, { 1.0, 1.0 }, { 0.0, 0.0 });
   CHECK(mesh.element_volume() == Catch::Approx(0.0625));
 }
 
 TEST_CASE("uniform_mesh_2d spacing returns dx", "[mesh]") {
-  auto mesh = uniform_mesh_2d(0.5, {1.0, 1.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(0.5, { 1.0, 1.0 }, { 0.0, 0.0 });
   CHECK(mesh.spacing() == Catch::Approx(0.5));
 }
 
 // 3D mesh tests
 
 TEST_CASE("uniform_mesh_3d computes correct shape", "[mesh]") {
-  auto mesh = uniform_mesh_3d(0.5, {1.0, 1.0, 1.0}, {0.0, 0.0, 0.0});
+  auto mesh = uniform_mesh_3d(0.5, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 0.0 });
   CHECK(mesh.shape[0] == 3);
   CHECK(mesh.shape[1] == 3);
   CHECK(mesh.shape[2] == 3);
@@ -42,27 +42,27 @@ TEST_CASE("uniform_mesh_3d computes correct shape", "[mesh]") {
 }
 
 TEST_CASE("uniform_mesh_3d volume equals product of dimensions", "[mesh]") {
-  auto mesh = uniform_mesh_3d(0.5, {2.0, 3.0, 4.0}, {0.0, 0.0, 0.0});
+  auto mesh = uniform_mesh_3d(0.5, { 2.0, 3.0, 4.0 }, { 0.0, 0.0, 0.0 });
   CHECK(mesh.volume() == Catch::Approx(24.0));
 }
 
 TEST_CASE("uniform_mesh_3d element volume is dx cubed", "[mesh]") {
-  auto mesh = uniform_mesh_3d(0.5, {1.0, 1.0, 1.0}, {0.0, 0.0, 0.0});
+  auto mesh = uniform_mesh_3d(0.5, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 0.0 });
   CHECK(mesh.element_volume() == Catch::Approx(0.125));
 }
 
 // Variant-based tests
 
 TEST_CASE("mesh variant volume dispatches correctly", "[mesh]") {
-  auto m2d = uniform_mesh_2d(0.5, {2.0, 3.0}, {0.0, 0.0});
-  auto m3d = uniform_mesh_3d(0.5, {2.0, 3.0, 4.0}, {0.0, 0.0, 0.0});
+  auto m2d = uniform_mesh_2d(0.5, { 2.0, 3.0 }, { 0.0, 0.0 });
+  auto m3d = uniform_mesh_3d(0.5, { 2.0, 3.0, 4.0 }, { 0.0, 0.0, 0.0 });
   CHECK(m2d.volume() == Catch::Approx(6.0));
   CHECK(m3d.volume() == Catch::Approx(24.0));
 }
 
 TEST_CASE("mesh variant element_volume dispatches correctly", "[mesh]") {
-  auto m2d = uniform_mesh_2d(0.5, {1.0, 1.0}, {0.0, 0.0});
-  auto m3d = uniform_mesh_3d(0.5, {1.0, 1.0, 1.0}, {0.0, 0.0, 0.0});
+  auto m2d = uniform_mesh_2d(0.5, { 1.0, 1.0 }, { 0.0, 0.0 });
+  auto m3d = uniform_mesh_3d(0.5, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 0.0 });
   CHECK(m2d.element_volume() == Catch::Approx(0.25));
   CHECK(m3d.element_volume() == Catch::Approx(0.125));
 }
@@ -70,83 +70,83 @@ TEST_CASE("mesh variant element_volume dispatches correctly", "[mesh]") {
 // Indexing tests
 
 TEST_CASE("flat_index is row-major with last index fastest", "[mesh]") {
-  auto mesh = uniform_mesh_2d(0.5, {1.0, 1.0}, {0.0, 0.0});
-  CHECK(mesh.flat_index({0, 0}) == 0);
-  CHECK(mesh.flat_index({0, 1}) == 1);
-  CHECK(mesh.flat_index({0, 2}) == 2);
-  CHECK(mesh.flat_index({1, 0}) == 3);
-  CHECK(mesh.flat_index({2, 2}) == 8);
+  auto mesh = uniform_mesh_2d(0.5, { 1.0, 1.0 }, { 0.0, 0.0 });
+  CHECK(mesh.flat_index({ 0, 0 }) == 0);
+  CHECK(mesh.flat_index({ 0, 1 }) == 1);
+  CHECK(mesh.flat_index({ 0, 2 }) == 2);
+  CHECK(mesh.flat_index({ 1, 0 }) == 3);
+  CHECK(mesh.flat_index({ 2, 2 }) == 8);
 }
 
 TEST_CASE("flat_index for 3D mesh", "[mesh]") {
-  auto mesh = uniform_mesh_3d(0.5, {1.0, 1.0, 1.0}, {0.0, 0.0, 0.0});
-  CHECK(mesh.flat_index({0, 0, 0}) == 0);
-  CHECK(mesh.flat_index({0, 0, 1}) == 1);
-  CHECK(mesh.flat_index({0, 1, 0}) == 3);
-  CHECK(mesh.flat_index({1, 0, 0}) == 9);
+  auto mesh = uniform_mesh_3d(0.5, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 0.0 });
+  CHECK(mesh.flat_index({ 0, 0, 0 }) == 0);
+  CHECK(mesh.flat_index({ 0, 0, 1 }) == 1);
+  CHECK(mesh.flat_index({ 0, 1, 0 }) == 3);
+  CHECK(mesh.flat_index({ 1, 0, 0 }) == 9);
 }
 
 TEST_CASE("cartesian_index is inverse of flat_index", "[mesh]") {
-  auto mesh = uniform_mesh_3d(0.5, {1.0, 1.0, 1.0}, {0.0, 0.0, 0.0});
+  auto mesh = uniform_mesh_3d(0.5, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 0.0 });
   auto idx = mesh.cartesian_index(14);
   CHECK(mesh.flat_index(idx) == 14);
 }
 
 TEST_CASE("vertex access by cartesian index", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {2.0, 2.0}, {0.0, 0.0});
-  auto& v = mesh.vertex({1, 2});
+  auto mesh = uniform_mesh_2d(1.0, { 2.0, 2.0 }, { 0.0, 0.0 });
+  auto& v = mesh.vertex({ 1, 2 });
   CHECK(v[0] == Catch::Approx(1.0));
   CHECK(v[1] == Catch::Approx(2.0));
 }
 
 TEST_CASE("vertex access with negative indices", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {2.0, 2.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(1.0, { 2.0, 2.0 }, { 0.0, 0.0 });
   // shape is {3, 3}, so -1 means index 2
-  auto& v = mesh.vertex({-1, -1});
+  auto& v = mesh.vertex({ -1, -1 });
   CHECK(v[0] == Catch::Approx(2.0));
   CHECK(v[1] == Catch::Approx(2.0));
 }
 
 TEST_CASE("vertex access out of bounds throws", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {2.0, 2.0}, {0.0, 0.0});
-  REQUIRE_THROWS_AS(mesh.vertex({3, 0}), std::out_of_range);
+  auto mesh = uniform_mesh_2d(1.0, { 2.0, 2.0 }, { 0.0, 0.0 });
+  REQUIRE_THROWS_AS(mesh.vertex({ 3, 0 }), std::out_of_range);
 }
 
 TEST_CASE("flat_index with wrong dimension throws", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {2.0, 2.0}, {0.0, 0.0});
-  REQUIRE_THROWS_AS(mesh.flat_index({0, 0, 0}), std::invalid_argument);
+  auto mesh = uniform_mesh_2d(1.0, { 2.0, 2.0 }, { 0.0, 0.0 });
+  REQUIRE_THROWS_AS(mesh.flat_index({ 0, 0, 0 }), std::invalid_argument);
 }
 
 // Periodic boundary conditions
 
 TEST_CASE("wrap folds position into periodic box (2D)", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {4.0, 4.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(1.0, { 4.0, 4.0 }, { 0.0, 0.0 });
 
-  auto wrapped = mesh.wrap(Vertex{{5.0, 6.0}});
+  auto wrapped = mesh.wrap(Vertex{ { 5.0, 6.0 } });
   CHECK(wrapped[0] == Catch::Approx(1.0));
   CHECK(wrapped[1] == Catch::Approx(2.0));
 }
 
 TEST_CASE("wrap handles negative coordinates", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {4.0, 4.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(1.0, { 4.0, 4.0 }, { 0.0, 0.0 });
 
-  auto wrapped = mesh.wrap(Vertex{{-1.0, -2.0}});
+  auto wrapped = mesh.wrap(Vertex{ { -1.0, -2.0 } });
   CHECK(wrapped[0] == Catch::Approx(3.0));
   CHECK(wrapped[1] == Catch::Approx(2.0));
 }
 
 TEST_CASE("wrap leaves interior position unchanged", "[mesh]") {
-  auto mesh = uniform_mesh_2d(1.0, {4.0, 4.0}, {0.0, 0.0});
+  auto mesh = uniform_mesh_2d(1.0, { 4.0, 4.0 }, { 0.0, 0.0 });
 
-  auto wrapped = mesh.wrap(Vertex{{2.5, 1.5}});
+  auto wrapped = mesh.wrap(Vertex{ { 2.5, 1.5 } });
   CHECK(wrapped[0] == Catch::Approx(2.5));
   CHECK(wrapped[1] == Catch::Approx(1.5));
 }
 
 TEST_CASE("wrap for 3D mesh", "[mesh]") {
-  auto mesh = uniform_mesh_3d(1.0, {4.0, 4.0, 4.0}, {0.0, 0.0, 0.0});
+  auto mesh = uniform_mesh_3d(1.0, { 4.0, 4.0, 4.0 }, { 0.0, 0.0, 0.0 });
 
-  auto wrapped = mesh.wrap(Vertex{{5.5, -0.5, 8.5}});
+  auto wrapped = mesh.wrap(Vertex{ { 5.5, -0.5, 8.5 } });
   CHECK(wrapped[0] == Catch::Approx(1.5));
   CHECK(wrapped[1] == Catch::Approx(3.5));
   CHECK(wrapped[2] == Catch::Approx(0.5));

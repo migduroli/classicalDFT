@@ -21,15 +21,15 @@ int main() {
   // Define the Lennard-Jones system declaratively.
 
   physics::Model model{
-      .grid = make_grid(0.1, {6.0, 6.0, 6.0}),
-      .species = {Species{.name = "LJ", .hard_sphere_diameter = 1.0}},
-      .interactions = {{
-          .species_i = 0,
-          .species_j = 0,
-          .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
-          .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      }},
-      .temperature = 1.0,
+    .grid = make_grid(0.1, { 6.0, 6.0, 6.0 }),
+    .species = { Species{ .name = "LJ", .hard_sphere_diameter = 1.0 } },
+    .interactions = { {
+        .species_i = 0,
+        .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+    } },
+    .temperature = 1.0,
   };
 
   const auto& pot = model.interactions[0].potential;
@@ -57,8 +57,7 @@ int main() {
 
   std::println(std::cout, "{:>8s}{:>16s}{:>16s}{:>16s}", "r", "v(r)", "w_att(WCA)", "w_att(BH)");
   for (int i = 0; i < N; i += 40) {
-    std::println(std::cout, "{:>8.6f}{:>16.6f}{:>16.6f}{:>16.6f}",
-                 r_vec[i], v_full[i], watt_wca[i], watt_bh[i]);
+    std::println(std::cout, "{:>8.6f}{:>16.6f}{:>16.6f}{:>16.6f}", r_vec[i], v_full[i], watt_wca[i], watt_bh[i]);
   }
 
   // Van der Waals parameter (analytical).
@@ -71,9 +70,7 @@ int main() {
 
   std::println(std::cout, "\n=== Bulk thermodynamics f(rho), mu(rho) at kT=1 ===\n");
 
-  auto weights = functionals::make_bulk_weights(
-      functionals::fmt::WhiteBearII{}, model.interactions, model.temperature
-  );
+  auto weights = functionals::make_bulk_weights(functionals::fmt::WhiteBearII{}, model.interactions, model.temperature);
 
   constexpr int M = 100;
   arma::vec rho_arma = arma::linspace(0.01, 1.0, M);
@@ -82,8 +79,8 @@ int main() {
   std::println(std::cout, "{:>10s}{:>16s}{:>16s}", "rho", "f_mf", "mu_mf");
 
   for (arma::uword i = 0; i < rho_arma.n_elem; ++i) {
-    f_arma(i) = functionals::bulk::mean_field::free_energy_density(weights.mean_field, arma::vec{rho_arma(i)});
-    mu_arma(i) = functionals::bulk::mean_field::chemical_potential(weights.mean_field, arma::vec{rho_arma(i)}, 0);
+    f_arma(i) = functionals::bulk::mean_field::free_energy_density(weights.mean_field, arma::vec{ rho_arma(i) });
+    mu_arma(i) = functionals::bulk::mean_field::chemical_potential(weights.mean_field, arma::vec{ rho_arma(i) }, 0);
 
     if (i % 20 == 0) {
       std::println(std::cout, "{:>10.6f}{:>16.6f}{:>16.6f}", rho_arma(i), f_arma(i), mu_arma(i));
@@ -99,14 +96,14 @@ int main() {
   double a_analytic = 2.0 * pot.vdw_integral(model.temperature, split);
   std::println(std::cout, "Analytic a_vdw = {:.6f}\n", a_analytic);
 
-  std::vector<double> dx_vals = {0.5, 0.4, 0.3, 0.25, 0.2, 0.15, 0.125, 0.1};
+  std::vector<double> dx_vals = { 0.5, 0.4, 0.3, 0.25, 0.2, 0.15, 0.125, 0.1 };
   std::println(std::cout, "{:>8s}{:>16s}{:>16s}", "dx", "a_vdw", "rel. error");
 
   std::vector<double> a_conv(dx_vals.size()), err_conv(dx_vals.size());
   for (std::size_t i = 0; i < dx_vals.size(); ++i) {
     double dxi = dx_vals[i];
     double L = std::ceil(std::max(5.0, 2.0 * 2.5 + 2.0 * dxi) / dxi) * dxi;
-    auto grid = make_grid(dxi, {L, L, L});
+    auto grid = make_grid(dxi, { L, L, L });
 
     auto mf_weights = functionals::make_mean_field_weights(grid, model.interactions, model.temperature);
     a_conv[i] = mf_weights.interactions[0].a_vdw;

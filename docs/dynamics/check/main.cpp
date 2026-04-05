@@ -27,8 +27,7 @@ static void check(std::string_view label, double got, double ref, double tol = 1
   double diff = std::abs(got - ref);
   if (diff > tol) {
     ++g_failures;
-    std::cout << "  FAIL " << label << ": got=" << got << " ref=" << ref
-              << " diff=" << diff << "\n";
+    std::cout << "  FAIL " << label << ": got=" << got << " ref=" << ref << " diff=" << diff << "\n";
   }
 }
 
@@ -38,8 +37,7 @@ static void check_rel(std::string_view label, double got, double ref, double tol
   double rel = std::abs(got - ref) / scale;
   if (rel > tol) {
     ++g_failures;
-    std::cout << "  FAIL " << label << ": got=" << got << " ref=" << ref
-              << " rel=" << rel << "\n";
+    std::cout << "  FAIL " << label << ": got=" << got << " ref=" << ref << " rel=" << rel << "\n";
   }
 }
 
@@ -56,7 +54,7 @@ int main() {
   // ------------------------------------------------------------------
 
   constexpr double dx = 0.5;
-  Grid grid{.dx = dx, .box_size = {4.0, 4.0, 4.0}, .shape = {8, 8, 8}};
+  Grid grid{ .dx = dx, .box_size = { 4.0, 4.0, 4.0 }, .shape = { 8, 8, 8 } };
   long n = grid.total_points();
   double dv = grid.cell_volume();
   constexpr double D = 1.0;
@@ -121,22 +119,19 @@ int main() {
 
   // Force callback: ideal gas only.
   // beta F_id = sum rho*(ln(rho)-1)*dv, force_i = ln(rho_i)*dv.
-  auto ideal_force = [&](const std::vector<arma::vec>& densities)
-      -> std::pair<double, std::vector<arma::vec>> {
+  auto ideal_force = [&](const std::vector<arma::vec>& densities) -> std::pair<double, std::vector<arma::vec>> {
     const auto& rho = densities[0];
     arma::vec log_rho = arma::log(arma::clamp(rho, 1e-300, arma::datum::inf));
     double energy = arma::dot(rho, log_rho - 1.0) * dv;
-    return {energy, {log_rho * dv}};
+    return { energy, { log_rho * dv } };
   };
 
   algorithms::dynamics::StepConfig ddft_cfg{
-      .dt = dt,
-      .diffusion_coefficient = D,
+    .dt = dt,
+    .diffusion_coefficient = D,
   };
 
-  auto result = algorithms::dynamics::integrating_factor_step(
-      {density}, grid, ddft_st, ideal_force, ddft_cfg
-  );
+  auto result = algorithms::dynamics::integrating_factor_step({ density }, grid, ddft_st, ideal_force, ddft_cfg);
 
   double mass_after = arma::accu(result.densities[0]) * dv;
 
@@ -154,18 +149,15 @@ int main() {
   arma::vec slice_before(static_cast<arma::uword>(grid.shape[0]));
   arma::vec slice_after(static_cast<arma::uword>(grid.shape[0]));
   for (long ix = 0; ix < grid.shape[0]; ++ix) {
-    slice_before(static_cast<arma::uword>(ix)) = density(
-        static_cast<arma::uword>(grid.flat_index(ix, 0, 0))
-    );
-    slice_after(static_cast<arma::uword>(ix)) = result.densities[0](
-        static_cast<arma::uword>(grid.flat_index(ix, 0, 0))
+    slice_before(static_cast<arma::uword>(ix)) = density(static_cast<arma::uword>(grid.flat_index(ix, 0, 0)));
+    slice_after(static_cast<arma::uword>(ix)) = result.densities[0](static_cast<arma::uword>(grid.flat_index(ix, 0, 0))
     );
   }
   double A_before = arma::max(slice_before) - arma::min(slice_before);
   double A_after = arma::max(slice_after) - arma::min(slice_after);
   double decay = A_after / A_before;
-  std::cout << "  amplitude: " << A_before << " → " << A_after
-            << " (decay = " << decay << ", expected = " << expected_decay << ")\n";
+  std::cout << "  amplitude: " << A_before << " → " << A_after << " (decay = " << decay
+            << ", expected = " << expected_decay << ")\n";
   check_rel("diffusion decay rate", decay, expected_decay, 1e-4);
 
   // ------------------------------------------------------------------
@@ -180,36 +172,35 @@ int main() {
 
   constexpr double kT = 0.7;
   physics::Model model{
-      .grid = make_grid(0.25, {5.0, 2.5, 2.5}),
-      .species = {Species{.name = "LJ", .hard_sphere_diameter = 1.0}},
-      .interactions = {{
-          .species_i = 0,
-          .species_j = 0,
-          .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
-          .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      }},
-      .temperature = kT,
+    .grid = make_grid(0.25, { 5.0, 2.5, 2.5 }),
+    .species = { Species{ .name = "LJ", .hard_sphere_diameter = 1.0 } },
+    .interactions = { {
+        .species_i = 0,
+        .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+    } },
+    .temperature = kT,
   };
 
   auto fmt_model = functionals::fmt::WhiteBearII{};
   auto weights = functionals::make_weights(fmt_model, model);
   auto bulk_wt = functionals::make_bulk_weights(fmt_model, model.interactions, kT);
 
-  auto eos = functionals::bulk::make_bulk_thermodynamics(
-      model.species, bulk_wt
-  );
+  auto eos = functionals::bulk::make_bulk_thermodynamics(model.species, bulk_wt);
 
-  auto coex = functionals::bulk::PhaseSearch{
-      .rho_max = 1.0, .rho_scan_step = 0.005,
-      .newton = {.max_iterations = 300, .tolerance = 1e-10},
-  }.find_coexistence(eos);
+  auto coex =
+      functionals::bulk::PhaseSearch{
+        .rho_max = 1.0,
+        .rho_scan_step = 0.005,
+        .newton = { .max_iterations = 300, .tolerance = 1e-10 },
+      }
+          .find_coexistence(eos);
 
   if (!coex) {
     std::cout << "  SKIP: coexistence not found\n";
   } else {
-    double mu_coex = eos.chemical_potential(
-        arma::vec{coex->rho_vapor}, 0
-    );
+    double mu_coex = eos.chemical_potential(arma::vec{ coex->rho_vapor }, 0);
 
     // Tanh slab profile.
     long nx = model.grid.shape[0];
@@ -223,10 +214,9 @@ int main() {
     double alpha = 1.0;
     for (long ix = 0; ix < nx; ++ix) {
       double x = ix * model.grid.dx;
-      double profile = coex->rho_vapor +
-          0.5 * (coex->rho_liquid - coex->rho_vapor) *
-          (std::tanh((x - center + width) / alpha) -
-           std::tanh((x - center - width) / alpha));
+      double profile = coex->rho_vapor
+          + 0.5 * (coex->rho_liquid - coex->rho_vapor)
+              * (std::tanh((x - center + width) / alpha) - std::tanh((x - center - width) / alpha));
       for (long iy = 0; iy < ny; ++iy) {
         for (long iz = 0; iz < nz; ++iz) {
           long idx = model.grid.flat_index(ix, iy, iz);
@@ -239,38 +229,34 @@ int main() {
     double mass_0 = arma::accu(rho_slab) * dv_full;
 
     // Force callback wrapping functionals::total.
-    auto force_fn = [&](const std::vector<arma::vec>& densities)
-        -> std::pair<double, std::vector<arma::vec>> {
+    auto force_fn = [&](const std::vector<arma::vec>& densities) -> std::pair<double, std::vector<arma::vec>> {
       State state{
-          .species = {{
-              .density = {.values = densities[0], .external_field = arma::zeros(static_cast<arma::uword>(n_full))},
-              .force = arma::zeros(static_cast<arma::uword>(n_full)),
-              .chemical_potential = mu_coex,
-          }},
-          .temperature = kT,
+        .species = { {
+            .density = { .values = densities[0], .external_field = arma::zeros(static_cast<arma::uword>(n_full)) },
+            .force = arma::zeros(static_cast<arma::uword>(n_full)),
+            .chemical_potential = mu_coex,
+        } },
+        .temperature = kT,
       };
       auto res = functionals::total(model, state, weights);
-      return {res.grand_potential, std::move(res.forces)};
+      return { res.grand_potential, std::move(res.forces) };
     };
 
-    auto [omega_0, forces_0] = force_fn({rho_slab});
+    auto [omega_0, forces_0] = force_fn({ rho_slab });
 
     auto st = algorithms::dynamics::_internal::make_if_state(model.grid);
     algorithms::dynamics::StepConfig cfg{
-        .dt = 1e-4,
-        .diffusion_coefficient = 1.0,
+      .dt = 1e-4,
+      .diffusion_coefficient = 1.0,
     };
-    auto step_result = algorithms::dynamics::integrating_factor_step(
-        {rho_slab}, model.grid, st, force_fn, cfg
-    );
+    auto step_result = algorithms::dynamics::integrating_factor_step({ rho_slab }, model.grid, st, force_fn, cfg);
 
     double mass_1 = arma::accu(step_result.densities[0]) * dv_full;
     auto [omega_1, forces_1] = force_fn(step_result.densities);
 
-    std::cout << "  mass: " << mass_0 << " → " << mass_1
-              << " (rel diff = " << std::abs(mass_1 - mass_0) / mass_0 << ")\n";
-    std::cout << "  Omega: " << omega_0 << " → " << omega_1
-              << " (diff = " << omega_1 - omega_0 << ")\n";
+    std::cout << "  mass: " << mass_0 << " → " << mass_1 << " (rel diff = " << std::abs(mass_1 - mass_0) / mass_0
+              << ")\n";
+    std::cout << "  Omega: " << omega_0 << " → " << omega_1 << " (diff = " << omega_1 - omega_0 << ")\n";
 
     check_rel("mass conservation (DFT)", mass_1, mass_0, 1e-6);
 

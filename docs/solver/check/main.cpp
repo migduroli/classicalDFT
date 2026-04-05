@@ -27,8 +27,7 @@ static void check(std::string_view label, double ours, double jim, double tol = 
   bool ok = diff <= tol;
   if (!ok) {
     ++g_failures;
-    std::cout << "  FAIL " << label << ": ours=" << ours << " jim=" << jim
-              << " diff=" << diff << "\n";
+    std::cout << "  FAIL " << label << ": ours=" << ours << " jim=" << jim << " diff=" << diff << "\n";
   }
 }
 
@@ -37,16 +36,10 @@ static void section(std::string_view title) {
   std::cout << std::string(title.size(), '-') << "\n";
 }
 
-static auto make_legacy_eos(
-    const functionals::bulk::BulkThermodynamics& eos
-) -> legacy::solver::EOS {
+static auto make_legacy_eos(const functionals::bulk::BulkThermodynamics& eos) -> legacy::solver::EOS {
   return {
-      [&eos](double rho) {
-        return eos.pressure(arma::vec{rho});
-      },
-      [&eos](double rho) {
-        return eos.chemical_potential(arma::vec{rho}, 0);
-      },
+    [&eos](double rho) { return eos.pressure(arma::vec{ rho }); },
+    [&eos](double rho) { return eos.chemical_potential(arma::vec{ rho }, 0); },
   };
 }
 
@@ -59,29 +52,30 @@ int main() {
   // ------------------------------------------------------------------
 
   physics::Model model{
-      .grid = make_grid(0.1, {6.0, 6.0, 6.0}),
-      .species = {Species{.name = "LJ", .hard_sphere_diameter = 1.0}},
-      .interactions = {{
-          .species_i = 0,
-          .species_j = 0,
-          .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
-          .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-      }},
-      .temperature = 1.0,
+    .grid = make_grid(0.1, { 6.0, 6.0, 6.0 }),
+    .species = { Species{ .name = "LJ", .hard_sphere_diameter = 1.0 } },
+    .interactions = { {
+        .species_i = 0,
+        .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(1.0, 1.0, 2.5),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+    } },
+    .temperature = 1.0,
   };
 
   auto wb2 = functionals::fmt::WhiteBearII{};
 
   auto eos_factory = [&](double kT) -> functionals::bulk::BulkThermodynamics {
     return functionals::bulk::make_bulk_thermodynamics(
-        model.species, functionals::make_bulk_weights(wb2, model.interactions, kT)
+        model.species,
+        functionals::make_bulk_weights(wb2, model.interactions, kT)
     );
   };
 
   functionals::bulk::PhaseSearch search_config{
-      .rho_max = 1.0,
-      .rho_scan_step = 0.005,
-      .newton = {.max_iterations = 300, .tolerance = 1e-10},
+    .rho_max = 1.0,
+    .rho_scan_step = 0.005,
+    .newton = { .max_iterations = 300, .tolerance = 1e-10 },
   };
 
   // Jim's algorithms use xmax=1.0, dx=0.005 (same scan resolution).
@@ -97,10 +91,9 @@ int main() {
   // ------------------------------------------------------------------
 
   int step = 0;
-  for (double kT : {0.7, 0.8, 0.9}) {
+  for (double kT : { 0.7, 0.8, 0.9 }) {
     ++step;
-    section("Step " + std::to_string(step) + ": Spinodal at kT = "
-            + std::to_string(kT));
+    section("Step " + std::to_string(step) + ": Spinodal at kT = " + std::to_string(kT));
 
     auto eos = eos_factory(kT);
     auto jim_eos = make_legacy_eos(eos);
@@ -118,10 +111,8 @@ int main() {
     std::cout << "  Jim:  rho_low=" << jim_sp.xs1 << "  rho_high=" << jim_sp.xs2 << "\n";
     std::cout << "  Ours: rho_low=" << our_sp->rho_low << "  rho_high=" << our_sp->rho_high << "\n";
 
-    check("spinodal_low(kT=" + std::to_string(kT) + ")",
-          our_sp->rho_low, jim_sp.xs1, 1e-6);
-    check("spinodal_high(kT=" + std::to_string(kT) + ")",
-          our_sp->rho_high, jim_sp.xs2, 1e-6);
+    check("spinodal_low(kT=" + std::to_string(kT) + ")", our_sp->rho_low, jim_sp.xs1, 1e-6);
+    check("spinodal_high(kT=" + std::to_string(kT) + ")", our_sp->rho_high, jim_sp.xs2, 1e-6);
   }
 
   // ------------------------------------------------------------------
@@ -132,10 +123,9 @@ int main() {
   //   Ours: same scan-and-bisect strategy, Newton for equal-mu
   // ------------------------------------------------------------------
 
-  for (double kT : {0.7, 0.8, 0.9}) {
+  for (double kT : { 0.7, 0.8, 0.9 }) {
     ++step;
-    section("Step " + std::to_string(step) + ": Coexistence at kT = "
-            + std::to_string(kT));
+    section("Step " + std::to_string(step) + ": Coexistence at kT = " + std::to_string(kT));
 
     auto eos = eos_factory(kT);
     auto jim_eos = make_legacy_eos(eos);
@@ -168,10 +158,8 @@ int main() {
     std::cout << "  Jim  delta_P=" << jim_Pv - jim_Pl << "  delta_mu=" << jim_muv - jim_mul << "\n";
     std::cout << "  Ours delta_P=" << our_Pv - our_Pl << "  delta_mu=" << our_muv - our_mul << "\n";
 
-    check("coex_vapor(kT=" + std::to_string(kT) + ")",
-          our_cx->rho_vapor, jim_cx.x1, 1e-6);
-    check("coex_liquid(kT=" + std::to_string(kT) + ")",
-          our_cx->rho_liquid, jim_cx.x2, 1e-6);
+    check("coex_vapor(kT=" + std::to_string(kT) + ")", our_cx->rho_vapor, jim_cx.x1, 1e-6);
+    check("coex_liquid(kT=" + std::to_string(kT) + ")", our_cx->rho_liquid, jim_cx.x2, 1e-6);
   }
 
   // ------------------------------------------------------------------
@@ -185,8 +173,8 @@ int main() {
   section("Step " + std::to_string(step) + ": Binodal curve consistency");
 
   functionals::bulk::PhaseDiagramBuilder pd_config{
-      .start_temperature = 0.6,
-      .search = search_config,
+    .start_temperature = 0.6,
+    .search = search_config,
   };
 
   functionals::bulk::EoSFactory eos_at = [&](double kT) -> functionals::bulk::BulkThermodynamics {
@@ -200,8 +188,7 @@ int main() {
     g_checks += 3;
   } else {
     std::cout << "  Binodal: " << b->temperature.n_elem << " points"
-              << ", T_c=" << b->critical_temperature
-              << ", rho_c=" << b->critical_density << "\n";
+              << ", T_c=" << b->critical_temperature << ", rho_c=" << b->critical_density << "\n";
 
     // The critical temperature should be in a physically reasonable range
     // for LJ mean-field DFT (roughly 1.0 < T_c < 1.5).
@@ -218,7 +205,7 @@ int main() {
 
     // Cross-check: verify a few binodal points against findCoex at the same T.
     // Pick 3 temperatures from the curve interior.
-    arma::uvec idxs = {0, b->temperature.n_elem / 3, 2 * b->temperature.n_elem / 3};
+    arma::uvec idxs = { 0, b->temperature.n_elem / 3, 2 * b->temperature.n_elem / 3 };
     for (auto idx : idxs) {
       double kT = b->temperature(idx);
       auto eos_at_T = eos_factory(kT);
@@ -226,16 +213,11 @@ int main() {
 
       try {
         auto jim_cx = legacy::solver::findCoex(jim_eos_at_T, jim_xmax, jim_dx);
-        std::cout << "  T=" << kT
-                  << " binodal: rv=" << b->rho_vapor(idx)
-                  << " rl=" << b->rho_liquid(idx)
-                  << " | Jim: rv=" << jim_cx.x1
-                  << " rl=" << jim_cx.x2 << "\n";
+        std::cout << "  T=" << kT << " binodal: rv=" << b->rho_vapor(idx) << " rl=" << b->rho_liquid(idx)
+                  << " | Jim: rv=" << jim_cx.x1 << " rl=" << jim_cx.x2 << "\n";
 
-        check("binodal_vs_jim_rv(T=" + std::to_string(kT) + ")",
-              b->rho_vapor(idx), jim_cx.x1, 1e-4);
-        check("binodal_vs_jim_rl(T=" + std::to_string(kT) + ")",
-              b->rho_liquid(idx), jim_cx.x2, 1e-4);
+        check("binodal_vs_jim_rv(T=" + std::to_string(kT) + ")", b->rho_vapor(idx), jim_cx.x1, 1e-4);
+        check("binodal_vs_jim_rl(T=" + std::to_string(kT) + ")", b->rho_liquid(idx), jim_cx.x2, 1e-4);
       } catch (const std::exception& e) {
         std::cout << "  Jim findCoex at T=" << kT << " failed: " << e.what() << "\n";
         // Not a failure of our code; skip the comparison.

@@ -22,11 +22,11 @@ namespace dft::algorithms::continuation {
   using Residual = std::function<arma::vec(const arma::vec&, double)>;
 
   struct Continuation {
-    double initial_step{0.01};
-    double max_step{0.1};
-    double min_step{1e-5};
-    double growth_factor{1.2};
-    double shrink_factor{0.5};
+    double initial_step{ 0.01 };
+    double max_step{ 0.1 };
+    double min_step{ 1e-5 };
+    double growth_factor{ 1.2 };
+    double shrink_factor{ 0.5 };
     solvers::Newton newton;
 
     // One pseudo-arclength continuation step.
@@ -35,93 +35,106 @@ namespace dft::algorithms::continuation {
 
     // Trace a curve defined by R(x, lambda) = 0 using pseudo-arclength
     // continuation with adaptive step sizing.
-    [[nodiscard]] auto trace(CurvePoint start, const Residual& R,
-                             std::function<bool(const CurvePoint&)> stop = {}) const -> std::vector<CurvePoint>;
+    [[nodiscard]] auto trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {})
+        const -> std::vector<CurvePoint>;
   };
 
   namespace _internal {
 
-  // Compute the tangent vector (dx/ds, dlambda/ds) at a point on the curve
-  // using the null space of the extended Jacobian [dR/dx | dR/dlambda].
-  // Orients the tangent to agree with the previous direction.
-  inline auto tangent(const Residual& R, const arma::vec& x, double lambda, const arma::vec& prev_dx_ds,
-                      double prev_dlambda_ds, double eps = 1e-7) -> std::pair<arma::vec, double> {
-    const arma::uword n = x.n_elem;
+    // Compute the tangent vector (dx/ds, dlambda/ds) at a point on the curve
+    // using the null space of the extended Jacobian [dR/dx | dR/dlambda].
+    // Orients the tangent to agree with the previous direction.
+    inline auto tangent(
+        const Residual& R,
+        const arma::vec& x,
+        double lambda,
+        const arma::vec& prev_dx_ds,
+        double prev_dlambda_ds,
+        double eps = 1e-7
+    ) -> std::pair<arma::vec, double> {
+      const arma::uword n = x.n_elem;
 
-    // dR/dx via central differences
-    auto fx = [&](const arma::vec& xi) -> arma::vec { return R(xi, lambda); };
-    arma::mat dRdx = solvers::numerical_jacobian(fx, x, eps);
+      // dR/dx via central differences
+      auto fx = [&](const arma::vec& xi) -> arma::vec {
+        return R(xi, lambda);
+      };
+      arma::mat dRdx = solvers::numerical_jacobian(fx, x, eps);
 
-    // dR/dlambda via central differences
-    arma::vec dRdl = (R(x, lambda + eps) - R(x, lambda - eps)) / (2.0 * eps);
+      // dR/dlambda via central differences
+      arma::vec dRdl = (R(x, lambda + eps) - R(x, lambda - eps)) / (2.0 * eps);
 
-    // Extended Jacobian: [dR/dx | dR/dlambda] is m x (n+1)
-    arma::mat ext(dRdx.n_rows, n + 1);
-    ext.head_cols(n) = dRdx;
-    ext.col(n) = dRdl;
+      // Extended Jacobian: [dR/dx | dR/dlambda] is m x (n+1)
+      arma::mat ext(dRdx.n_rows, n + 1);
+      ext.head_cols(n) = dRdx;
+      ext.col(n) = dRdl;
 
-    // Tangent is in the null space. Use SVD: last right singular vector.
-    arma::mat U, V;
-    arma::vec s;
-    arma::svd(U, s, V, ext);
+      // Tangent is in the null space. Use SVD: last right singular vector.
+      arma::mat U, V;
+      arma::vec s;
+      arma::svd(U, s, V, ext);
 
-    arma::vec tau = V.col(V.n_cols - 1);
+      arma::vec tau = V.col(V.n_cols - 1);
 
-    // Orient so dot product with previous tangent is non-negative
-    arma::vec prev_full(n + 1);
-    prev_full.head(n) = prev_dx_ds;
-    prev_full(n) = prev_dlambda_ds;
-    if (arma::dot(tau, prev_full) < 0.0) {
-      tau = -tau;
+      // Orient so dot product with previous tangent is non-negative
+      arma::vec prev_full(n + 1);
+      prev_full.head(n) = prev_dx_ds;
+      prev_full(n) = prev_dlambda_ds;
+      if (arma::dot(tau, prev_full) < 0.0) {
+        tau = -tau;
+      }
+
+      return { tau.head(n), tau(n) };
     }
 
-    return {tau.head(n), tau(n)};
-  }
+    // Matrix-free tangent using the bordering technique:
+    // The tangent (dx/ds, dlambda/ds) satisfies [dR/dx | dR/dlambda] * [dx/ds; dlambda/ds] = 0.
+    // We solve J * z = -dR/dlambda via GMRES, then set dlambda/ds = 1/(1 + z^T z)^{1/2},
+    // dx/ds = z * dlambda/ds. Oriented to agree with previous direction.
 
-  // Matrix-free tangent using the bordering technique:
-  // The tangent (dx/ds, dlambda/ds) satisfies [dR/dx | dR/dlambda] * [dx/ds; dlambda/ds] = 0.
-  // We solve J * z = -dR/dlambda via GMRES, then set dlambda/ds = 1/(1 + z^T z)^{1/2},
-  // dx/ds = z * dlambda/ds. Oriented to agree with previous direction.
+    inline auto matrix_free_tangent(
+        const Residual& R,
+        const arma::vec& x,
+        double lambda,
+        const arma::vec& prev_dx_ds,
+        double prev_dlambda_ds,
+        const solvers::GMRES& gmres,
+        double eps = 1e-7
+    ) -> std::pair<arma::vec, double> {
+      const arma::uword n = x.n_elem;
 
-  inline auto matrix_free_tangent(
-      const Residual& R, const arma::vec& x, double lambda,
-      const arma::vec& prev_dx_ds, double prev_dlambda_ds,
-      const solvers::GMRES& gmres, double eps = 1e-7
-  ) -> std::pair<arma::vec, double> {
-    const arma::uword n = x.n_elem;
+      // dR/dlambda via forward differences.
+      arma::vec Rx = R(x, lambda);
+      arma::vec dRdl = (R(x, lambda + eps) - Rx) / eps;
 
-    // dR/dlambda via forward differences.
-    arma::vec Rx = R(x, lambda);
-    arma::vec dRdl = (R(x, lambda + eps) - Rx) / eps;
+      // J(x) * v via forward differences.
+      auto Jv = [&](const arma::vec& v) -> arma::vec {
+        return (R(x + eps * v, lambda) - Rx) / eps;
+      };
 
-    // J(x) * v via forward differences.
-    auto Jv = [&](const arma::vec& v) -> arma::vec {
-      return (R(x + eps * v, lambda) - Rx) / eps;
-    };
+      // Solve J * z = -dR/dlambda.
+      auto result = gmres.solve(Jv, -dRdl);
 
-    // Solve J * z = -dR/dlambda.
-    auto result = gmres.solve(Jv, -dRdl);
+      arma::vec z = result.solution;
 
-    arma::vec z = result.solution;
+      // Tangent: (dx/ds, dlambda/ds) = (z, 1) / ||(z, 1)||
+      double norm_inv = 1.0 / std::sqrt(arma::dot(z, z) + 1.0);
+      arma::vec dx_ds = z * norm_inv;
+      double dlambda_ds = norm_inv;
 
-    // Tangent: (dx/ds, dlambda/ds) = (z, 1) / ||(z, 1)||
-    double norm_inv = 1.0 / std::sqrt(arma::dot(z, z) + 1.0);
-    arma::vec dx_ds = z * norm_inv;
-    double dlambda_ds = norm_inv;
+      // Orient to agree with previous tangent.
+      double dot = arma::dot(dx_ds, prev_dx_ds) + dlambda_ds * prev_dlambda_ds;
+      if (dot < 0.0) {
+        dx_ds = -dx_ds;
+        dlambda_ds = -dlambda_ds;
+      }
 
-    // Orient to agree with previous tangent.
-    double dot = arma::dot(dx_ds, prev_dx_ds) + dlambda_ds * prev_dlambda_ds;
-    if (dot < 0.0) {
-      dx_ds = -dx_ds;
-      dlambda_ds = -dlambda_ds;
+      return { std::move(dx_ds), dlambda_ds };
     }
-
-    return {std::move(dx_ds), dlambda_ds};
-  }
 
   }  // namespace _internal
 
-  [[nodiscard]] inline auto Continuation::step(const CurvePoint& current, const Residual& R, double ds) const -> std::optional<CurvePoint> {
+  [[nodiscard]] inline auto Continuation::step(const CurvePoint& current, const Residual& R, double ds) const
+      -> std::optional<CurvePoint> {
     const arma::uword n = current.x.n_elem;
 
     // Predictor: Euler step along tangent
@@ -165,15 +178,16 @@ namespace dft::algorithms::continuation {
     auto [dx_ds_new, dlambda_ds_new] = _internal::tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds);
 
     return CurvePoint{
-        .x = std::move(x_new),
-        .lambda = lambda_new,
-        .dx_ds = std::move(dx_ds_new),
-        .dlambda_ds = dlambda_ds_new,
+      .x = std::move(x_new),
+      .lambda = lambda_new,
+      .dx_ds = std::move(dx_ds_new),
+      .dlambda_ds = dlambda_ds_new,
     };
   }
 
-  [[nodiscard]] inline auto Continuation::trace(CurvePoint start, const Residual& R,
-                                  std::function<bool(const CurvePoint&)> stop) const -> std::vector<CurvePoint> {
+  [[nodiscard]] inline auto
+  Continuation::trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop) const
+      -> std::vector<CurvePoint> {
     std::vector<CurvePoint> curve;
     curve.push_back(start);
 
@@ -208,12 +222,12 @@ namespace dft::algorithms::continuation {
   // Uses Newton-GMRES (no dense Jacobian) and bordering for the tangent.
 
   struct MatrixFreeContinuation {
-    double initial_step{0.01};
-    double max_step{0.1};
-    double min_step{1e-5};
-    double growth_factor{1.2};
-    double shrink_factor{0.5};
-    double jvp_epsilon{1e-7};
+    double initial_step{ 0.01 };
+    double max_step{ 0.1 };
+    double min_step{ 1e-5 };
+    double growth_factor{ 1.2 };
+    double shrink_factor{ 0.5 };
+    double jvp_epsilon{ 1e-7 };
     solvers::Newton newton;
 
     // One step: predictor-corrector with matrix-free Newton on the augmented system.
@@ -262,20 +276,20 @@ namespace dft::algorithms::continuation {
       double lambda_new = result.solution(n);
 
       // Tangent via bordering: solve J * dx_ds = -dR/dlambda, then normalise.
-      auto [dx_ds_new, dlambda_ds_new] = _internal::matrix_free_tangent(
-          R, x_new, lambda_new, current.dx_ds, current.dlambda_ds, newton.gmres, eps);
+      auto [dx_ds_new, dlambda_ds_new] =
+          _internal::matrix_free_tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds, newton.gmres, eps);
 
       return CurvePoint{
-          .x = std::move(x_new),
-          .lambda = lambda_new,
-          .dx_ds = std::move(dx_ds_new),
-          .dlambda_ds = dlambda_ds_new,
+        .x = std::move(x_new),
+        .lambda = lambda_new,
+        .dx_ds = std::move(dx_ds_new),
+        .dlambda_ds = dlambda_ds_new,
       };
     }
 
     // Trace a curve using matrix-free continuation with adaptive step sizing.
-    [[nodiscard]] auto trace(CurvePoint start, const Residual& R,
-                             std::function<bool(const CurvePoint&)> stop = {}) const -> std::vector<CurvePoint> {
+    [[nodiscard]] auto trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {})
+        const -> std::vector<CurvePoint> {
       std::vector<CurvePoint> curve;
       curve.push_back(start);
       double ds = initial_step;
@@ -294,7 +308,8 @@ namespace dft::algorithms::continuation {
         }
 
         curve.push_back(std::move(*next));
-        if (stop && stop(curve.back())) break;
+        if (stop && stop(curve.back()))
+          break;
         ds = std::min(ds * growth_factor, max_step);
       }
 

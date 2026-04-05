@@ -26,9 +26,7 @@ namespace dft::functionals {
 
     // Evaluate the complete DFT functional for a given state.
 
-    [[nodiscard]] auto evaluate(const State& state) const -> Result {
-      return total(model, state, weights);
-    }
+    [[nodiscard]] auto evaluate(const State& state) const -> Result { return total(model, state, weights); }
 
     // Evaluate the grand potential functional for a single density profile.
 
@@ -63,14 +61,14 @@ namespace dft::functionals {
 
     [[nodiscard]] auto grand_potential_callback(double chemical_potential) const
         -> algorithms::dynamics::ForceCallback {
-      return [this, chemical_potential](const std::vector<arma::vec>& densities)
-                 -> std::pair<double, std::vector<arma::vec>> {
+      return [this, chemical_potential](const std::vector<arma::vec>& densities
+             ) -> std::pair<double, std::vector<arma::vec>> {
         auto state = init::from_profiles(model, densities);
         for (auto& sp : state.species) {
           sp.chemical_potential = chemical_potential;
         }
         auto result = total(model, state, weights);
-        return {result.grand_potential, std::move(result.forces)};
+        return { result.grand_potential, std::move(result.forces) };
       };
     }
 
@@ -85,9 +83,7 @@ namespace dft::functionals {
       auto species = model.species;
       auto interactions = model.interactions;
       return [fmt_model, species, interactions](double kT) {
-        return bulk::make_bulk_thermodynamics(
-            species, make_bulk_weights(fmt_model, interactions, kT)
-        );
+        return bulk::make_bulk_thermodynamics(species, make_bulk_weights(fmt_model, interactions, kT));
       };
     }
   };
@@ -97,19 +93,16 @@ namespace dft::functionals {
   // the mean-field a_vdw values are synchronised from grid to bulk so
   // that thermodynamic quantities are consistent with the grid resolution.
 
-  [[nodiscard]] inline auto make_functional(
-      const fmt::FMTModel& fmt_model, physics::Model model
-  ) -> Functional {
+  [[nodiscard]] inline auto make_functional(const fmt::FMTModel& fmt_model, physics::Model model) -> Functional {
     auto w = make_weights(fmt_model, model);
     auto bw = make_bulk_weights(fmt_model, model.interactions, model.temperature);
     for (std::size_t i = 0; i < w.mean_field.interactions.size(); ++i) {
-      bw.mean_field.interactions[i].a_vdw =
-          w.mean_field.interactions[i].a_vdw;
+      bw.mean_field.interactions[i].a_vdw = w.mean_field.interactions[i].a_vdw;
     }
     return Functional{
-        .model = std::move(model),
-        .weights = std::move(w),
-        .bulk_weights = std::move(bw),
+      .model = std::move(model),
+      .weights = std::move(w),
+      .bulk_weights = std::move(bw),
     };
   }
 

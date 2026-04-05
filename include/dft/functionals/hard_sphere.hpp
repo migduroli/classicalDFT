@@ -26,9 +26,7 @@ namespace dft::functionals {
   // Generate the Fourier-space weight functions for each species
   // on the given grid.
 
-  [[nodiscard]] inline auto make_fmt_weights(
-      const Grid& grid, const std::vector<Species>& species
-  ) -> FMTWeights {
+  [[nodiscard]] inline auto make_fmt_weights(const Grid& grid, const std::vector<Species>& species) -> FMTWeights {
     FMTWeights w;
     w.per_species.reserve(species.size());
     for (const auto& sp : species) {
@@ -50,7 +48,8 @@ namespace dft::functionals {
     };
 
     [[nodiscard]] inline auto convolve_weights(
-        const fmt::WeightSet& ws, std::span<const std::complex<double>> rho_k,
+        const fmt::WeightSet& ws,
+        std::span<const std::complex<double>> rho_k,
         const std::vector<long>& shape
     ) -> WeightedDensityArrays {
       WeightedDensityArrays wd;
@@ -71,9 +70,8 @@ namespace dft::functionals {
     // weighted density arrays. n1 and n0 are recovered from n2 via
     // Rosenfeld scaling: n1 = n2/(4piR), n0 = n2/(4piR^2).
 
-    [[nodiscard]] inline auto assemble_measures(
-        const WeightedDensityArrays& wd, arma::uword idx, double R
-    ) -> fmt::Measures {
+    [[nodiscard]] inline auto assemble_measures(const WeightedDensityArrays& wd, arma::uword idx, double R)
+        -> fmt::Measures {
       double four_pi_R = 4.0 * std::numbers::pi * R;
 
       fmt::Measures m;
@@ -103,8 +101,13 @@ namespace dft::functionals {
     // all back-convolved channels as a complex vector.
 
     [[nodiscard]] inline auto compute_force_k(
-        const fmt::WeightSet& ws, double R, const arma::vec& d_eta, const arma::vec& d_n2,
-        const arma::vec& d_n1, const arma::vec& d_n0, const std::array<arma::vec, 3>& d_nv2,
+        const fmt::WeightSet& ws,
+        double R,
+        const arma::vec& d_eta,
+        const arma::vec& d_n2,
+        const arma::vec& d_n1,
+        const arma::vec& d_n0,
+        const std::array<arma::vec, 3>& d_nv2,
         const std::array<arma::vec, 3>& d_nv0,
         const std::array<std::array<arma::vec, 3>, 3>& d_nT,
         const std::vector<long>& shape
@@ -147,9 +150,8 @@ namespace dft::functionals {
       std::array<std::array<arma::vec, 3>, 3> d_nT;
     };
 
-    [[nodiscard]] inline auto make_derivative_arrays(
-        std::size_t n_species, arma::uword n_points
-    ) -> std::vector<DerivativeArrays> {
+    [[nodiscard]] inline auto make_derivative_arrays(std::size_t n_species, arma::uword n_points)
+        -> std::vector<DerivativeArrays> {
       std::vector<DerivativeArrays> derivs(n_species);
       for (auto& da : derivs) {
         da.d_eta = arma::zeros(n_points);
@@ -173,7 +175,8 @@ namespace dft::functionals {
         const fmt::FMTModel& model,
         const std::vector<detail::WeightedDensityArrays>& wd,
         const std::vector<Species>& species,
-        arma::uword n_points, double dv
+        arma::uword n_points,
+        double dv
     ) -> std::pair<double, std::vector<DerivativeArrays>> {
       auto n_species = species.size();
       auto derivs = make_derivative_arrays(n_species, n_points);
@@ -193,7 +196,8 @@ namespace dft::functionals {
           total.T += m.T;
         }
 
-        if (total.eta < 1e-30) continue;
+        if (total.eta < 1e-30)
+          continue;
 
         total.products = total.inner_products();
         free_energy += model.phi(total) * dv;
@@ -216,14 +220,15 @@ namespace dft::functionals {
         }
       }
 
-      return {free_energy, std::move(derivs)};
+      return { free_energy, std::move(derivs) };
     }
 
     [[nodiscard]] inline auto back_convolve_forces(
         const std::vector<DerivativeArrays>& derivs,
         const FMTWeights& weights,
         const std::vector<Species>& species,
-        const std::vector<long>& shape, double dv
+        const std::vector<long>& shape,
+        double dv
     ) -> std::vector<arma::vec> {
       std::vector<arma::vec> forces;
       forces.reserve(species.size());
@@ -231,9 +236,16 @@ namespace dft::functionals {
       for (std::size_t s = 0; s < species.size(); ++s) {
         double R = 0.5 * species[s].hard_sphere_diameter;
         auto force_k = detail::compute_force_k(
-            weights.per_species[s], R,
-            derivs[s].d_eta, derivs[s].d_n2, derivs[s].d_n1, derivs[s].d_n0,
-            derivs[s].d_nv2, derivs[s].d_nv0, derivs[s].d_nT, shape
+            weights.per_species[s],
+            R,
+            derivs[s].d_eta,
+            derivs[s].d_n2,
+            derivs[s].d_n1,
+            derivs[s].d_n0,
+            derivs[s].d_nv2,
+            derivs[s].d_nv0,
+            derivs[s].d_nT,
+            shape
         );
         math::FourierTransform force_ft(shape);
         force_ft.set_fourier(force_k);
@@ -249,8 +261,11 @@ namespace dft::functionals {
   // Evaluate the FMT hard-sphere functional for all species.
 
   [[nodiscard]] inline auto hard_sphere(
-      const fmt::FMTModel& model, const Grid& grid, const State& state,
-      const std::vector<Species>& species, const FMTWeights& weights
+      const fmt::FMTModel& model,
+      const Grid& grid,
+      const State& state,
+      const std::vector<Species>& species,
+      const FMTWeights& weights
   ) -> Contribution {
     auto n_species = species.size();
     auto n_points = static_cast<arma::uword>(grid.total_points());
@@ -279,7 +294,7 @@ namespace dft::functionals {
     // Back-convolve derivatives with weights to get forces.
     auto forces = _internal::back_convolve_forces(derivs, weights, species, shape, dv);
 
-    return Contribution{.free_energy = free_energy, .forces = std::move(forces)};
+    return Contribution{ .free_energy = free_energy, .forces = std::move(forces) };
   }
 
 }  // namespace dft::functionals

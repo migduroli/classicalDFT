@@ -13,7 +13,7 @@ using dft::Grid;
 static constexpr double DX = 0.1;
 static constexpr double DIAMETER = 1.0;
 static constexpr double R = DIAMETER / 2.0;
-static const Grid GRID = Grid{.dx = DX, .box_size = {1.6, 1.6, 1.6}, .shape = {16, 16, 16}};
+static const Grid GRID = Grid{ .dx = DX, .box_size = { 1.6, 1.6, 1.6 }, .shape = { 16, 16, 16 } };
 static constexpr long N = 16 * 16 * 16;
 
 // DC components (k = 0)
@@ -55,7 +55,7 @@ TEST_CASE("wT DC component is isotropic", "[fmt][weights]") {
     CHECK(fk[0].imag() == Catch::Approx(0.0).margin(1e-14));
   }
 
-  for (auto [i, j] : std::initializer_list<std::pair<int, int>>{{0, 1}, {0, 2}, {1, 2}}) {
+  for (auto [i, j] : std::initializer_list<std::pair<int, int>>{ { 0, 1 }, { 0, 2 }, { 1, 2 } }) {
     auto fk = ws.tensor(i, j).fourier();
     CHECK(std::abs(fk[0]) == Catch::Approx(0.0).margin(1e-14));
   }
@@ -157,7 +157,7 @@ TEST_CASE("wT convolution with uniform density vanishes off-diagonal", "[fmt][we
   }
   rho_ft.forward();
 
-  for (auto [i, j] : std::initializer_list<std::pair<int, int>>{{0, 1}, {0, 2}, {1, 2}}) {
+  for (auto [i, j] : std::initializer_list<std::pair<int, int>>{ { 0, 1 }, { 0, 2 }, { 1, 2 } }) {
     arma::vec t = dft::math::convolve(ws.tensor(i, j).fourier(), rho_ft.fourier(), s);
     CHECK(arma::max(arma::abs(t)) == Catch::Approx(0.0).margin(1e-10));
   }

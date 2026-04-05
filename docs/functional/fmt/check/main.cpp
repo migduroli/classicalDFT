@@ -73,12 +73,9 @@ int main() {
 
   double max_diff = 0.0;
   for (double eta : etas) {
-    check("Ros f1(" + std::to_string(eta) + ")",
-          fmt::Rosenfeld::f1(eta), legacy::fmt::Rosenfeld_model::f1(eta));
-    check("Ros f2(" + std::to_string(eta) + ")",
-          fmt::Rosenfeld::f2(eta), legacy::fmt::Rosenfeld_model::f2(eta));
-    check("Ros f3(" + std::to_string(eta) + ")",
-          fmt::Rosenfeld::f3(eta), legacy::fmt::Rosenfeld_model::f3(eta));
+    check("Ros f1(" + std::to_string(eta) + ")", fmt::Rosenfeld::f1(eta), legacy::fmt::Rosenfeld_model::f1(eta));
+    check("Ros f2(" + std::to_string(eta) + ")", fmt::Rosenfeld::f2(eta), legacy::fmt::Rosenfeld_model::f2(eta));
+    check("Ros f3(" + std::to_string(eta) + ")", fmt::Rosenfeld::f3(eta), legacy::fmt::Rosenfeld_model::f3(eta));
   }
 
   // Step 2: f1, f2, f3 for RSLT
@@ -86,12 +83,9 @@ int main() {
   section("Step 2: RSLT f1, f2, f3");
 
   for (double eta : etas) {
-    check("RSLT f1(" + std::to_string(eta) + ")",
-          fmt::RSLT::f1(eta), legacy::fmt::RSLT_model::f1(eta));
-    check("RSLT f2(" + std::to_string(eta) + ")",
-          fmt::RSLT::f2(eta), legacy::fmt::RSLT_model::f2(eta));
-    check("RSLT f3(" + std::to_string(eta) + ")",
-          fmt::RSLT::f3(eta), legacy::fmt::RSLT_model::f3(eta));
+    check("RSLT f1(" + std::to_string(eta) + ")", fmt::RSLT::f1(eta), legacy::fmt::RSLT_model::f1(eta));
+    check("RSLT f2(" + std::to_string(eta) + ")", fmt::RSLT::f2(eta), legacy::fmt::RSLT_model::f2(eta));
+    check("RSLT f3(" + std::to_string(eta) + ")", fmt::RSLT::f3(eta), legacy::fmt::RSLT_model::f3(eta));
   }
 
   // Step 3: f1, f2, f3 for WhiteBearI
@@ -99,12 +93,9 @@ int main() {
   section("Step 3: WhiteBearI f1, f2, f3");
 
   for (double eta : etas) {
-    check("WBI f1(" + std::to_string(eta) + ")",
-          fmt::WhiteBearI::f1(eta), legacy::fmt::WhiteBearI_model::f1(eta));
-    check("WBI f2(" + std::to_string(eta) + ")",
-          fmt::WhiteBearI::f2(eta), legacy::fmt::WhiteBearI_model::f2(eta));
-    check("WBI f3(" + std::to_string(eta) + ")",
-          fmt::WhiteBearI::f3(eta), legacy::fmt::WhiteBearI_model::f3(eta));
+    check("WBI f1(" + std::to_string(eta) + ")", fmt::WhiteBearI::f1(eta), legacy::fmt::WhiteBearI_model::f1(eta));
+    check("WBI f2(" + std::to_string(eta) + ")", fmt::WhiteBearI::f2(eta), legacy::fmt::WhiteBearI_model::f2(eta));
+    check("WBI f3(" + std::to_string(eta) + ")", fmt::WhiteBearI::f3(eta), legacy::fmt::WhiteBearI_model::f3(eta));
   }
 
   // Step 4: f1, f2, f3 for WhiteBearII
@@ -112,26 +103,20 @@ int main() {
   section("Step 4: WhiteBearII f1, f2, f3");
 
   for (double eta : etas) {
-    check("WBII f1(" + std::to_string(eta) + ")",
-          fmt::WhiteBearII::f1(eta), legacy::fmt::WhiteBearII_model::f1(eta));
-    check("WBII f2(" + std::to_string(eta) + ")",
-          fmt::WhiteBearII::f2(eta), legacy::fmt::WhiteBearII_model::f2(eta));
-    check("WBII f3(" + std::to_string(eta) + ")",
-          fmt::WhiteBearII::f3(eta), legacy::fmt::WhiteBearII_model::f3(eta));
+    check("WBII f1(" + std::to_string(eta) + ")", fmt::WhiteBearII::f1(eta), legacy::fmt::WhiteBearII_model::f1(eta));
+    check("WBII f2(" + std::to_string(eta) + ")", fmt::WhiteBearII::f2(eta), legacy::fmt::WhiteBearII_model::f2(eta));
+    check("WBII f3(" + std::to_string(eta) + ")", fmt::WhiteBearII::f3(eta), legacy::fmt::WhiteBearII_model::f3(eta));
   }
 
   // Step 5: f1, f2, f3 for esFMT (same as Rosenfeld)
 
   section("Step 5: esFMT f1, f2, f3 (= Rosenfeld)");
 
-  fmt::EsFMT esfmt{1.0, 0.0};
+  fmt::EsFMT esfmt{ 1.0, 0.0 };
   for (double eta : etas) {
-    check("esFMT f1(" + std::to_string(eta) + ")",
-          esfmt.f1(eta), legacy::fmt::esFMT_model::f1(eta));
-    check("esFMT f2(" + std::to_string(eta) + ")",
-          esfmt.f2(eta), legacy::fmt::esFMT_model::f2(eta));
-    check("esFMT f3(" + std::to_string(eta) + ")",
-          esfmt.f3(eta), legacy::fmt::esFMT_model::f3(eta));
+    check("esFMT f1(" + std::to_string(eta) + ")", esfmt.f1(eta), legacy::fmt::esFMT_model::f1(eta));
+    check("esFMT f2(" + std::to_string(eta) + ")", esfmt.f2(eta), legacy::fmt::esFMT_model::f2(eta));
+    check("esFMT f3(" + std::to_string(eta) + ")", esfmt.f3(eta), legacy::fmt::esFMT_model::f3(eta));
   }
 
   // Step 6: Bulk fex(eta) for all models
@@ -175,9 +160,9 @@ int main() {
     m.n2 = 2.5;
     m.n1 = 0.8;
     m.n0 = 0.3;
-    m.v1 = {0.1, -0.2, 0.15};
-    m.v0 = {0.01, -0.02, 0.015};
-    m.T = {{0.9, 0.1, -0.05}, {0.1, 0.85, 0.08}, {-0.05, 0.08, 0.75}};
+    m.v1 = { 0.1, -0.2, 0.15 };
+    m.v0 = { 0.01, -0.02, 0.015 };
+    m.T = { { 0.9, 0.1, -0.05 }, { 0.1, 0.85, 0.08 }, { -0.05, 0.08, 0.75 } };
     m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
@@ -207,9 +192,9 @@ int main() {
     m.n2 = 2.5;
     m.n1 = 0.8;
     m.n0 = 0.3;
-    m.v1 = {0.1, -0.2, 0.15};
-    m.v0 = {0.01, -0.02, 0.015};
-    m.T = {{0.9, 0.1, -0.05}, {0.1, 0.85, 0.08}, {-0.05, 0.08, 0.75}};
+    m.v1 = { 0.1, -0.2, 0.15 };
+    m.v0 = { 0.01, -0.02, 0.015 };
+    m.T = { { 0.9, 0.1, -0.05 }, { 0.1, 0.85, 0.08 }, { -0.05, 0.08, 0.75 } };
     m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
@@ -239,16 +224,16 @@ int main() {
     m.n2 = 2.5;
     m.n1 = 0.8;
     m.n0 = 0.3;
-    m.v1 = {0.1, -0.2, 0.15};
-    m.v0 = {0.01, -0.02, 0.015};
-    m.T = {{0.9, 0.1, -0.05}, {0.1, 0.85, 0.08}, {-0.05, 0.08, 0.75}};
+    m.v1 = { 0.1, -0.2, 0.15 };
+    m.v0 = { 0.01, -0.02, 0.015 };
+    m.T = { { 0.9, 0.1, -0.05 }, { 0.1, 0.85, 0.08 }, { -0.05, 0.08, 0.75 } };
     m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
 
     // A=1, B=0
     {
-      fmt::EsFMT es{1.0, 0.0};
+      fmt::EsFMT es{ 1.0, 0.0 };
       double our_phi3 = es.phi3(m);
       double jim_phi3 = legacy::fmt::esFMT_model::Phi3(1.0, 0.0, fm);
       check("esFMT(1,0) Phi3", our_phi3, jim_phi3);
@@ -267,15 +252,14 @@ int main() {
         for (int j = 0; j < 3; ++j) {
           double our_dt = es.d_phi3_d_T(i, j, m);
           double jim_dt = legacy::fmt::esFMT_model::dPhi3_dT(1.0, 0.0, i, j, fm);
-          check("esFMT(1,0) dPhi3/dT(" + std::to_string(i) + "," + std::to_string(j) + ")",
-                our_dt, jim_dt);
+          check("esFMT(1,0) dPhi3/dT(" + std::to_string(i) + "," + std::to_string(j) + ")", our_dt, jim_dt);
         }
       }
     }
 
     // A=1, B=-1 (WhiteBear)
     {
-      fmt::EsFMT es{1.0, -1.0};
+      fmt::EsFMT es{ 1.0, -1.0 };
       double our_phi3 = es.phi3(m);
       double jim_phi3 = legacy::fmt::esFMT_model::Phi3(1.0, -1.0, fm);
       check("esFMT(1,-1) Phi3", our_phi3, jim_phi3);
@@ -288,8 +272,7 @@ int main() {
         for (int j = 0; j < 3; ++j) {
           double our_dt = es.d_phi3_d_T(i, j, m);
           double jim_dt = legacy::fmt::esFMT_model::dPhi3_dT(1.0, -1.0, i, j, fm);
-          check("esFMT(1,-1) dPhi3/dT(" + std::to_string(i) + "," + std::to_string(j) + ")",
-                our_dt, jim_dt);
+          check("esFMT(1,-1) dPhi3/dT(" + std::to_string(i) + "," + std::to_string(j) + ")", our_dt, jim_dt);
         }
       }
     }
@@ -305,9 +288,9 @@ int main() {
     m.n2 = 3.0;
     m.n1 = 1.0;
     m.n0 = 0.4;
-    m.v1 = {0.3, -0.1, 0.2};
-    m.v0 = {0.03, -0.01, 0.02};
-    m.T = {{0.95, 0.15, -0.1}, {0.15, 0.9, 0.05}, {-0.1, 0.05, 0.8}};
+    m.v1 = { 0.3, -0.1, 0.2 };
+    m.v0 = { 0.03, -0.01, 0.02 };
+    m.T = { { 0.95, 0.15, -0.1 }, { 0.15, 0.9, 0.05 }, { -0.1, 0.05, 0.8 } };
     m.products = m.inner_products();
 
     auto fm = make_jim_fm(m);
@@ -326,8 +309,7 @@ int main() {
       for (int j = 0; j < 3; ++j) {
         double our_dt = fmt::WhiteBearI::d_phi3_d_T(i, j, m);
         double jim_dt = legacy::fmt::esFMT_model::dPhi3_dT(1.0, -1.0, i, j, fm);
-        check("WBI dPhi3/dT(" + std::to_string(i) + "," + std::to_string(j) + ")",
-              our_dt, jim_dt);
+        check("WBI dPhi3/dT(" + std::to_string(i) + "," + std::to_string(j) + ")", our_dt, jim_dt);
       }
     }
   }

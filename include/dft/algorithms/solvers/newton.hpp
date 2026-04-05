@@ -30,9 +30,9 @@ namespace dft::algorithms::solvers {
   };
 
   struct Newton {
-    int max_iterations{100};
-    double tolerance{1e-6};
-    bool verbose{false};
+    int max_iterations{ 100 };
+    double tolerance{ 1e-6 };
+    bool verbose{ false };
     GMRES gmres{};
 
     // Newton-Raphson with analytical Jacobian (dense direct solve).
@@ -47,30 +47,32 @@ namespace dft::algorithms::solvers {
         }
 
         if (norm_fk < tolerance) {
-          return SolverResult{.solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = true};
+          return SolverResult{ .solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = true };
         }
 
         const arma::mat Jk = J(x);
         arma::vec delta;
         if (!arma::solve(delta, Jk, fk, arma::solve_opts::no_approx)) {
-          return SolverResult{.solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = false};
+          return SolverResult{ .solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = false };
         }
         x -= delta;
       }
 
       const double final_norm = arma::norm(f(x));
       return SolverResult{
-          .solution = std::move(x),
-          .iterations = max_iterations,
-          .final_norm = final_norm,
-          .converged = final_norm < tolerance,
+        .solution = std::move(x),
+        .iterations = max_iterations,
+        .final_norm = final_norm,
+        .converged = final_norm < tolerance,
       };
     }
 
     // Newton-Raphson with automatic numerical Jacobian (dense direct solve).
     template <VectorFunction Func>
     [[nodiscard]] auto solve(arma::vec x, Func&& f) const -> SolverResult {
-      auto J = [&f](const arma::vec& x_) { return numerical_jacobian(f, x_); };
+      auto J = [&f](const arma::vec& x_) {
+        return numerical_jacobian(f, x_);
+      };
       return solve(std::move(x), std::forward<Func>(f), J);
     }
 
@@ -87,7 +89,7 @@ namespace dft::algorithms::solvers {
         }
 
         if (norm_fk < tolerance) {
-          return SolverResult{.solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = true};
+          return SolverResult{ .solution = std::move(x), .iterations = k, .final_norm = norm_fk, .converged = true };
         }
 
         // Inexact Newton: adaptive GMRES tolerance (forcing term η * ||f||)
@@ -102,10 +104,10 @@ namespace dft::algorithms::solvers {
 
       const double final_norm = arma::norm(f(x));
       return SolverResult{
-          .solution = std::move(x),
-          .iterations = max_iterations,
-          .final_norm = final_norm,
-          .converged = final_norm < tolerance,
+        .solution = std::move(x),
+        .iterations = max_iterations,
+        .final_norm = final_norm,
+        .converged = final_norm < tolerance,
       };
     }
 

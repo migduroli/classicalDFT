@@ -30,8 +30,10 @@ namespace dft::physics::potentials {
       const auto& self = static_cast<const Derived&>(*this);
       double d_core = self.hard_core_diameter();
       double r_split = self.split_point(scheme);
-      auto kernel = [&](double r) -> double { return 1.0 - std::exp(-self.repulsive(r, scheme) / kT); };
-      auto integrator = math::Integrator(kernel, {.absolute_tolerance = 1e-10, .relative_tolerance = 1e-10});
+      auto kernel = [&](double r) -> double {
+        return 1.0 - std::exp(-self.repulsive(r, scheme) / kT);
+      };
+      auto integrator = math::Integrator(kernel, { .absolute_tolerance = 1e-10, .relative_tolerance = 1e-10 });
       return d_core + integrator.integrate(d_core, r_split).value;
     }
 
@@ -41,8 +43,10 @@ namespace dft::physics::potentials {
         return 0.0;
       }
       double r_lower = (scheme == SplitScheme::BarkerHenderson) ? self.split_point(scheme) : 0.0;
-      auto kernel = [&](double r) -> double { return r * r * self.attractive(r, scheme); };
-      auto integrator = math::Integrator(kernel, {.absolute_tolerance = 1e-10, .relative_tolerance = 1e-10});
+      auto kernel = [&](double r) -> double {
+        return r * r * self.attractive(r, scheme);
+      };
+      auto integrator = math::Integrator(kernel, { .absolute_tolerance = 1e-10, .relative_tolerance = 1e-10 });
       return (2.0 * std::numbers::pi / kT) * integrator.integrate(r_lower, self.r_cutoff).value;
     }
   };
@@ -54,15 +58,15 @@ namespace dft::physics::potentials {
   struct LennardJones : PotentialBase<LennardJones> {
     static constexpr std::string_view NAME = "LennardJones";
 
-    double sigma{1.0};
-    double epsilon{1.0};
-    double r_cutoff{-1.0};
+    double sigma{ 1.0 };
+    double epsilon{ 1.0 };
+    double r_cutoff{ -1.0 };
 
     // Precomputed derived quantities (set by the factory)
-    double epsilon_shift{0.0};
-    double r_min{0.0};
-    double v_min{0.0};
-    double r_zero{0.0};
+    double epsilon_shift{ 0.0 };
+    double r_min{ 0.0 };
+    double v_min{ 0.0 };
+    double r_zero{ 0.0 };
 
     // Raw pair potential V(r)
     [[nodiscard]] auto operator()(double r) const -> double {
@@ -79,11 +83,11 @@ namespace dft::physics::potentials {
     }
 
     // Cut-and-shifted energy
-    [[nodiscard]] auto energy(double r) const -> double { return (*this)(r) - epsilon_shift; }
+    [[nodiscard]] auto energy(double r) const -> double { return (*this)(r)-epsilon_shift; }
 
     // Repulsive part (WCA or BH split)
     [[nodiscard]] auto repulsive(double r, SplitScheme scheme) const -> double {
-      double v_shifted = (*this)(r) - epsilon_shift;
+      double v_shifted = (*this)(r)-epsilon_shift;
       if (scheme == SplitScheme::BarkerHenderson) {
         return (r < r_zero) ? v_shifted : 0.0;
       }
@@ -96,7 +100,7 @@ namespace dft::physics::potentials {
       if (r >= rc) {
         return 0.0;
       }
-      double v_shifted = (*this)(r) - epsilon_shift;
+      double v_shifted = (*this)(r)-epsilon_shift;
       if (scheme == SplitScheme::BarkerHenderson) {
         return (r >= r_zero) ? v_shifted : 0.0;
       }
@@ -119,15 +123,15 @@ namespace dft::physics::potentials {
   struct TenWoldeFrenkel : PotentialBase<TenWoldeFrenkel> {
     static constexpr std::string_view NAME = "TenWoldeFrenkel";
 
-    double sigma{1.0};
-    double epsilon{1.0};
-    double r_cutoff{-1.0};
-    double alpha{50.0};
+    double sigma{ 1.0 };
+    double epsilon{ 1.0 };
+    double r_cutoff{ -1.0 };
+    double alpha{ 50.0 };
 
-    double epsilon_shift{0.0};
-    double r_min{0.0};
-    double v_min{0.0};
-    double r_zero{0.0};
+    double epsilon_shift{ 0.0 };
+    double r_min{ 0.0 };
+    double v_min{ 0.0 };
+    double r_zero{ 0.0 };
 
     [[nodiscard]] auto operator()(double r) const -> double {
       if (r < sigma) {
@@ -149,10 +153,10 @@ namespace dft::physics::potentials {
       return (4.0 * epsilon / (alpha * alpha)) * (y3 * y3 - alpha * y3);
     }
 
-    [[nodiscard]] auto energy(double r) const -> double { return (*this)(r) - epsilon_shift; }
+    [[nodiscard]] auto energy(double r) const -> double { return (*this)(r)-epsilon_shift; }
 
     [[nodiscard]] auto repulsive(double r, SplitScheme scheme) const -> double {
-      double v_shifted = (*this)(r) - epsilon_shift;
+      double v_shifted = (*this)(r)-epsilon_shift;
       if (scheme == SplitScheme::BarkerHenderson) {
         return (r < r_zero) ? v_shifted : 0.0;
       }
@@ -164,7 +168,7 @@ namespace dft::physics::potentials {
       if (r >= rc) {
         return 0.0;
       }
-      double v_shifted = (*this)(r) - epsilon_shift;
+      double v_shifted = (*this)(r)-epsilon_shift;
       if (scheme == SplitScheme::BarkerHenderson) {
         return (r >= r_zero) ? v_shifted : 0.0;
       }
@@ -185,13 +189,13 @@ namespace dft::physics::potentials {
   struct WangRamirezDobnikarFrenkel : PotentialBase<WangRamirezDobnikarFrenkel> {
     static constexpr std::string_view NAME = "WangRamirezDobnikarFrenkel";
 
-    double sigma{1.0};
-    double epsilon{1.0};
-    double r_cutoff{3.0};
+    double sigma{ 1.0 };
+    double epsilon{ 1.0 };
+    double r_cutoff{ 3.0 };
 
-    double epsilon_effective{0.0};
-    double r_min{0.0};
-    double v_min{0.0};
+    double epsilon_effective{ 0.0 };
+    double r_min{ 0.0 };
+    double v_min{ 0.0 };
 
     [[nodiscard]] auto operator()(double r) const -> double {
       if (r >= r_cutoff) {
@@ -219,7 +223,7 @@ namespace dft::physics::potentials {
       if (scheme == SplitScheme::BarkerHenderson) {
         return (r < r_min) ? (*this)(r) : 0.0;
       }
-      return (r < r_min) ? (*this)(r) - v_min : 0.0;
+      return (r < r_min) ? (*this)(r)-v_min : 0.0;
     }
 
     [[nodiscard]] auto attractive(double r, SplitScheme scheme) const -> double {
@@ -296,6 +300,7 @@ namespace dft::physics::potentials {
 
     // Access underlying variant for rare type-specific inspection
     using VariantType = std::variant<LennardJones, TenWoldeFrenkel, WangRamirezDobnikarFrenkel>;
+
     [[nodiscard]] auto variant() const -> const VariantType& { return data_; }
 
    private:
@@ -305,7 +310,7 @@ namespace dft::physics::potentials {
   // Factories
 
   [[nodiscard]] inline auto make_lennard_jones(double sigma, double epsilon, double r_cutoff = -1.0) -> LennardJones {
-    LennardJones lj{.sigma = sigma, .epsilon = epsilon, .r_cutoff = r_cutoff};
+    LennardJones lj{ .sigma = sigma, .epsilon = epsilon, .r_cutoff = r_cutoff };
 
     auto vr = [&](double r) {
       double y = sigma / r;
@@ -320,10 +325,9 @@ namespace dft::physics::potentials {
     return lj;
   }
 
-  [[nodiscard]] inline auto make_ten_wolde_frenkel(
-      double sigma, double epsilon, double r_cutoff = -1.0, double alpha = 50.0
-  ) -> TenWoldeFrenkel {
-    TenWoldeFrenkel twf{.sigma = sigma, .epsilon = epsilon, .r_cutoff = r_cutoff, .alpha = alpha};
+  [[nodiscard]] inline auto
+  make_ten_wolde_frenkel(double sigma, double epsilon, double r_cutoff = -1.0, double alpha = 50.0) -> TenWoldeFrenkel {
+    TenWoldeFrenkel twf{ .sigma = sigma, .epsilon = epsilon, .r_cutoff = r_cutoff, .alpha = alpha };
 
     auto vr = [&](double r) -> double {
       if (r < sigma) {
@@ -342,14 +346,15 @@ namespace dft::physics::potentials {
     return twf;
   }
 
-  [[nodiscard]] inline auto make_wang_ramirez_dobnikar_frenkel(
-      double sigma, double epsilon, double r_cutoff = 3.0
-  ) -> WangRamirezDobnikarFrenkel {
+  [[nodiscard]] inline auto make_wang_ramirez_dobnikar_frenkel(double sigma, double epsilon, double r_cutoff = 3.0)
+      -> WangRamirezDobnikarFrenkel {
     double rc_s = r_cutoff / sigma;
     double eps_eff = epsilon * 2.0 * rc_s * rc_s * std::pow(2.0 * (rc_s * rc_s - 1.0) / 3.0, -3.0);
 
-    WangRamirezDobnikarFrenkel w{
-        .sigma = sigma, .epsilon = epsilon, .r_cutoff = r_cutoff, .epsilon_effective = eps_eff};
+    WangRamirezDobnikarFrenkel w{ .sigma = sigma,
+                                  .epsilon = epsilon,
+                                  .r_cutoff = r_cutoff,
+                                  .epsilon_effective = eps_eff };
 
     auto vr = [&](double r) -> double {
       if (r >= r_cutoff) {

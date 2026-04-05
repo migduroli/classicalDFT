@@ -43,7 +43,7 @@ static void compare_lattices(Structure structure, const std::string& orient, int
   std::string lattice_name = structure == Structure::BCC ? "BCC" : structure == Structure::FCC ? "FCC" : "HCP";
 
   // Our code
-  auto lattice = build_lattice(structure, orient_enum(orient), {nx, ny, nz});
+  auto lattice = build_lattice(structure, orient_enum(orient), { nx, ny, nz });
   auto ours = sorted_positions(lattice.positions);
 
   // Jim's code
@@ -78,21 +78,27 @@ static void compare_lattices(Structure structure, const std::string& orient, int
 TEST_CASE("BCC 001 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "001");
 }
+
 TEST_CASE("BCC 010 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "010");
 }
+
 TEST_CASE("BCC 100 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "100");
 }
+
 TEST_CASE("BCC 110 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "110");
 }
+
 TEST_CASE("BCC 101 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "101");
 }
+
 TEST_CASE("BCC 011 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "011");
 }
+
 TEST_CASE("BCC 111 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::BCC, "111");
 }
@@ -102,21 +108,27 @@ TEST_CASE("BCC 111 lattice matches legacy", "[integration][crystal]") {
 TEST_CASE("FCC 001 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "001");
 }
+
 TEST_CASE("FCC 010 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "010");
 }
+
 TEST_CASE("FCC 100 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "100");
 }
+
 TEST_CASE("FCC 110 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "110");
 }
+
 TEST_CASE("FCC 101 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "101");
 }
+
 TEST_CASE("FCC 011 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "011");
 }
+
 TEST_CASE("FCC 111 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::FCC, "111");
 }
@@ -126,9 +138,11 @@ TEST_CASE("FCC 111 lattice matches legacy", "[integration][crystal]") {
 TEST_CASE("HCP 001 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::HCP, "001");
 }
+
 TEST_CASE("HCP 010 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::HCP, "010");
 }
+
 TEST_CASE("HCP 100 lattice matches legacy", "[integration][crystal]") {
   compare_lattices(Structure::HCP, "100");
 }
@@ -137,7 +151,7 @@ TEST_CASE("HCP 100 lattice matches legacy", "[integration][crystal]") {
 
 TEST_CASE("Scaled BCC positions match legacy", "[integration][crystal]") {
   double dnn = 1.5;
-  auto lattice = build_lattice(Structure::BCC, Orientation::_001, {2, 2, 2});
+  auto lattice = build_lattice(Structure::BCC, Orientation::_001, { 2, 2, 2 });
   auto ours = sorted_positions(lattice.scaled_positions(dnn));
 
   auto jim_lat = legacy::crystal::build("BCC", "001", 2, 2, 2);

@@ -21,10 +21,10 @@ namespace dft::functionals {
   // Immutable after construction.
 
   struct InteractionWeight {
-    int species_i{0};
-    int species_j{0};
+    int species_i{ 0 };
+    int species_j{ 0 };
     math::FourierTransform weight;
-    double a_vdw{0.0};
+    double a_vdw{ 0.0 };
   };
 
   // Precomputed weights for all pair interactions.
@@ -40,8 +40,13 @@ namespace dft::functionals {
 
     template <typename P>
     [[nodiscard]] auto cell_weight_zero(
-        const P& pot, physics::potentials::SplitScheme split,
-        double kT, double dx, long sx, long sy, long sz
+        const P& pot,
+        physics::potentials::SplitScheme split,
+        double kT,
+        double dx,
+        long sx,
+        long sy,
+        long sz
     ) -> double {
       double r2 = static_cast<double>(sx * sx + sy * sy + sz * sz) * dx * dx;
       double r = std::sqrt(r2);
@@ -52,8 +57,13 @@ namespace dft::functionals {
 
     template <typename P>
     [[nodiscard]] auto cell_weight_linear(
-        const P& pot, physics::potentials::SplitScheme split,
-        double kT, double dx, long sx, long sy, long sz
+        const P& pot,
+        physics::potentials::SplitScheme split,
+        double kT,
+        double dx,
+        long sx,
+        long sy,
+        long sz
     ) -> double {
       double sum = 0.0;
       for (int di = 0; di <= 1; ++di) {
@@ -76,11 +86,16 @@ namespace dft::functionals {
 
     template <typename P>
     [[nodiscard]] auto cell_weight_quadratic_f(
-        const P& pot, physics::potentials::SplitScheme split,
-        double kT, double dx, long sx, long sy, long sz
+        const P& pot,
+        physics::potentials::SplitScheme split,
+        double kT,
+        double dx,
+        long sx,
+        long sy,
+        long sz
     ) -> double {
-      static constexpr double vv[] = {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
-      static constexpr double pt[] = {-0.5, 0.0, 0.5};
+      static constexpr double vv[] = { 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 };
+      static constexpr double pt[] = { -0.5, 0.0, 0.5 };
 
       double sum = 0.0;
       for (int i = 0; i < 3; ++i) {
@@ -99,9 +114,8 @@ namespace dft::functionals {
 
     // Compute the cell weight for a given displacement using the specified scheme.
 
-    [[nodiscard]] inline auto cell_weight(
-        const physics::Interaction& inter, double kT, double dx, long sx, long sy, long sz
-    ) -> double {
+    [[nodiscard]] inline auto
+    cell_weight(const physics::Interaction& inter, double kT, double dx, long sx, long sy, long sz) -> double {
       const auto& pot = inter.potential;
       using physics::WeightScheme;
       switch (inter.weight_scheme) {
@@ -112,7 +126,8 @@ namespace dft::functionals {
           return cell_weight_linear(pot, inter.split, kT, dx, sx, sy, sz);
         case WeightScheme::InterpolationQuadraticF:
           return cell_weight_quadratic_f(pot, inter.split, kT, dx, sx, sy, sz);
-        case WeightScheme::GaussE: [[fallthrough]];
+        case WeightScheme::GaussE:
+          [[fallthrough]];
         case WeightScheme::GaussF:
           return cell_weight_linear(pot, inter.split, kT, dx, sx, sy, sz);
       }
@@ -128,9 +143,8 @@ namespace dft::functionals {
       double a_vdw;
     };
 
-    [[nodiscard]] inline auto generate_interaction_weight(
-        const physics::Interaction& inter, const Grid& grid, double kT
-    ) -> WeightResult {
+    [[nodiscard]] inline auto
+    generate_interaction_weight(const physics::Interaction& inter, const Grid& grid, double kT) -> WeightResult {
       std::vector<long> shape(grid.shape.begin(), grid.shape.end());
       long nx = shape[0];
       long ny = shape[1];
@@ -179,16 +193,16 @@ namespace dft::functionals {
       }
 
       ft.forward();
-      return {.ft = std::move(ft), .a_vdw = weight_sum};
+      return { .ft = std::move(ft), .a_vdw = weight_sum };
     }
 
   }  // namespace detail
 
   // Generate the Fourier-space weights for all interactions.
 
-  [[nodiscard]] inline auto make_mean_field_weights(
-      const Grid& grid, const std::vector<physics::Interaction>& interactions, double kT
-  ) -> MeanFieldWeights {
+  [[nodiscard]] inline auto
+  make_mean_field_weights(const Grid& grid, const std::vector<physics::Interaction>& interactions, double kT)
+      -> MeanFieldWeights {
     MeanFieldWeights w;
     w.interactions.reserve(interactions.size());
 
@@ -217,11 +231,9 @@ namespace dft::functionals {
   // double counting in the derivative. For cross-interactions (i != j),
   // each species gets half the convolution.
 
-  [[nodiscard]] inline auto mean_field(
-      const Grid& grid, const State& state,
-      const std::vector<Species>& species,
-      const MeanFieldWeights& weights
-  ) -> Contribution {
+  [[nodiscard]] inline auto
+  mean_field(const Grid& grid, const State& state, const std::vector<Species>& species, const MeanFieldWeights& weights)
+      -> Contribution {
     auto n_species = species.size();
     auto n_points = static_cast<arma::uword>(grid.total_points());
     double dv = grid.cell_volume();
@@ -266,7 +278,7 @@ namespace dft::functionals {
       }
     }
 
-    return Contribution{.free_energy = free_energy, .forces = std::move(forces)};
+    return Contribution{ .free_energy = free_energy, .forces = std::move(forces) };
   }
 
 }  // namespace dft::functionals

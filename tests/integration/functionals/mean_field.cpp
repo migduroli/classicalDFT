@@ -32,7 +32,13 @@ TEST_CASE("Cell QF weights match legacy at dx=0.4", "[integration][interaction]"
         if (r2 > r_check * r_check)
           continue;
         double ours = functionals::detail::cell_weight_quadratic_f(
-            potential, pot::SplitScheme::WeeksChandlerAndersen, KT, dx, ix, iy, iz
+            potential,
+            pot::SplitScheme::WeeksChandlerAndersen,
+            KT,
+            dx,
+            ix,
+            iy,
+            iz
         );
         double jims = legacy::interactions::generate_weight_QF(SIGMA, EPS, RCUT, ix, iy, iz, dx) / KT;
         CHECK(ours == Approx(jims).margin(1e-10));
@@ -52,7 +58,13 @@ TEST_CASE("Cell QF weights match legacy at dx=0.2", "[integration][interaction]"
         if (r2 > r_check * r_check)
           continue;
         double ours = functionals::detail::cell_weight_quadratic_f(
-            potential, pot::SplitScheme::WeeksChandlerAndersen, KT, dx, ix, iy, iz
+            potential,
+            pot::SplitScheme::WeeksChandlerAndersen,
+            KT,
+            dx,
+            ix,
+            iy,
+            iz
         );
         double jims = legacy::interactions::generate_weight_QF(SIGMA, EPS, RCUT, ix, iy, iz, dx) / KT;
         CHECK(ours == Approx(jims).margin(1e-10));
@@ -61,7 +73,7 @@ TEST_CASE("Cell QF weights match legacy at dx=0.2", "[integration][interaction]"
 
 TEST_CASE("Grid a_vdw matches legacy at multiple dx", "[integration][interaction]") {
   auto potential = lj_potential();
-  for (double dx : {0.5, 0.4, 0.3, 0.2}) {
+  for (double dx : { 0.5, 0.4, 0.3, 0.2 }) {
     double jim_a = legacy::interactions::compute_a_vdw_QF(SIGMA, EPS, RCUT, KT, dx);
 
     int lim = 1 + static_cast<int>(RCUT / dx);
@@ -81,9 +93,15 @@ TEST_CASE("Grid a_vdw matches legacy at multiple dx", "[integration][interaction
           if (nz > ny)
             std::swap(ny, nz);
           our_sum += functionals::detail::cell_weight_quadratic_f(
-                         potential, pot::SplitScheme::WeeksChandlerAndersen, KT, dx, nx, ny, nz
-                     ) *
-              dx * dx * dx;
+                         potential,
+                         pot::SplitScheme::WeeksChandlerAndersen,
+                         KT,
+                         dx,
+                         nx,
+                         ny,
+                         nz
+                     )
+              * dx * dx * dx;
         }
 
     INFO("dx=" << dx);

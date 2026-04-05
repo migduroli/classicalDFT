@@ -21,9 +21,9 @@ namespace dft::functionals::fmt {
 
     [[nodiscard]] inline auto tensor_phi3(const Measures& m) -> double {
       constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
-      return INV_24PI * 3.0 *
-          (m.n2 * m.products.trace_T2 - m.n2 * m.products.dot_v1_v1 +
-           m.products.quadratic_form - m.products.trace_T3);
+      return INV_24PI * 3.0
+          * (m.n2 * m.products.trace_T2 - m.n2 * m.products.dot_v1_v1 + m.products.quadratic_form - m.products.trace_T3
+          );
     }
 
     [[nodiscard]] inline auto tensor_phi3_d_n2(const Measures& m) -> double {
@@ -39,7 +39,8 @@ namespace dft::functionals::fmt {
     [[nodiscard]] inline auto tensor_phi3_d_T(int i, int j, const Measures& m) -> double {
       constexpr double INV_8PI = 1.0 / (8.0 * std::numbers::pi);
       double TT_ji = 0.0;
-      for (int k = 0; k < 3; ++k) TT_ji += m.T(j, k) * m.T(k, i);
+      for (int k = 0; k < 3; ++k)
+        TT_ji += m.T(j, k) * m.T(k, i);
       return INV_8PI * (m.v1(i) * m.v1(j) + 2.0 * m.n2 * m.T(j, i) - 3.0 * TT_ji);
     }
 
@@ -48,20 +49,17 @@ namespace dft::functionals::fmt {
     template <typename Model>
     [[nodiscard]] auto compute_phi(const Model& func, const Measures& m) -> double {
       double e = m.eta;
-      return -m.n0 * static_cast<double>(func.f1(e)) +
-          (m.n1 * m.n2 - m.products.dot_v0_v1) * static_cast<double>(func.f2(e)) +
-          func.phi3(m) * static_cast<double>(func.f3(e));
+      return -m.n0 * static_cast<double>(func.f1(e))
+          + (m.n1 * m.n2 - m.products.dot_v0_v1) * static_cast<double>(func.f2(e))
+          + func.phi3(m) * static_cast<double>(func.f3(e));
     }
 
     template <typename Model>
     [[nodiscard]] auto compute_d_phi(const Model& func, const Measures& m) -> MeasureDerivatives {
       double e = m.eta;
-      auto [f1_val, df1_val] =
-          math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f1(x); }, e);
-      auto [f2_val, df2_val] =
-          math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f2(x); }, e);
-      auto [f3_val, df3_val] =
-          math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f3(x); }, e);
+      auto [f1_val, df1_val] = math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f1(x); }, e);
+      auto [f2_val, df2_val] = math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f2(x); }, e);
+      auto [f3_val, df3_val] = math::derivatives_up_to_1([&func](math::dual x) -> math::dual { return func.f3(x); }, e);
       double p3 = func.phi3(m);
 
       MeasureDerivatives dm;
@@ -84,9 +82,7 @@ namespace dft::functionals::fmt {
     }
 
     template <typename Model>
-    [[nodiscard]] auto compute_excess_chemical_potential(
-        const Model& func, double density, double diameter
-    ) -> double {
+    [[nodiscard]] auto compute_excess_chemical_potential(const Model& func, double density, double diameter) -> double {
       auto m = make_uniform_measures(density, diameter);
       auto dm = compute_d_phi(func, m);
       double d = diameter;
@@ -97,8 +93,7 @@ namespace dft::functionals::fmt {
       double dn1_drho = r;
       double dn0_drho = 1.0;
 
-      double mu_ex =
-          dm.d_eta * dn3_drho + dm.d_n2 * dn2_drho + dm.d_n1 * dn1_drho + dm.d_n0 * dn0_drho;
+      double mu_ex = dm.d_eta * dn3_drho + dm.d_n2 * dn2_drho + dm.d_n1 * dn1_drho + dm.d_n0 * dn0_drho;
 
       if constexpr (Model::NEEDS_TENSOR) {
         double dt_drho = std::numbers::pi * d * d / 3.0;
@@ -122,22 +117,19 @@ namespace dft::functionals::fmt {
   struct FMTModelBase {
     [[nodiscard]] auto d_f1(double eta) const -> double {
       const auto& self = static_cast<const Derived&>(*this);
-      auto [f, df] = math::derivatives_up_to_1(
-          [&self](math::dual x) -> math::dual { return self.f1(x); }, eta);
+      auto [f, df] = math::derivatives_up_to_1([&self](math::dual x) -> math::dual { return self.f1(x); }, eta);
       return df;
     }
 
     [[nodiscard]] auto d_f2(double eta) const -> double {
       const auto& self = static_cast<const Derived&>(*this);
-      auto [f, df] = math::derivatives_up_to_1(
-          [&self](math::dual x) -> math::dual { return self.f2(x); }, eta);
+      auto [f, df] = math::derivatives_up_to_1([&self](math::dual x) -> math::dual { return self.f2(x); }, eta);
       return df;
     }
 
     [[nodiscard]] auto d_f3(double eta) const -> double {
       const auto& self = static_cast<const Derived&>(*this);
-      auto [f, df] = math::derivatives_up_to_1(
-          [&self](math::dual x) -> math::dual { return self.f3(x); }, eta);
+      auto [f, df] = math::derivatives_up_to_1([&self](math::dual x) -> math::dual { return self.f3(x); }, eta);
       return df;
     }
 
@@ -281,7 +273,9 @@ namespace dft::functionals::fmt {
     }
 
     [[nodiscard]] static auto phi3(const Measures& m) -> double { return detail::tensor_phi3(m); }
+
     [[nodiscard]] static auto d_phi3_d_n2(const Measures& m) -> double { return detail::tensor_phi3_d_n2(m); }
+
     [[nodiscard]] static auto d_phi3_d_v1(const Measures& m) -> arma::rowvec3 { return detail::tensor_phi3_d_v1(m); }
 
     [[nodiscard]] static auto d_phi3_d_T(int i, int j, const Measures& m) -> double {
@@ -307,8 +301,7 @@ namespace dft::functionals::fmt {
       if (autodiff::val(eta) < 1e-6) {
         return T(1.0) + eta * (T(1.0) + eta * (T(10.0 / 9.0) + T(7.0 / 6.0) * eta));
       }
-      return T(1.0 / 3.0) + T(4.0 / 3.0) / (T(1.0) - eta) +
-             T(2.0) / (T(3.0) * eta) * log(T(1.0) - eta);
+      return T(1.0 / 3.0) + T(4.0 / 3.0) / (T(1.0) - eta) + T(2.0) / (T(3.0) * eta) * log(T(1.0) - eta);
     }
 
     template <typename T = double>
@@ -318,12 +311,13 @@ namespace dft::functionals::fmt {
         return T(1.5) + T(7.0 / 3.0) * eta + T(3.25) * eta * eta + T(4.2) * eta * eta * eta;
       }
       T e = T(1.0) - eta;
-      return -((T(1.0) - T(3.0) * eta + eta * eta) / (eta * e * e)) -
-             log(T(1.0) - eta) / (eta * eta);
+      return -((T(1.0) - T(3.0) * eta + eta * eta) / (eta * e * e)) - log(T(1.0) - eta) / (eta * eta);
     }
 
     [[nodiscard]] static auto phi3(const Measures& m) -> double { return detail::tensor_phi3(m); }
+
     [[nodiscard]] static auto d_phi3_d_n2(const Measures& m) -> double { return detail::tensor_phi3_d_n2(m); }
+
     [[nodiscard]] static auto d_phi3_d_v1(const Measures& m) -> arma::rowvec3 { return detail::tensor_phi3_d_v1(m); }
 
     [[nodiscard]] static auto d_phi3_d_T(int i, int j, const Measures& m) -> double {
@@ -340,24 +334,29 @@ namespace dft::functionals::fmt {
   struct EsFMT : FMTModelBase<EsFMT> {
     static constexpr bool NEEDS_TENSOR = true;
     static constexpr std::string_view NAME = "esFMT";
-    double A{1.0};
-    double B{0.0};
+    double A{ 1.0 };
+    double B{ 0.0 };
 
     template <typename T = double>
-    [[nodiscard]] static auto f1(T eta) -> T { return Rosenfeld::f1(eta); }
+    [[nodiscard]] static auto f1(T eta) -> T {
+      return Rosenfeld::f1(eta);
+    }
 
     template <typename T = double>
-    [[nodiscard]] static auto f2(T eta) -> T { return Rosenfeld::f2(eta); }
+    [[nodiscard]] static auto f2(T eta) -> T {
+      return Rosenfeld::f2(eta);
+    }
 
     template <typename T = double>
-    [[nodiscard]] static auto f3(T eta) -> T { return Rosenfeld::f3(eta); }
+    [[nodiscard]] static auto f3(T eta) -> T {
+      return Rosenfeld::f3(eta);
+    }
 
     [[nodiscard]] auto phi3(const Measures& m) const -> double {
       constexpr double INV_24PI = 1.0 / (24.0 * std::numbers::pi);
-      double phi_a = m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.products.dot_v1_v1 +
-                     3.0 * m.products.quadratic_form - m.products.trace_T3;
-      double phi_b = m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.products.trace_T2 +
-                     2.0 * m.products.trace_T3;
+      double phi_a = m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.products.dot_v1_v1 + 3.0 * m.products.quadratic_form
+          - m.products.trace_T3;
+      double phi_b = m.n2 * m.n2 * m.n2 - 3.0 * m.n2 * m.products.trace_T2 + 2.0 * m.products.trace_T3;
       return INV_24PI * (A * phi_a + B * phi_b);
     }
 
@@ -380,9 +379,10 @@ namespace dft::functionals::fmt {
       // A-term: d/dT_ij of (3*v.T.v - T3)/(24pi) = (v_i*v_j - (T.T)_ji)/(8pi)
       // B-term: d/dT_ij of (-3*s2*T2 + 2*T3)/(24pi) = (-s2*T_ji + (T.T)_ji)/(4pi)
       double TT_ji = 0.0;
-      for (int k = 0; k < 3; ++k) TT_ji += m.T(j, k) * m.T(k, i);
-      return INV_8PI * A * (m.v1(i) * m.v1(j) - TT_ji) +
-             (1.0 / (4.0 * std::numbers::pi)) * B * (-m.n2 * m.T(j, i) + TT_ji);
+      for (int k = 0; k < 3; ++k)
+        TT_ji += m.T(j, k) * m.T(k, i);
+      return INV_8PI * A * (m.v1(i) * m.v1(j) - TT_ji)
+          + (1.0 / (4.0 * std::numbers::pi)) * B * (-m.n2 * m.T(j, i) + TT_ji);
     }
   };
 
@@ -411,7 +411,8 @@ namespace dft::functionals::fmt {
 
     [[nodiscard]] auto excess_chemical_potential(double density, double diameter) const -> double {
       return std::visit(
-          [density, diameter](const auto& f) { return f.excess_chemical_potential(density, diameter); }, data_
+          [density, diameter](const auto& f) { return f.excess_chemical_potential(density, diameter); },
+          data_
       );
     }
 
@@ -424,16 +425,22 @@ namespace dft::functionals::fmt {
     }
 
     [[nodiscard]] static auto from_name(std::string_view name) -> FMTModel {
-      if (name == "Rosenfeld") return Rosenfeld{};
-      if (name == "RSLT") return RSLT{};
-      if (name == "WhiteBearI") return WhiteBearI{};
-      if (name == "WhiteBearII") return WhiteBearII{};
-      if (name == "esFMT") return EsFMT{};
+      if (name == "Rosenfeld")
+        return Rosenfeld{};
+      if (name == "RSLT")
+        return RSLT{};
+      if (name == "WhiteBearI")
+        return WhiteBearI{};
+      if (name == "WhiteBearII")
+        return WhiteBearII{};
+      if (name == "esFMT")
+        return EsFMT{};
       throw std::invalid_argument(std::string("Unknown FMT model: ") + std::string(name));
     }
 
     // Access underlying variant for rare type-specific inspection
     using VariantType = std::variant<Rosenfeld, RSLT, WhiteBearI, WhiteBearII, EsFMT>;
+
     [[nodiscard]] auto variant() const -> const VariantType& { return data_; }
 
    private:

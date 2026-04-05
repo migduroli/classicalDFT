@@ -10,12 +10,12 @@ static auto make_single_species_state(double rho_val, long n, double kT, double 
   arma::vec rho(n, arma::fill::value(rho_val));
   arma::vec vext(n, arma::fill::zeros);
   return State{
-      .species = {SpeciesState{
-          .density = Density{.values = rho, .external_field = vext},
-          .force = arma::vec(n, arma::fill::zeros),
-          .chemical_potential = mu,
-      }},
-      .temperature = kT,
+    .species = { SpeciesState{
+        .density = Density{ .values = rho, .external_field = vext },
+        .force = arma::vec(n, arma::fill::zeros),
+        .chemical_potential = mu,
+    } },
+    .temperature = kT,
   };
 }
 
@@ -25,7 +25,7 @@ TEST_CASE("ideal gas free energy for uniform density", "[functionals][ideal_gas]
   double rho = 0.5;
   double kT = 1.0;
   long n = 1000;
-  auto grid = make_grid(0.1, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.1, { 1.0, 1.0, 1.0 });
   auto state = make_single_species_state(rho, grid.total_points(), kT);
 
   auto result = ideal_gas(grid, state);
@@ -37,7 +37,7 @@ TEST_CASE("ideal gas free energy for uniform density", "[functionals][ideal_gas]
 }
 
 TEST_CASE("ideal gas returns one force vector per species", "[functionals][ideal_gas]") {
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   auto state = make_single_species_state(0.5, grid.total_points(), 1.0);
 
   auto result = ideal_gas(grid, state);
@@ -47,7 +47,7 @@ TEST_CASE("ideal gas returns one force vector per species", "[functionals][ideal
 
 TEST_CASE("ideal gas force is log(rho) dV for zero chemical potential", "[functionals][ideal_gas]") {
   double rho = 0.3;
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   auto state = make_single_species_state(rho, grid.total_points(), 1.0);
 
   auto result = ideal_gas(grid, state);
@@ -59,7 +59,7 @@ TEST_CASE("ideal gas force includes chemical potential", "[functionals][ideal_ga
   double rho = 0.3;
   double mu = 2.0;  // dimensionless (beta * mu_physical)
   double kT = 1.5;
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   auto state = make_single_species_state(rho, grid.total_points(), kT, mu);
 
   auto result = ideal_gas(grid, state);
@@ -71,7 +71,7 @@ TEST_CASE("ideal gas force includes chemical potential", "[functionals][ideal_ga
 
 TEST_CASE("ideal gas free energy is temperature-independent", "[functionals][ideal_gas]") {
   double rho = 0.5;
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
 
   auto state1 = make_single_species_state(rho, grid.total_points(), 1.0);
   auto state2 = make_single_species_state(rho, grid.total_points(), 2.0);
@@ -83,7 +83,7 @@ TEST_CASE("ideal gas free energy is temperature-independent", "[functionals][ide
 }
 
 TEST_CASE("ideal gas handles multiple species", "[functionals][ideal_gas]") {
-  auto grid = make_grid(0.5, {1.0, 1.0, 1.0});
+  auto grid = make_grid(0.5, { 1.0, 1.0, 1.0 });
   long n = grid.total_points();
   arma::vec rho1(n, arma::fill::value(0.3));
   arma::vec rho2(n, arma::fill::value(0.7));

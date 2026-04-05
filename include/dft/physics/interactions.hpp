@@ -21,12 +21,12 @@ namespace dft::physics {
   // Contains only configuration data; all computation lives in the
   // functionals layer.
   struct Interaction {
-    int species_i{0};
-    int species_j{0};
+    int species_i{ 0 };
+    int species_j{ 0 };
     potentials::Potential potential;
-    potentials::SplitScheme split{potentials::SplitScheme::WeeksChandlerAndersen};
-    WeightScheme weight_scheme{WeightScheme::InterpolationQuadraticF};
-    int gauss_order{5};
+    potentials::SplitScheme split{ potentials::SplitScheme::WeeksChandlerAndersen };
+    WeightScheme weight_scheme{ WeightScheme::InterpolationQuadraticF };
+    int gauss_order{ 5 };
   };
 
 }  // namespace dft::physics

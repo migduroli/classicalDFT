@@ -10,9 +10,9 @@ namespace dft::math {
 
   // Configuration for GSL numerical integration.
   struct IntegrationConfig {
-    double absolute_tolerance{1e-8};
-    double relative_tolerance{1e-8};
-    int workspace_size{1000};
+    double absolute_tolerance{ 1e-8 };
+    double relative_tolerance{ 1e-8 };
+    int workspace_size{ 1000 };
   };
 
   // Result of a numerical integration.
@@ -42,8 +42,15 @@ namespace dft::math {
     [[nodiscard]] auto integrate(double a, double b) const -> IntegrationResult {
       IntegrationResult r{};
       gsl_integration_qags(
-          &gsl_f_, a, b, config_.absolute_tolerance, config_.relative_tolerance, config_.workspace_size,
-          workspace_.get(), &r.value, &r.error
+          &gsl_f_,
+          a,
+          b,
+          config_.absolute_tolerance,
+          config_.relative_tolerance,
+          config_.workspace_size,
+          workspace_.get(),
+          &r.value,
+          &r.error
       );
       return r;
     }
@@ -52,7 +59,14 @@ namespace dft::math {
       IntegrationResult r{};
       std::size_t neval = 0;
       gsl_integration_qng(
-          &gsl_f_, a, b, config_.absolute_tolerance, config_.relative_tolerance, &r.value, &r.error, &neval
+          &gsl_f_,
+          a,
+          b,
+          config_.absolute_tolerance,
+          config_.relative_tolerance,
+          &r.value,
+          &r.error,
+          &neval
       );
       return r;
     }
@@ -60,8 +74,14 @@ namespace dft::math {
     [[nodiscard]] auto integrate_upper_infinite(double a) const -> IntegrationResult {
       IntegrationResult r{};
       gsl_integration_qagiu(
-          &gsl_f_, a, config_.absolute_tolerance, config_.relative_tolerance, config_.workspace_size, workspace_.get(),
-          &r.value, &r.error
+          &gsl_f_,
+          a,
+          config_.absolute_tolerance,
+          config_.relative_tolerance,
+          config_.workspace_size,
+          workspace_.get(),
+          &r.value,
+          &r.error
       );
       return r;
     }
@@ -69,8 +89,14 @@ namespace dft::math {
     [[nodiscard]] auto integrate_lower_infinite(double b) const -> IntegrationResult {
       IntegrationResult r{};
       gsl_integration_qagil(
-          &gsl_f_, b, config_.absolute_tolerance, config_.relative_tolerance, config_.workspace_size, workspace_.get(),
-          &r.value, &r.error
+          &gsl_f_,
+          b,
+          config_.absolute_tolerance,
+          config_.relative_tolerance,
+          config_.workspace_size,
+          workspace_.get(),
+          &r.value,
+          &r.error
       );
       return r;
     }
@@ -78,8 +104,13 @@ namespace dft::math {
     [[nodiscard]] auto integrate_infinite() const -> IntegrationResult {
       IntegrationResult r{};
       gsl_integration_qagi(
-          &gsl_f_, config_.absolute_tolerance, config_.relative_tolerance, config_.workspace_size, workspace_.get(),
-          &r.value, &r.error
+          &gsl_f_,
+          config_.absolute_tolerance,
+          config_.relative_tolerance,
+          config_.workspace_size,
+          workspace_.get(),
+          &r.value,
+          &r.error
       );
       return r;
     }

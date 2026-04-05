@@ -73,13 +73,11 @@ int main() {
     double jim_df = enskog.dexFreeEnergyPYCdRho();
     max_diff_pyc_dfex = std::max(max_diff_pyc_dfex, std::abs(our_df - jim_df));
 
-    double our_d2f = py_model.d2_excess_free_energy(eta) *
-                     (std::numbers::pi / 6.0) * (std::numbers::pi / 6.0);
+    double our_d2f = py_model.d2_excess_free_energy(eta) * (std::numbers::pi / 6.0) * (std::numbers::pi / 6.0);
     double jim_d2f = enskog.d2exFreeEnergyPYCdRho2();
     max_diff_pyc_d2fex = std::max(max_diff_pyc_d2fex, std::abs(our_d2f - jim_d2f));
 
-    double our_d3f = py_model.d3_excess_free_energy(eta) *
-                     std::pow(std::numbers::pi / 6.0, 3);
+    double our_d3f = py_model.d3_excess_free_energy(eta) * std::pow(std::numbers::pi / 6.0, 3);
     double jim_d3f = enskog.d3exFreeEnergyPYCdRho3();
     max_diff_pyc_d3fex = std::max(max_diff_pyc_d3fex, std::abs(our_d3f - jim_d3f));
   }
@@ -116,13 +114,11 @@ int main() {
     double jim_df = enskog.dexFreeEnergyCSdRho();
     max_diff_cs_dfex = std::max(max_diff_cs_dfex, std::abs(our_df - jim_df));
 
-    double our_d2f = cs_model.d2_excess_free_energy(eta) *
-                     (std::numbers::pi / 6.0) * (std::numbers::pi / 6.0);
+    double our_d2f = cs_model.d2_excess_free_energy(eta) * (std::numbers::pi / 6.0) * (std::numbers::pi / 6.0);
     double jim_d2f = enskog.d2exFreeEnergyCSdRho2();
     max_diff_cs_d2fex = std::max(max_diff_cs_d2fex, std::abs(our_d2f - jim_d2f));
 
-    double our_d3f = cs_model.d3_excess_free_energy(eta) *
-                     std::pow(std::numbers::pi / 6.0, 3);
+    double our_d3f = cs_model.d3_excess_free_energy(eta) * std::pow(std::numbers::pi / 6.0, 3);
     double jim_d3f = enskog.d3exFreeEnergyCSdRho3();
     max_diff_cs_d3fex = std::max(max_diff_cs_d3fex, std::abs(our_d3f - jim_d3f));
   }
@@ -165,7 +161,7 @@ int main() {
 
   section("Step 4: LJ JZG coefficients");
 
-  std::vector<double> temperatures = {0.7, 1.0, 1.5, 2.0};
+  std::vector<double> temperatures = { 0.7, 1.0, 1.5, 2.0 };
 
   for (double kT : temperatures) {
     auto our_jzg = eos::make_lennard_jones_jzg(kT);
@@ -187,7 +183,7 @@ int main() {
   {
     auto our_jzg = eos::make_lennard_jones_jzg(1.0);
     auto jim_jzg = legacy::thermodynamics::make_LJ_JZG(1.0);
-    std::vector<double> test_rhos = {0.1, 0.3, 0.5, 0.7, 0.9};
+    std::vector<double> test_rhos = { 0.1, 0.3, 0.5, 0.7, 0.9 };
     for (double rho : test_rhos) {
       for (int i = 1; i <= 6; ++i) {
         double our_g = our_jzg.g_integral(rho, i);
@@ -203,7 +199,7 @@ int main() {
 
   section("Step 5: LJ JZG phix and derivatives");
 
-  std::vector<double> jzg_rhos = {0.1, 0.2, 0.4, 0.6, 0.8};
+  std::vector<double> jzg_rhos = { 0.1, 0.2, 0.4, 0.6, 0.8 };
 
   double max_diff_jzg_phix = 0.0;
   double max_diff_jzg_phi1x = 0.0;

@@ -25,26 +25,26 @@ using dft::State;
 static constexpr double DX = 0.1;
 static constexpr double DIAMETER = 1.0;
 static constexpr double KT = 1.0;
-static const Grid GRID = Grid{.dx = DX, .box_size = {1.6, 1.6, 1.6}, .shape = {16, 16, 16}};
+static const Grid GRID = Grid{ .dx = DX, .box_size = { 1.6, 1.6, 1.6 }, .shape = { 16, 16, 16 } };
 static constexpr long N = 16 * 16 * 16;
-static const std::vector<Species> SPECIES = {{.name = "HS", .hard_sphere_diameter = DIAMETER}};
+static const std::vector<Species> SPECIES = { { .name = "HS", .hard_sphere_diameter = DIAMETER } };
 
 static auto uniform_state(double rho0, double mu = 0.0) -> State {
   arma::vec rho(N, arma::fill::value(rho0));
   return State{
-      .species = {SpeciesState{
-          .density = Density{.values = rho, .external_field = arma::zeros(N)},
-          .force = arma::zeros(N),
-          .chemical_potential = mu,
-      }},
-      .temperature = KT,
+    .species = { SpeciesState{
+        .density = Density{ .values = rho, .external_field = arma::zeros(N) },
+        .force = arma::zeros(N),
+        .chemical_potential = mu,
+    } },
+    .temperature = KT,
   };
 }
 
 // make_weights
 
 TEST_CASE("make_weights creates FMT and mean-field weights", "[functionals]") {
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   CHECK(w.fmt.per_species.size() == 1);
   CHECK(w.mean_field.interactions.empty());
@@ -53,9 +53,9 @@ TEST_CASE("make_weights creates FMT and mean-field weights", "[functionals]") {
 TEST_CASE("make_weights with interactions generates mean-field weights", "[functionals]") {
   auto pot = make_lennard_jones(1.0, 1.0, 2.5);
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
-  Model model{.grid = GRID, .species = SPECIES, .interactions = interactions, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .interactions = interactions, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   CHECK(w.fmt.per_species.size() == 1);
   CHECK(w.mean_field.interactions.size() == 1);
@@ -64,7 +64,7 @@ TEST_CASE("make_weights with interactions generates mean-field weights", "[funct
 // total: returns correct number of forces
 
 TEST_CASE("total returns one force vector per species", "[functionals]") {
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(0.5);
 
@@ -77,7 +77,7 @@ TEST_CASE("total returns one force vector per species", "[functionals]") {
 
 TEST_CASE("total free energy equals sum of individual contributions", "[functionals]") {
   double rho0 = 0.4;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0);
 
@@ -95,7 +95,7 @@ TEST_CASE("total free energy equals sum of individual contributions", "[function
 
 TEST_CASE("total forces equal sum of individual forces", "[functionals]") {
   double rho0 = 0.3;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0);
 
@@ -116,9 +116,9 @@ TEST_CASE("total includes mean-field contribution when interactions present", "[
   double rho0 = 0.3;
   auto pot = make_lennard_jones(1.0, 1.0, 2.5);
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
-  Model model{.grid = GRID, .species = SPECIES, .interactions = interactions, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .interactions = interactions, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0);
 
@@ -137,9 +137,9 @@ TEST_CASE("total forces include mean-field when interactions present", "[functio
   double rho0 = 0.3;
   auto pot = make_lennard_jones(1.0, 1.0, 2.5);
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
-  Model model{.grid = GRID, .species = SPECIES, .interactions = interactions, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .interactions = interactions, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0);
 
@@ -159,7 +159,7 @@ TEST_CASE("total forces include mean-field when interactions present", "[functio
 
 TEST_CASE("grand potential equals free energy when mu is zero", "[functionals]") {
   double rho0 = 0.4;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0, 0.0);
 
@@ -170,7 +170,7 @@ TEST_CASE("grand potential equals free energy when mu is zero", "[functionals]")
 TEST_CASE("grand potential equals F minus mu*N", "[functionals]") {
   double rho0 = 0.4;
   double mu = 2.5;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0, mu);
 
@@ -186,7 +186,7 @@ TEST_CASE("grand potential equals F minus mu*N", "[functionals]") {
 
 TEST_CASE("uniform density produces spatially constant forces", "[functionals]") {
   double rho0 = 0.3;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0);
 
@@ -201,7 +201,7 @@ TEST_CASE("uniform density produces spatially constant forces", "[functionals]")
 
 TEST_CASE("near-zero density gives dominant ideal-gas contribution", "[functionals]") {
   double rho0 = 1e-10;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
   auto state = uniform_state(rho0);
 
@@ -216,10 +216,10 @@ TEST_CASE("near-zero density gives dominant ideal-gas contribution", "[functiona
 
 TEST_CASE("total handles two species", "[functionals]") {
   std::vector<Species> species2 = {
-      {.name = "A", .hard_sphere_diameter = 1.0},
-      {.name = "B", .hard_sphere_diameter = 0.8},
+    { .name = "A", .hard_sphere_diameter = 1.0 },
+    { .name = "B", .hard_sphere_diameter = 0.8 },
   };
-  Model model{.grid = GRID, .species = species2, .temperature = KT};
+  Model model{ .grid = GRID, .species = species2, .temperature = KT };
   auto w = make_weights(Rosenfeld{}, model);
 
   arma::vec rho_a(N, arma::fill::value(0.3));
@@ -249,14 +249,14 @@ TEST_CASE("total handles two species", "[functionals]") {
 
 TEST_CASE("total works with all FMT models", "[functionals]") {
   double rho0 = 0.4;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto state = uniform_state(rho0);
 
   auto [label, fmt_model] = GENERATE(table<std::string, FMTModel>({
-      {"Rosenfeld", Rosenfeld{}},
-      {"RSLT", RSLT{}},
-      {"WhiteBearI", WhiteBearI{}},
-      {"WhiteBearII", WhiteBearII{}},
+      { "Rosenfeld", Rosenfeld{} },
+      { "RSLT", RSLT{} },
+      { "WhiteBearI", WhiteBearI{} },
+      { "WhiteBearII", WhiteBearII{} },
   }));
 
   CAPTURE(label);
@@ -269,10 +269,10 @@ TEST_CASE("total works with all FMT models", "[functionals]") {
 
 TEST_CASE("total works with EsFMT model", "[functionals]") {
   double rho0 = 0.4;
-  Model model{.grid = GRID, .species = SPECIES, .temperature = KT};
+  Model model{ .grid = GRID, .species = SPECIES, .temperature = KT };
   auto state = uniform_state(rho0);
 
-  auto w = make_weights(EsFMT{.A = 1.0, .B = 0.0}, model);
+  auto w = make_weights(EsFMT{ .A = 1.0, .B = 0.0 }, model);
   auto result = total(model, state, w);
 
   CHECK(result.free_energy != 0.0);
@@ -282,7 +282,7 @@ TEST_CASE("total works with EsFMT model", "[functionals]") {
 TEST_CASE("make_bulk_weights creates weights with a_vdw", "[functionals]") {
   auto pot = make_lennard_jones(1.0, 1.0, 2.5);
   std::vector<Interaction> interactions = {
-      {.species_i = 0, .species_j = 0, .potential = pot},
+    { .species_i = 0, .species_j = 0, .potential = pot },
   };
 
   auto w = make_bulk_weights(Rosenfeld{}, interactions, KT);

@@ -30,9 +30,7 @@ namespace dft::functionals::fmt {
 
     // Access the symmetric tensor component (i, j).
     // Indices: 0=x, 1=y, 2=z. wT[i][j] == wT[j][i] by construction.
-    [[nodiscard]] auto tensor(int i, int j) -> math::FourierTransform& {
-      return (i <= j) ? wT[i][j] : wT[j][i];
-    }
+    [[nodiscard]] auto tensor(int i, int j) -> math::FourierTransform& { return (i <= j) ? wT[i][j] : wT[j][i]; }
 
     [[nodiscard]] auto tensor(int i, int j) const -> const math::FourierTransform& {
       return (i <= j) ? wT[i][j] : wT[j][i];
@@ -124,7 +122,7 @@ namespace dft::functionals::fmt {
     // Limit k -> 0: A = 0, B = (4pi/3) R^2.
     [[nodiscard]] inline auto tensor_coefficients(double k, double R) -> std::pair<double, double> {
       if (k < 1e-12) {
-        return {0.0, (4.0 * std::numbers::pi / 3.0) * R * R};
+        return { 0.0, (4.0 * std::numbers::pi / 3.0) * R * R };
       }
 
       double kR = k * R;
@@ -135,10 +133,9 @@ namespace dft::functionals::fmt {
       double R2 = R * R;
 
       double gp_over_k = 4.0 * std::numbers::pi * R * (R * cos_kR / k2 - sin_kR / k3);
-      double gpp =
-          4.0 * std::numbers::pi * R * (-R2 * sin_kR / k - 2.0 * R * cos_kR / k2 + 2.0 * sin_kR / k3);
+      double gpp = 4.0 * std::numbers::pi * R * (-R2 * sin_kR / k - 2.0 * R * cos_kR / k2 + 2.0 * sin_kR / k3);
 
-      return {-(gpp - gp_over_k) / R2, -gp_over_k / R2};
+      return { -(gpp - gp_over_k) / R2, -gp_over_k / R2 };
     }
 
   }  // namespace detail
@@ -153,8 +150,9 @@ namespace dft::functionals::fmt {
 
     auto fk_w3 = ws.w3.fourier();
     auto fk_w2 = ws.w2.fourier();
-    std::array<std::span<std::complex<double>>, 3> fk_wv2 = {
-        ws.wv2[0].fourier(), ws.wv2[1].fourier(), ws.wv2[2].fourier()};
+    std::array<std::span<std::complex<double>>, 3> fk_wv2 = { ws.wv2[0].fourier(),
+                                                              ws.wv2[1].fourier(),
+                                                              ws.wv2[2].fourier() };
     std::array<std::array<std::span<std::complex<double>>, 3>, 3> fk_wT;
     for (int i = 0; i < 3; ++i) {
       for (int j = i; j < 3; ++j) {

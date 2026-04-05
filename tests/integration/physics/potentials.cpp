@@ -72,10 +72,7 @@ TEST_CASE("WHDF vr(r) matches legacy at 100 points", "[integration][potentials]"
     double r = 0.8 + i * 0.02;
     if (r >= WHDF_RCUT)
       continue;
-    CHECK(
-        ours(r) ==
-        Approx(legacy::potentials::WHDF::vr(jim.eps_rescaled, SIGMA, WHDF_RCUT, r)).margin(1e-10)
-    );
+    CHECK(ours(r) == Approx(legacy::potentials::WHDF::vr(jim.eps_rescaled, SIGMA, WHDF_RCUT, r)).margin(1e-10));
   }
 }
 
@@ -86,12 +83,12 @@ TEST_CASE("LJ V(r), V0(r), Watt(r) match legacy", "[integration][potentials]") {
     double r = 0.8 + i * 0.02;
     CHECK(ours.energy(r) == Approx(legacy::potentials::V(jim, r)).margin(1e-10));
     CHECK(
-        ours.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::V0(jim, r)).margin(1e-10)
+        ours.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::V0(jim, r)).margin(1e-10)
     );
     CHECK(
-        ours.attractive(r, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::Watt(jim, r)).margin(1e-10)
+        ours.attractive(r, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::Watt(jim, r)).margin(1e-10)
     );
   }
 }
@@ -105,12 +102,12 @@ TEST_CASE("tWF V(r), V0(r), Watt(r) match legacy", "[integration][potentials]") 
       continue;
     CHECK(ours.energy(r) == Approx(legacy::potentials::V(jim, r)).margin(1e-10));
     CHECK(
-        ours.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::V0(jim, r)).margin(1e-10)
+        ours.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::V0(jim, r)).margin(1e-10)
     );
     CHECK(
-        ours.attractive(r, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::Watt(jim, r)).margin(1e-10)
+        ours.attractive(r, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::Watt(jim, r)).margin(1e-10)
     );
   }
 }
@@ -122,12 +119,12 @@ TEST_CASE("WHDF V(r), V0(r), Watt(r) match legacy", "[integration][potentials]")
     double r = 0.8 + i * 0.02;
     CHECK(ours.energy(r) == Approx(legacy::potentials::V(jim, r)).margin(1e-10));
     CHECK(
-        ours.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::V0(jim, r)).margin(1e-10)
+        ours.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::V0(jim, r)).margin(1e-10)
     );
     CHECK(
-        ours.attractive(r, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::Watt(jim, r)).margin(1e-10)
+        ours.attractive(r, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::Watt(jim, r)).margin(1e-10)
     );
   }
 }
@@ -141,18 +138,18 @@ TEST_CASE("HSD matches legacy at multiple temperatures", "[integration][potentia
   auto ptwf = pot::make_ten_wolde_frenkel(SIGMA, EPS, TWF_RCUT, TWF_ALPHA);
   auto pwhdf = pot::make_wang_ramirez_dobnikar_frenkel(SIGMA, EPS, WHDF_RCUT);
 
-  for (double kT : {0.5, 0.7, 1.0, 1.5, 2.0, 5.0}) {
+  for (double kT : { 0.5, 0.7, 1.0, 1.5, 2.0, 5.0 }) {
     CHECK(
-        plj.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::getHSD(jim_lj, kT)).epsilon(1e-6)
+        plj.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::getHSD(jim_lj, kT)).epsilon(1e-6)
     );
     CHECK(
-        ptwf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::getHSD(jim_twf, kT)).epsilon(1e-6)
+        ptwf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::getHSD(jim_twf, kT)).epsilon(1e-6)
     );
     CHECK(
-        pwhdf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::getHSD(jim_whdf, kT)).epsilon(1e-6)
+        pwhdf.hard_sphere_diameter(kT, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::getHSD(jim_whdf, kT)).epsilon(1e-6)
     );
   }
 }
@@ -166,18 +163,18 @@ TEST_CASE("a_vdw matches legacy at multiple temperatures", "[integration][potent
   auto ptwf = pot::make_ten_wolde_frenkel(SIGMA, EPS, TWF_RCUT, TWF_ALPHA);
   auto pwhdf = pot::make_wang_ramirez_dobnikar_frenkel(SIGMA, EPS, WHDF_RCUT);
 
-  for (double kT : {0.5, 0.7, 1.0, 1.5, 2.0, 5.0}) {
+  for (double kT : { 0.5, 0.7, 1.0, 1.5, 2.0, 5.0 }) {
     CHECK(
-        plj.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::getVDW(jim_lj, kT)).epsilon(1e-6)
+        plj.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::getVDW(jim_lj, kT)).epsilon(1e-6)
     );
     CHECK(
-        ptwf.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::getVDW(jim_twf, kT)).epsilon(1e-6)
+        ptwf.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::getVDW(jim_twf, kT)).epsilon(1e-6)
     );
     CHECK(
-        pwhdf.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen) ==
-        Approx(legacy::potentials::getVDW(jim_whdf, kT)).epsilon(1e-6)
+        pwhdf.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen)
+        == Approx(legacy::potentials::getVDW(jim_whdf, kT)).epsilon(1e-6)
     );
   }
 }

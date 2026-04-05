@@ -8,14 +8,14 @@
 using namespace dft::math;
 
 TEST_CASE("FourierTransform shape is stored correctly", "[fourier]") {
-  FourierTransform ft({4, 4, 4});
-  CHECK(ft.shape() == std::vector<long>{4, 4, 4});
+  FourierTransform ft({ 4, 4, 4 });
+  CHECK(ft.shape() == std::vector<long>{ 4, 4, 4 });
   CHECK(ft.total() == 64);
   CHECK(ft.fourier_total() == 4 * 4 * 3);
 }
 
 TEST_CASE("FourierTransform zeros initializes to zero", "[fourier]") {
-  FourierTransform ft({4, 4, 4});
+  FourierTransform ft({ 4, 4, 4 });
   auto r = ft.real();
   for (std::size_t i = 0; i < r.size(); ++i) {
     CHECK(r[i] == 0.0);
@@ -23,7 +23,7 @@ TEST_CASE("FourierTransform zeros initializes to zero", "[fourier]") {
 }
 
 TEST_CASE("FourierTransform forward-backward roundtrip preserves data", "[fourier]") {
-  FourierTransform ft({4, 4, 4});
+  FourierTransform ft({ 4, 4, 4 });
   auto r = ft.real();
   for (std::size_t i = 0; i < r.size(); ++i) {
     r[i] = static_cast<double>(i);
@@ -39,7 +39,7 @@ TEST_CASE("FourierTransform forward-backward roundtrip preserves data", "[fourie
 }
 
 TEST_CASE("FourierTransform scale multiplies all real values", "[fourier]") {
-  FourierTransform ft({2, 2, 2});
+  FourierTransform ft({ 2, 2, 2 });
   auto r = ft.real();
   for (std::size_t i = 0; i < r.size(); ++i) {
     r[i] = 1.0;
@@ -51,7 +51,7 @@ TEST_CASE("FourierTransform scale multiplies all real values", "[fourier]") {
 }
 
 TEST_CASE("FourierTransform DC component is sum", "[fourier]") {
-  FourierTransform ft({4, 4, 4});
+  FourierTransform ft({ 4, 4, 4 });
   auto r = ft.real();
   for (std::size_t i = 0; i < r.size(); ++i) {
     r[i] = 1.0;
@@ -63,16 +63,16 @@ TEST_CASE("FourierTransform DC component is sum", "[fourier]") {
 }
 
 TEST_CASE("FourierTransform throws for wrong shape size", "[fourier]") {
-  REQUIRE_THROWS_AS(FourierTransform({4, 4}), std::invalid_argument);
-  REQUIRE_THROWS_AS(FourierTransform({4, 4, 4, 4}), std::invalid_argument);
+  REQUIRE_THROWS_AS(FourierTransform({ 4, 4 }), std::invalid_argument);
+  REQUIRE_THROWS_AS(FourierTransform({ 4, 4, 4, 4 }), std::invalid_argument);
 }
 
 TEST_CASE("FourierTransform throws for zero dimension", "[fourier]") {
-  REQUIRE_THROWS_AS(FourierTransform({4, 0, 4}), std::invalid_argument);
+  REQUIRE_THROWS_AS(FourierTransform({ 4, 0, 4 }), std::invalid_argument);
 }
 
 TEST_CASE("FourierTransform is move-constructible", "[fourier]") {
-  FourierTransform ft1({4, 4, 4});
+  FourierTransform ft1({ 4, 4, 4 });
   auto r = ft1.real();
   r[0] = 42.0;
   FourierTransform ft2(std::move(ft1));
@@ -81,16 +81,16 @@ TEST_CASE("FourierTransform is move-constructible", "[fourier]") {
 }
 
 TEST_CASE("FourierTransform is move-assignable", "[fourier]") {
-  FourierTransform ft1({4, 4, 4});
+  FourierTransform ft1({ 4, 4, 4 });
   ft1.real()[0] = 99.0;
-  FourierTransform ft2({2, 2, 2});
+  FourierTransform ft2({ 2, 2, 2 });
   ft2 = std::move(ft1);
   CHECK(ft2.real()[0] == 99.0);
   CHECK(ft2.total() == 64);
 }
 
 TEST_CASE("FourierConvolution computes cyclic convolution", "[fourier]") {
-  FourierConvolution conv({4, 4, 4});
+  FourierConvolution conv({ 4, 4, 4 });
   auto a = conv.input_a();
   auto b = conv.input_b();
 
@@ -113,13 +113,13 @@ TEST_CASE("FourierConvolution computes cyclic convolution", "[fourier]") {
 }
 
 TEST_CASE("FourierConvolution shape and total are correct", "[fourier]") {
-  FourierConvolution conv({8, 4, 2});
-  CHECK(conv.shape() == std::vector<long>{8, 4, 2});
+  FourierConvolution conv({ 8, 4, 2 });
+  CHECK(conv.shape() == std::vector<long>{ 8, 4, 2 });
   CHECK(conv.total() == 64);
 }
 
 TEST_CASE("FourierConvolution delta * delta gives delta", "[fourier]") {
-  FourierConvolution conv({4, 4, 4});
+  FourierConvolution conv({ 4, 4, 4 });
   auto a = conv.input_a();
   auto b = conv.input_b();
   for (std::size_t i = 0; i < a.size(); ++i) {

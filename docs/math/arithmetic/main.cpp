@@ -8,8 +8,8 @@
 using namespace dft;
 
 int main() {
-  std::vector<double> x1 = {1.0 + 1e-14, 2.5 + 1e-14, 3.0 + 1e-14, 4.0 + 1e-14};
-  std::vector<double> x2 = {1.00100001, 2.50010002, 3.00020001, 4.00010003};
+  std::vector<double> x1 = { 1.0 + 1e-14, 2.5 + 1e-14, 3.0 + 1e-14, 4.0 + 1e-14 };
+  std::vector<double> x2 = { 1.00100001, 2.50010002, 3.00020001, 4.00010003 };
 
   // Standard summation (accumulate).
 

@@ -27,7 +27,7 @@ int main() {
   auto x = arma::linspace(0.0, 2.0 * std::numbers::pi, n);
   arma::vec y = arma::sin(x);
 
-  auto sin_spline = math::CubicSpline({x.memptr(), x.n_elem}, {y.memptr(), y.n_elem});
+  auto sin_spline = math::CubicSpline({ x.memptr(), x.n_elem }, { y.memptr(), y.n_elem });
 
   auto x_eval = arma::linspace(0.0, 2.0 * std::numbers::pi, 2 * n);
   arma::vec exact = arma::sin(x_eval);
@@ -71,14 +71,13 @@ int main() {
 
   arma::vec bz = arma::vectorise(arma::sin(bx) * arma::cos(by).t());
 
-  auto surface = math::BivariateSpline(
-      {bx.memptr(), bx.n_elem}, {by.memptr(), by.n_elem}, {bz.memptr(), bz.n_elem}
-  );
+  auto surface =
+      math::BivariateSpline({ bx.memptr(), bx.n_elem }, { by.memptr(), by.n_elem }, { bz.memptr(), bz.n_elem });
 
-  arma::mat test_points = {{std::numbers::pi / 4.0, std::numbers::pi / 4.0},
-                            {std::numbers::pi / 3.0, std::numbers::pi / 6.0},
-                            {std::numbers::pi / 2.0, std::numbers::pi / 4.0},
-                            {2.0, 1.0}};
+  arma::mat test_points = { { std::numbers::pi / 4.0, std::numbers::pi / 4.0 },
+                            { std::numbers::pi / 3.0, std::numbers::pi / 6.0 },
+                            { std::numbers::pi / 2.0, std::numbers::pi / 4.0 },
+                            { 2.0, 1.0 } };
 
   std::println(std::cout, "\n  {:>8s}{:>8s}{:>16s}{:>16s}{:>16s}", "x", "y", "spline", "exact", "error");
   std::println(std::cout, "  {}", std::string(64, '-'));
@@ -121,7 +120,6 @@ int main() {
   }
 
 #ifdef DFT_HAS_MATPLOTLIB
-  plot::make_plots(x_knots_v, y_knots_v, x_fine_v, y_spline_v, y_exact_v,
-                   d1v, d2v, ed1, ed2);
+  plot::make_plots(x_knots_v, y_knots_v, x_fine_v, y_spline_v, y_exact_v, d1v, d2v, ed1, ed2);
 #endif
 }

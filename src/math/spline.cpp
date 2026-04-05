@@ -60,8 +60,8 @@ namespace dft::math {
     }
     if (z.size() != x.size() * y.size()) {
       throw std::invalid_argument(
-          "BivariateSpline: z size (" + std::to_string(z.size()) + ") must equal nx*ny (" +
-          std::to_string(x.size() * y.size()) + ")"
+          "BivariateSpline: z size (" + std::to_string(z.size()) + ") must equal nx*ny ("
+          + std::to_string(x.size() * y.size()) + ")"
       );
     }
 

@@ -14,16 +14,20 @@ namespace dft::math {
 
   struct FftwFree {
     void operator()(double* p) const noexcept {
-      if (p) fftw_free(p);
+      if (p)
+        fftw_free(p);
     }
+
     void operator()(fftw_complex* p) const noexcept {
-      if (p) fftw_free(p);
+      if (p)
+        fftw_free(p);
     }
   };
 
   struct FftwPlanDeleter {
     void operator()(fftw_plan_s* p) const noexcept {
-      if (p) fftw_destroy_plan(p);
+      if (p)
+        fftw_destroy_plan(p);
     }
   };
 

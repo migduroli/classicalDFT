@@ -11,7 +11,8 @@ namespace dft::math {
   // Computes a weighted density by Schur product in Fourier space:
   // n(r) = IFFT[rho_k .* weight_k].
   [[nodiscard]] inline auto convolve(
-      std::span<const std::complex<double>> weight_k, std::span<const std::complex<double>> rho_k,
+      std::span<const std::complex<double>> weight_k,
+      std::span<const std::complex<double>> rho_k,
       const std::vector<long>& shape
   ) -> arma::vec {
     auto n = static_cast<arma::uword>(weight_k.size());
@@ -28,8 +29,10 @@ namespace dft::math {
   // Returns weight_k .* FFT(derivative) in Fourier space as arma::cx_vec.
   // If conjugate is true, uses conj(weight_k) for parity-odd weights.
   [[nodiscard]] inline auto back_convolve(
-      std::span<const std::complex<double>> weight_k, const arma::vec& derivative,
-      const std::vector<long>& shape, bool conjugate = false
+      std::span<const std::complex<double>> weight_k,
+      const arma::vec& derivative,
+      const std::vector<long>& shape,
+      bool conjugate = false
   ) -> arma::cx_vec {
     FourierTransform scratch(shape);
     scratch.set_real(derivative);

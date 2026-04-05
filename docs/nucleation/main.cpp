@@ -1,5 +1,4 @@
 #include "dft.hpp"
-#include "dft/algorithms/saddle_point.hpp"
 #include "plot.hpp"
 #include "utils.hpp"
 
@@ -32,30 +31,30 @@ int main() {
   double R0 = config::get<double>(cfg, "droplet.radius");
 
   physics::Model model{
-      .grid = make_grid(dx, {box_length, box_length, box_length}),
-      .species = {Species{.name = "LJ",
-                          .hard_sphere_diameter =
-                              physics::potentials::make_lennard_jones(sigma, epsilon, rcut)
-                                  .hard_sphere_diameter(kT, physics::potentials::SplitScheme::WeeksChandlerAndersen)}},
-      .interactions = {{
-          .species_i = 0,
-          .species_j = 0,
-          .potential = physics::potentials::make_lennard_jones(sigma, epsilon, rcut),
-          .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
-          .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
-      }},
-      .temperature = kT,
+    .grid = make_grid(dx, { box_length, box_length, box_length }),
+    .species = { Species{
+        .name = "LJ",
+        .hard_sphere_diameter =
+            physics::potentials::make_lennard_jones(sigma, epsilon, rcut)
+                .hard_sphere_diameter(kT, physics::potentials::SplitScheme::WeeksChandlerAndersen) } },
+    .interactions = { {
+        .species_i = 0,
+        .species_j = 0,
+        .potential = physics::potentials::make_lennard_jones(sigma, epsilon, rcut),
+        .split = physics::potentials::SplitScheme::WeeksChandlerAndersen,
+        .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
+    } },
+    .temperature = kT,
   };
 
   auto fmt_name = config::get<std::string>(cfg, "model.fmt_model");
-  auto func = functionals::make_functional(
-      functionals::fmt::FMTModel::from_name(fmt_name), model);
+  auto func = functionals::make_functional(functionals::fmt::FMTModel::from_name(fmt_name), model);
   auto eos = func.bulk();
 
-  auto coex = functionals::bulk::PhaseSearch{
-      .rho_max = 1.0, .rho_scan_step = 0.005,
-      .newton = {.max_iterations = 300, .tolerance = 1e-10}
-  }.find_coexistence(eos);
+  auto coex = functionals::bulk::PhaseSearch{ .rho_max = 1.0,
+                                              .rho_scan_step = 0.005,
+                                              .newton = { .max_iterations = 300, .tolerance = 1e-10 } }
+                  .find_coexistence(eos);
 
   if (!coex) {
     std::println(std::cout, "Coexistence not found. Exiting.");
@@ -66,13 +65,10 @@ int main() {
   double rho_l = coex->rho_liquid;
 
   // Supersaturation from config (default 1.1).
-  double S = cfg["droplet"].contains("supersaturation")
-                 ? cfg["droplet"]["supersaturation"].get<double>()
-                 : 1.1;
+  double S = cfg["droplet"].contains("supersaturation") ? cfg["droplet"]["supersaturation"].get<double>() : 1.1;
   double rho_out = S * rho_v;
 
-  double mu_out = eos.chemical_potential(
-      arma::vec{rho_out}, 0);
+  double mu_out = eos.chemical_potential(arma::vec{ rho_out }, 0);
 
   std::println(std::cout, "Coexistence: rho_v={:.6f}  rho_l={:.6f}", rho_v, rho_l);
   std::println(std::cout, "Supersaturation: S={:.4f}  rho_out={:.6f}  mu={:.6f}", S, rho_out, mu_out);
@@ -103,34 +99,33 @@ int main() {
   double background = 0.0;
   arma::uword n_bdry = 0;
   for (arma::uword i = 0; i < cluster.densities[0].n_elem; ++i) {
-    if (bdry(i)) { background += cluster.densities[0](i); ++n_bdry; }
+    if (bdry(i)) {
+      background += cluster.densities[0](i);
+      ++n_bdry;
+    }
   }
-  if (n_bdry > 0) background /= static_cast<double>(n_bdry);
+  if (n_bdry > 0)
+    background /= static_cast<double>(n_bdry);
 
-  double mu_bg = eos.chemical_potential(
-      arma::vec{background}, 0);
+  double mu_bg = eos.chemical_potential(arma::vec{ background }, 0);
 
   // Grand potential and barrier height.
 
   double omega_cluster = func.grand_potential(cluster.densities[0], mu_bg);
-  double omega_bg = func.grand_potential(
-      arma::vec(rho0.n_elem, arma::fill::value(background)), mu_bg);
+  double omega_bg = func.grand_potential(arma::vec(rho0.n_elem, arma::fill::value(background)), mu_bg);
 
   double delta_omega = omega_cluster - omega_bg;
 
   // Effective radius using Jim's mass-based definition:
   // R_e = (3 Delta_N / (4 pi (rho_l - rho_v)))^(1/3)
   double dv = func.model.grid.cell_volume();
-  double R_eff = nucleation::effective_radius(
-      cluster.densities[0], background, rho_l - rho_v, dv, r);
+  double R_eff = nucleation::effective_radius(cluster.densities[0], background, rho_l - rho_v, dv, r);
 
   // Metastable densities at mu_bg (the actual initial/final states).
-  auto rho_v_meta_opt = functionals::bulk::density_from_chemical_potential(
-      mu_bg, rho_v * 0.9, eos);
+  auto rho_v_meta_opt = functionals::bulk::density_from_chemical_potential(mu_bg, rho_v * 0.9, eos);
   double rho_v_meta = rho_v_meta_opt.value_or(background);
 
-  auto rho_l_meta_opt = functionals::bulk::density_from_chemical_potential(
-      mu_bg, rho_l * 1.1, eos);
+  auto rho_l_meta_opt = functionals::bulk::density_from_chemical_potential(mu_bg, rho_l * 1.1, eos);
   double rho_l_meta = rho_l_meta_opt.value_or(rho_l);
 
   std::println(std::cout, "\nCritical cluster:");
@@ -148,15 +143,17 @@ int main() {
 
   auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
     auto result = func.evaluate(rho, mu_bg);
-    return {result.grand_potential, fixed_boundary(result.forces[0], bdry)};
+    return { result.grand_potential, fixed_boundary(result.forces[0], bdry) };
   };
 
-  auto eig = algorithms::saddle_point::EigenvalueSolver{
-      .tolerance = config::get<double>(cfg, "eigen.tolerance"),
-      .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
-      .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
-      .log_interval = config::get<int>(cfg, "eigen.log_interval"),
-  }.solve(eig_force_fn, cluster.densities[0]);
+  auto eig =
+      algorithms::saddle_point::EigenvalueSolver{
+        .tolerance = config::get<double>(cfg, "eigen.tolerance"),
+        .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
+        .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
+        .log_interval = config::get<int>(cfg, "eigen.log_interval"),
+      }
+          .solve(eig_force_fn, cluster.densities[0]);
 
   std::println(std::cout, "\nEigenvalue: {:.6f}  converged={}", eig.eigenvalue, eig.converged);
 
@@ -205,13 +202,13 @@ int main() {
 
   arma::vec ev = eig.eigenvector;
   double delta_mass = arma::accu(ev) * func.model.grid.cell_volume();
-  if (delta_mass < 0.0) ev = -ev;
+  if (delta_mass < 0.0)
+    ev = -ev;
 
   std::println(std::cout, "\nGrowth (perturb along +eigenvector):");
   arma::vec rho_grow = cluster.densities[0] + perturb_scale * ev;
   rho_grow = arma::clamp(rho_grow, 1e-18, arma::datum::inf);
-  auto sim_grow = ddft.run(
-      {rho_grow}, func.model.grid, gc_force_fn);
+  auto sim_grow = ddft.run({ rho_grow }, func.model.grid, gc_force_fn);
 
   std::println(std::cout, "\nDissolution (perturb along -eigenvector):");
   arma::vec rho_shrink = cluster.densities[0] - perturb_scale * ev;
@@ -219,8 +216,7 @@ int main() {
   early_stop_count = 0;
   auto ddft_dissolve = ddft;
   ddft_dissolve.stop_condition = dissolution_stop;
-  auto sim_shrink = ddft_dissolve.run(
-      {rho_shrink}, func.model.grid, gc_force_fn);
+  auto sim_shrink = ddft_dissolve.run({ rho_shrink }, func.model.grid, gc_force_fn);
 
   // Use mass-based effective radius:
   // R_e = (3 Delta_N / (4 pi (rho_l - rho_v)))^(1/3)
@@ -239,9 +235,15 @@ int main() {
   plot::make_plots(
       nucleation::extract_x_slice(cluster.densities[0], func.model.grid),
       nucleation::extract_x_slice(rho0, func.model.grid),
-      dyn_shrink, dyn_grow,
-      {.radius = R_eff, .energy = omega_cluster, .rho_center = rho_center_critical},
-      omega_bg, rho_v_meta, rho_l_meta, fmt_name, export_dir);
+      dyn_shrink,
+      dyn_grow,
+      { .radius = R_eff, .energy = omega_cluster, .rho_center = rho_center_critical },
+      omega_bg,
+      rho_v_meta,
+      rho_l_meta,
+      fmt_name,
+      export_dir
+  );
 #endif
 
   std::println(std::cout, "\nDone.");

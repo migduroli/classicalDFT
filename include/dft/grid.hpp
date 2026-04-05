@@ -16,6 +16,7 @@ namespace dft {
     std::array<double, 3> k;
 
     [[nodiscard]] auto norm2() const noexcept -> double { return k[0] * k[0] + k[1] * k[1] + k[2] * k[2]; }
+
     [[nodiscard]] auto norm() const noexcept -> double { return std::sqrt(norm2()); }
   };
 
@@ -56,7 +57,7 @@ namespace dft {
           for (long iz = 0; iz < nz_half; ++iz) {
             double kz = dk_z * static_cast<double>(iz);
             long idx = iz + nz_half * (iy + ny * ix);
-            fn(Wavevector{.idx = idx, .k = {kx, ky, kz}});
+            fn(Wavevector{ .idx = idx, .k = { kx, ky, kz } });
           }
         }
       }
@@ -70,9 +71,8 @@ namespace dft {
       for (long ix = 0; ix < shape[0]; ++ix) {
         for (long iy = 0; iy < shape[1]; ++iy) {
           for (long iz = 0; iz < shape[2]; ++iz) {
-            bool on_face = (ix == 0 || ix == shape[0] - 1 ||
-                            iy == 0 || iy == shape[1] - 1 ||
-                            iz == 0 || iz == shape[2] - 1);
+            bool on_face =
+                (ix == 0 || ix == shape[0] - 1 || iy == 0 || iy == shape[1] - 1 || iz == 0 || iz == shape[2] - 1);
             if (on_face) {
               mask(static_cast<arma::uword>(flat_index(ix, iy, iz))) = 1;
             }
@@ -105,25 +105,27 @@ namespace dft {
       shape[d] = ni;
     }
 
-    return Grid{.dx = dx, .box_size = box, .shape = shape};
+    return Grid{ .dx = dx, .box_size = box, .shape = shape };
   }
 
   // Homogeneous boundary: return forces with boundary points
   // replaced by their average.
 
-  [[nodiscard]] inline auto homogeneous_boundary(
-      const arma::vec& forces, const arma::uvec& mask
-  ) -> arma::vec {
+  [[nodiscard]] inline auto homogeneous_boundary(const arma::vec& forces, const arma::uvec& mask) -> arma::vec {
     double sum = 0.0;
     arma::uword count = 0;
     for (arma::uword i = 0; i < forces.n_elem; ++i) {
-      if (mask(i)) { sum += forces(i); count++; }
+      if (mask(i)) {
+        sum += forces(i);
+        count++;
+      }
     }
     arma::vec result = forces;
     if (count > 0) {
       double avg = sum / static_cast<double>(count);
       for (arma::uword i = 0; i < result.n_elem; ++i) {
-        if (mask(i)) result(i) = avg;
+        if (mask(i))
+          result(i) = avg;
       }
     }
     return result;
@@ -131,12 +133,11 @@ namespace dft {
 
   // Fixed boundary: return forces with boundary points set to zero.
 
-  [[nodiscard]] inline auto fixed_boundary(
-      const arma::vec& forces, const arma::uvec& mask
-  ) -> arma::vec {
+  [[nodiscard]] inline auto fixed_boundary(const arma::vec& forces, const arma::uvec& mask) -> arma::vec {
     arma::vec result = forces;
     for (arma::uword i = 0; i < result.n_elem; ++i) {
-      if (mask(i)) result(i) = 0.0;
+      if (mask(i))
+        result(i) = 0.0;
     }
     return result;
   }

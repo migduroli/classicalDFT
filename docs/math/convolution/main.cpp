@@ -1,8 +1,8 @@
 #include "dft.hpp"
 #include "plot.hpp"
 
-#include <armadillo>
 #include <algorithm>
+#include <armadillo>
 #include <filesystem>
 #include <iostream>
 #include <numbers>
@@ -25,7 +25,7 @@ int main() {
 
   console::info("Convolution: delta * constant = constant");
 
-  auto shape = std::vector<long>{16, 16, 16};
+  auto shape = std::vector<long>{ 16, 16, 16 };
   long N = shape[0] * shape[1] * shape[2];
 
   auto plan_a = math::FourierTransform(shape);
@@ -54,7 +54,7 @@ int main() {
 
   double sigma = 1.5;
   double dx = 0.5;
-  auto shape_1d = std::vector<long>{64, 1, 1};
+  auto shape_1d = std::vector<long>{ 64, 1, 1 };
   long N_1d = shape_1d[0];
   double L = N_1d * dx;
 
@@ -62,7 +62,8 @@ int main() {
   auto real_g = plan_g.real();
   for (long i = 0; i < N_1d; ++i) {
     double x = i * dx;
-    if (x > L / 2.0) x -= L;
+    if (x > L / 2.0)
+      x -= L;
     real_g[static_cast<std::size_t>(i)] = std::exp(-x * x / (2.0 * sigma * sigma));
   }
 
@@ -84,7 +85,8 @@ int main() {
   double max_error = 0.0;
   for (long i = 0; i < N_1d; i += 4) {
     double x = i * dx;
-    if (x > L / 2.0) x -= L;
+    if (x > L / 2.0)
+      x -= L;
     double numerical = gg(static_cast<arma::uword>(i));
     double analytical = norm_factor * std::exp(-x * x / (2.0 * sigma_out * sigma_out));
     double error = std::abs(numerical - analytical);
@@ -101,7 +103,8 @@ int main() {
   std::vector<double> x_plot, num_plot, ana_plot;
   for (long i = 0; i < N_1d; ++i) {
     double xp = i * dx;
-    if (xp > L / 2.0) xp -= L;
+    if (xp > L / 2.0)
+      xp -= L;
     x_plot.push_back(xp);
     num_plot.push_back(gg(static_cast<arma::uword>(i)));
     ana_plot.push_back(norm_factor * std::exp(-xp * xp / (2.0 * sigma_out * sigma_out)));
@@ -137,14 +140,17 @@ int main() {
   auto rho_k = plan_rho.fourier();
 
   auto n = math::convolve(
-      std::span<const std::complex<double>>{w_k.memptr(), static_cast<std::size_t>(w_k.n_elem)},
-      rho_k, shape
+      std::span<const std::complex<double>>{ w_k.memptr(), static_cast<std::size_t>(w_k.n_elem) },
+      rho_k,
+      shape
   );
   double lhs = arma::dot(n, d_r);
 
   auto bc = math::back_convolve(
-      std::span<const std::complex<double>>{w_k.memptr(), static_cast<std::size_t>(w_k.n_elem)},
-      d_r, shape, true
+      std::span<const std::complex<double>>{ w_k.memptr(), static_cast<std::size_t>(w_k.n_elem) },
+      d_r,
+      shape,
+      true
   );
   math::FourierTransform scratch(shape);
   scratch.set_fourier(bc);

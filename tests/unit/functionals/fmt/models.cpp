@@ -63,57 +63,50 @@ TEST_CASE("WhiteBearII dilute limits", "[fmt][models]") {
 TEST_CASE("Rosenfeld f1 derivative matches numerical", "[fmt][models]") {
   Rosenfeld model{};
   CHECK(
-      model.d_f1(0.3) ==
-      Catch::Approx(numerical_derivative([&](double e) { return model.f1(e); }, 0.3)).margin(1e-8)
+      model.d_f1(0.3) == Catch::Approx(numerical_derivative([&](double e) { return model.f1(e); }, 0.3)).margin(1e-8)
   );
 }
 
 TEST_CASE("Rosenfeld f2 derivative matches numerical", "[fmt][models]") {
   Rosenfeld model{};
   CHECK(
-      model.d_f2(0.3) ==
-      Catch::Approx(numerical_derivative([&](double e) { return model.f2(e); }, 0.3)).margin(1e-8)
+      model.d_f2(0.3) == Catch::Approx(numerical_derivative([&](double e) { return model.f2(e); }, 0.3)).margin(1e-8)
   );
 }
 
 TEST_CASE("Rosenfeld f3 derivative matches numerical", "[fmt][models]") {
   Rosenfeld model{};
   CHECK(
-      model.d_f3(0.3) ==
-      Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, 0.3)).margin(1e-8)
+      model.d_f3(0.3) == Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, 0.3)).margin(1e-8)
   );
 }
 
 TEST_CASE("RSLT f3 derivatives are consistent", "[fmt][models]") {
   RSLT model{};
-  for (double eta : {0.1, 0.2, 0.3, 0.4}) {
+  for (double eta : { 0.1, 0.2, 0.3, 0.4 }) {
     CHECK(
-        model.d_f3(eta) ==
-        Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, eta)).margin(1e-5)
+        model.d_f3(eta) == Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, eta)).margin(1e-5)
     );
   }
 }
 
 TEST_CASE("WhiteBearI f3 derivatives are consistent", "[fmt][models]") {
   WhiteBearI model{};
-  for (double eta : {0.1, 0.2, 0.3, 0.4}) {
+  for (double eta : { 0.1, 0.2, 0.3, 0.4 }) {
     CHECK(
-        model.d_f3(eta) ==
-        Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, eta)).margin(1e-5)
+        model.d_f3(eta) == Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, eta)).margin(1e-5)
     );
   }
 }
 
 TEST_CASE("WhiteBearII f2 and f3 derivatives are consistent", "[fmt][models]") {
   WhiteBearII model{};
-  for (double eta : {0.1, 0.2, 0.3, 0.4}) {
+  for (double eta : { 0.1, 0.2, 0.3, 0.4 }) {
     CHECK(
-        model.d_f2(eta) ==
-        Catch::Approx(numerical_derivative([&](double e) { return model.f2(e); }, eta)).margin(1e-5)
+        model.d_f2(eta) == Catch::Approx(numerical_derivative([&](double e) { return model.f2(e); }, eta)).margin(1e-5)
     );
     CHECK(
-        model.d_f3(eta) ==
-        Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, eta)).margin(1e-5)
+        model.d_f3(eta) == Catch::Approx(numerical_derivative([&](double e) { return model.f3(e); }, eta)).margin(1e-5)
     );
   }
 }
@@ -130,7 +123,7 @@ TEST_CASE("RSLT f3 small eta uses Taylor branch", "[fmt][models]") {
 
 TEST_CASE("Rosenfeld free energy matches PY compressibility", "[fmt][models]") {
   Rosenfeld model{};
-  for (double rho : {0.1, 0.3, 0.5, 0.7, 0.9}) {
+  for (double rho : { 0.1, 0.3, 0.5, 0.7, 0.9 }) {
     double eta = hs::packing_fraction(rho);
     double f_fmt = model.free_energy_density(rho, 1.0) / rho;
     double f_py = hs::PercusYevickCompressibility::excess_free_energy(eta);
@@ -140,7 +133,7 @@ TEST_CASE("Rosenfeld free energy matches PY compressibility", "[fmt][models]") {
 
 TEST_CASE("WhiteBearI free energy matches Carnahan-Starling", "[fmt][models]") {
   WhiteBearI model{};
-  for (double rho : {0.1, 0.3, 0.5, 0.7, 0.9}) {
+  for (double rho : { 0.1, 0.3, 0.5, 0.7, 0.9 }) {
     double eta = hs::packing_fraction(rho);
     double f_fmt = model.free_energy_density(rho, 1.0) / rho;
     double f_cs = hs::CarnahanStarling::excess_free_energy(eta);
@@ -254,7 +247,7 @@ TEST_CASE("EsFMT model name and needs_tensor", "[fmt][models]") {
 TEST_CASE("EsFMT f-functions delegate to Rosenfeld", "[fmt][models]") {
   EsFMT esfmt{};
   Rosenfeld rosenfeld{};
-  for (double eta : {0.1, 0.2, 0.3, 0.4}) {
+  for (double eta : { 0.1, 0.2, 0.3, 0.4 }) {
     CHECK(esfmt.f1(eta) == Catch::Approx(rosenfeld.f1(eta)));
     CHECK(esfmt.f2(eta) == Catch::Approx(rosenfeld.f2(eta)));
     CHECK(esfmt.f3(eta) == Catch::Approx(rosenfeld.f3(eta)));
@@ -262,28 +255,28 @@ TEST_CASE("EsFMT f-functions delegate to Rosenfeld", "[fmt][models]") {
 }
 
 TEST_CASE("EsFMT phi3 on uniform measures is nonzero", "[fmt][models]") {
-  EsFMT func{.A = 1.0, .B = 0.0};
+  EsFMT func{ .A = 1.0, .B = 0.0 };
   auto m = make_uniform_measures(0.5, 1.0);
   double p3 = func.phi3(m);
   CHECK(p3 != 0.0);
 }
 
 TEST_CASE("EsFMT d_phi3_d_n2 is nonzero for moderate packing", "[fmt][models]") {
-  EsFMT func{.A = 1.0, .B = 0.0};
+  EsFMT func{ .A = 1.0, .B = 0.0 };
   auto m = make_uniform_measures(0.5, 1.0);
   double dp3 = func.d_phi3_d_n2(m);
   CHECK(dp3 != 0.0);
 }
 
 TEST_CASE("EsFMT d_phi3_d_v1 vanishes for uniform measures", "[fmt][models]") {
-  EsFMT func{.A = 1.0, .B = 0.0};
+  EsFMT func{ .A = 1.0, .B = 0.0 };
   auto m = make_uniform_measures(0.5, 1.0);
   auto dv = func.d_phi3_d_v1(m);
   CHECK(arma::norm(dv) == Catch::Approx(0.0).margin(1e-14));
 }
 
 TEST_CASE("EsFMT d_phi3_d_T is nonzero for moderate packing", "[fmt][models]") {
-  EsFMT func{.A = 1.0, .B = 0.0};
+  EsFMT func{ .A = 1.0, .B = 0.0 };
   auto m = make_uniform_measures(0.5, 1.0);
   double dT00 = func.d_phi3_d_T(0, 0, m);
   CHECK(dT00 != 0.0);
@@ -291,22 +284,22 @@ TEST_CASE("EsFMT d_phi3_d_T is nonzero for moderate packing", "[fmt][models]") {
 
 TEST_CASE("EsFMT with B parameter changes phi3", "[fmt][models]") {
   auto m = make_uniform_measures(0.5, 1.0);
-  EsFMT func_b0{.A = 1.0, .B = 0.0};
-  EsFMT func_b1{.A = 1.0, .B = 1.0};
+  EsFMT func_b0{ .A = 1.0, .B = 0.0 };
+  EsFMT func_b1{ .A = 1.0, .B = 1.0 };
   CHECK(func_b0.phi3(m) != Catch::Approx(func_b1.phi3(m)).margin(1e-14));
   CHECK(func_b0.d_phi3_d_n2(m) != Catch::Approx(func_b1.d_phi3_d_n2(m)).margin(1e-14));
   CHECK(func_b0.d_phi3_d_T(0, 0, m) != Catch::Approx(func_b1.d_phi3_d_T(0, 0, m)).margin(1e-14));
 }
 
 TEST_CASE("EsFMT free energy density is finite for moderate density", "[fmt][models]") {
-  EsFMT model{.A = 1.0, .B = 0.0};
+  EsFMT model{ .A = 1.0, .B = 0.0 };
   double f = model.free_energy_density(0.5, 1.0);
   CHECK(std::isfinite(f));
   CHECK(f > 0.0);
 }
 
 TEST_CASE("EsFMT chemical potential matches numerical derivative", "[fmt][models]") {
-  EsFMT model{.A = 1.0, .B = 0.0};
+  EsFMT model{ .A = 1.0, .B = 0.0 };
   double rho = 0.5;
   double mu_fmt = model.excess_chemical_potential(rho, 1.0);
   double mu_num = numerical_derivative([&](double r) { return model.free_energy_density(r, 1.0); }, rho);
@@ -314,7 +307,7 @@ TEST_CASE("EsFMT chemical potential matches numerical derivative", "[fmt][models
 }
 
 TEST_CASE("EsFMT d_phi returns non-zero tensor derivatives", "[fmt][models]") {
-  EsFMT model{.A = 1.0, .B = 0.0};
+  EsFMT model{ .A = 1.0, .B = 0.0 };
   auto m = make_uniform_measures(0.5, 1.0);
   auto dm = model.d_phi(m);
   CHECK(arma::accu(arma::abs(dm.d_T)) > 0.0);

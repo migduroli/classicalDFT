@@ -2,46 +2,105 @@
 Language: Cpp
 BasedOnStyle: Google
 
+# ─── Line length (like ruff's line-length = 120) ────────────────────
 ColumnLimit: 120
+
+# ─── Indentation (like ruff's indent-width = 2) ─────────────────────
 IndentWidth: 2
 ContinuationIndentWidth: 4
 AccessModifierOffset: -1
+IndentCaseLabels: true
+IndentWrappedFunctionNames: false
+LambdaBodyIndentation: Signature
 
-# Include sorting (isort equivalent)
+# ─── Include sorting (like ruff's isort) ─────────────────────────────
 SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
 IncludeCategories:
-  # Related header (e.g. foo.cpp includes foo.h)
   - Regex: '^"classicaldft_bits/'
     Priority: 2
-  # System/library headers
   - Regex: '^<'
     Priority: 3
-  # Other project headers
   - Regex: '.*'
     Priority: 1
 
-# Braces
+# ─── Blank lines (like ruff's blank-lines rules) ────────────────────
+# Max 1 consecutive blank line (black/ruff collapses extras).
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+SeparateDefinitionBlocks: Always
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: Always
+
+# ─── Braces & blocks (PEP8-like) ────────────────────────────────────
+# Opening brace on same line, contents indented, closing on own line.
 BreakBeforeBraces: Attach
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+Cpp11BracedListStyle: false
 
-# Alignment
+# ─── Arguments & parameters (like ruff/black's magic trailing comma) ─
+# Strict "all or nothing": fits one line → one line.
+# Doesn't fit → each arg on its own line, closing paren outdented.
 AlignAfterOpenBracket: BlockIndent
-AlignOperands: DontAlign
-AlignTrailingComments: true
-PointerAlignment: Left
 BinPackArguments: false
 BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+InsertTrailingCommas: Wrapped
 
-# Namespaces
+# ─── Alignment (like ruff: no vertical alignment) ───────────────────
+# ruff/black never vertically align — code reads top-to-bottom.
+AlignOperands: DontAlign
+AlignTrailingComments: true
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignEscapedNewlines: Left
+PointerAlignment: Left
+
+# ─── Operators & expressions ─────────────────────────────────────────
+# Break BEFORE binary operators (like PEP8 W504).
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+BreakStringLiterals: true
+
+# ─── Penalties (prefer keeping short expressions together) ───────────
+PenaltyBreakBeforeFirstCallParameter: 100
+PenaltyReturnTypeOnItsOwnLine: 200
+PenaltyBreakAssignment: 50
+PenaltyBreakComment: 300
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+
+# ─── Namespaces ──────────────────────────────────────────────────────
 NamespaceIndentation: All
 FixNamespaceComments: true
+CompactNamespaces: false
 
-# Other
+# ─── Spaces (consistent, no surprises) ──────────────────────────────
 SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
 SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInContainerLiterals: false
 SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# ─── Misc ────────────────────────────────────────────────────────────
 ReflowComments: true
+RemoveSemicolon: true
+InsertNewlineAtEOF: true

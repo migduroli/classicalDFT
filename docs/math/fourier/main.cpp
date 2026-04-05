@@ -8,12 +8,11 @@
 using namespace dft;
 
 int main() {
-
   // FourierTransform: RAII wrapper for FFTW3.
 
   console::info("FourierTransform: round-trip test");
 
-  auto shape = std::vector<long>{8, 8, 8};
+  auto shape = std::vector<long>{ 8, 8, 8 };
   auto plan = math::FourierTransform(shape);
 
   std::println(std::cout, "  grid:           {}x{}x{}", shape[0], shape[1], shape[2]);

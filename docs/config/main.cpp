@@ -14,8 +14,8 @@ int main() {
 #endif
 
   std::vector<std::pair<std::string, config::FileType>> files = {
-      {"config.ini", config::FileType::INI},
-      {"config.json", config::FileType::JSON},
+    { "config.ini", config::FileType::INI },
+    { "config.json", config::FileType::JSON },
   };
 
   for (const auto& [path, type] : files) {

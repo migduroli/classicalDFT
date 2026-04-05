@@ -16,7 +16,7 @@ namespace dft::physics {
     Grid grid;
     std::vector<Species> species;
     std::vector<Interaction> interactions;
-    double temperature{1.0};
+    double temperature{ 1.0 };
   };
 
 }  // namespace dft::physics

@@ -24,26 +24,20 @@ namespace dft::functionals {
 
   // Precompute all Fourier-space weights from a physics model.
 
-  [[nodiscard]] inline auto make_weights(
-      const fmt::FMTModel& fmt_model, const physics::Model& model
-  ) -> Weights {
+  [[nodiscard]] inline auto make_weights(const fmt::FMTModel& fmt_model, const physics::Model& model) -> Weights {
     return Weights{
-        .fmt_model = fmt_model,
-        .fmt = make_fmt_weights(model.grid, model.species),
-        .mean_field = make_mean_field_weights(
-            model.grid, model.interactions, model.temperature
-        ),
+      .fmt_model = fmt_model,
+      .fmt = make_fmt_weights(model.grid, model.species),
+      .mean_field = make_mean_field_weights(model.grid, model.interactions, model.temperature),
     };
   }
 
   // Lightweight weight construction for bulk (homogeneous) thermodynamics.
   // Computes a_vdw analytically from the potential — no grid, no FFT.
 
-  [[nodiscard]] inline auto make_bulk_weights(
-      const fmt::FMTModel& fmt_model,
-      const std::vector<physics::Interaction>& interactions,
-      double kT
-  ) -> Weights {
+  [[nodiscard]] inline auto
+  make_bulk_weights(const fmt::FMTModel& fmt_model, const std::vector<physics::Interaction>& interactions, double kT)
+      -> Weights {
     MeanFieldWeights mf;
     mf.interactions.reserve(interactions.size());
     for (const auto& inter : interactions) {
@@ -55,7 +49,7 @@ namespace dft::functionals {
           .a_vdw = a,
       });
     }
-    return Weights{.fmt_model = fmt_model, .fmt = {}, .mean_field = std::move(mf)};
+    return Weights{ .fmt_model = fmt_model, .fmt = {}, .mean_field = std::move(mf) };
   }
 
   // Evaluate the complete DFT grand potential functional.
@@ -67,9 +61,7 @@ namespace dft::functionals {
   // per-species functional derivatives scaled by cell volume.
   // At equilibrium, all forces vanish.
 
-  [[nodiscard]] inline auto total(
-      const physics::Model& model, const State& state, const Weights& weights
-  ) -> Result {
+  [[nodiscard]] inline auto total(const physics::Model& model, const State& state, const Weights& weights) -> Result {
     auto n_species = state.species.size();
     auto n_points = static_cast<arma::uword>(model.grid.total_points());
     double dv = model.grid.cell_volume();

@@ -1,4 +1,5 @@
 #include "dft/algorithms/dynamics.hpp"
+
 #include "dft/grid.hpp"
 #include "dft/math/fourier.hpp"
 
@@ -8,7 +9,7 @@
 
 using namespace dft::algorithms::dynamics;
 
-static const dft::Grid GRID{.dx = 0.5, .box_size = {4.0, 4.0, 4.0}, .shape = {8, 8, 8}};
+static const dft::Grid GRID{ .dx = 0.5, .box_size = { 4.0, 4.0, 4.0 }, .shape = { 8, 8, 8 } };
 
 // Trivial force callback: ideal gas only (F = sum rho * (ln(rho) - 1)).
 // Force = dF/drho = ln(rho), with cell volume factor.
@@ -22,7 +23,7 @@ static auto ideal_gas_forces(const std::vector<arma::vec>& densities) -> std::pa
     energy += arma::accu(rho % (arma::log(rho) - 1.0)) * dv;
     forces[s] = arma::log(rho) * dv;
   }
-  return {energy, forces};
+  return { energy, forces };
 }
 
 // k^2
@@ -63,7 +64,7 @@ TEST_CASE("diffusion propagator decays for k>0", "[ddft]") {
 
 TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
+  StepConfig config{ .dt = 1e-4, .diffusion_coefficient = 1.0 };
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
   long n = GRID.total_points();
@@ -82,7 +83,7 @@ TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
 
   double mass_before = arma::accu(rho0) * GRID.cell_volume();
 
-  auto result = split_operator_step({rho0}, GRID, k2, prop, ideal_gas_forces, config);
+  auto result = split_operator_step({ rho0 }, GRID, k2, prop, ideal_gas_forces, config);
 
   double mass_after = arma::accu(result.densities[0]) * GRID.cell_volume();
 
@@ -91,20 +92,20 @@ TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
 
 TEST_CASE("split-operator step keeps density positive", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  StepConfig config{.dt = 1e-5, .diffusion_coefficient = 1.0, .min_density = 1e-18};
+  StepConfig config{ .dt = 1e-5, .diffusion_coefficient = 1.0, .min_density = 1e-18 };
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
   long n = GRID.total_points();
   arma::vec rho0 = 0.1 * arma::ones(static_cast<arma::uword>(n));
 
-  auto result = split_operator_step({rho0}, GRID, k2, prop, ideal_gas_forces, config);
+  auto result = split_operator_step({ rho0 }, GRID, k2, prop, ideal_gas_forces, config);
 
   CHECK(arma::all(result.densities[0] > 0.0));
 }
 
 TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  StepConfig config{.dt = 1e-3, .diffusion_coefficient = 1.0};
+  StepConfig config{ .dt = 1e-3, .diffusion_coefficient = 1.0 };
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
   long n = GRID.total_points();
@@ -124,7 +125,7 @@ TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
   double var_before = arma::var(rho0);
 
   // Take several steps
-  std::vector<arma::vec> rho = {rho0};
+  std::vector<arma::vec> rho = { rho0 };
   for (int i = 0; i < 10; ++i) {
     auto result = split_operator_step(rho, GRID, k2, prop, ideal_gas_forces, config);
     rho = result.densities;
@@ -140,19 +141,19 @@ TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
 
 TEST_CASE("crank-nicholson step keeps density positive", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0, .min_density = 1e-18};
+  StepConfig config{ .dt = 1e-4, .diffusion_coefficient = 1.0, .min_density = 1e-18 };
 
   long n = GRID.total_points();
   arma::vec rho0 = 0.1 * arma::ones(static_cast<arma::uword>(n));
 
-  auto result = crank_nicholson_step({rho0}, GRID, k2, ideal_gas_forces, config);
+  auto result = crank_nicholson_step({ rho0 }, GRID, k2, ideal_gas_forces, config);
 
   CHECK(arma::all(result.densities[0] > 0.0));
 }
 
 TEST_CASE("crank-nicholson conserves mass approximately", "[ddft]") {
   auto k2 = compute_k_squared(GRID);
-  StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
+  StepConfig config{ .dt = 1e-4, .diffusion_coefficient = 1.0 };
 
   long n = GRID.total_points();
   arma::vec rho0 = 0.5 * arma::ones(static_cast<arma::uword>(n));
@@ -170,7 +171,7 @@ TEST_CASE("crank-nicholson conserves mass approximately", "[ddft]") {
 
   double mass_before = arma::accu(rho0) * GRID.cell_volume();
 
-  auto result = crank_nicholson_step({rho0}, GRID, k2, ideal_gas_forces, config);
+  auto result = crank_nicholson_step({ rho0 }, GRID, k2, ideal_gas_forces, config);
 
   double mass_after = arma::accu(result.densities[0]) * GRID.cell_volume();
 

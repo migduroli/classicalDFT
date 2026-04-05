@@ -16,13 +16,13 @@
 namespace nucleation {
 
   struct RadialSnapshot {
-    double time{0.0};
+    double time{ 0.0 };
     std::vector<double> r;
     std::vector<double> rho;
   };
 
   struct SliceSnapshot {
-    double time{0.0};
+    double time{ 0.0 };
     std::vector<double> x;
     std::vector<double> rho;
   };
@@ -69,9 +69,7 @@ namespace nucleation {
 
   // Step function: rho_in inside radius R, rho_out outside.
 
-  [[nodiscard]] inline auto step_function(
-      const arma::vec& r, double R, double rho_in, double rho_out
-  ) -> arma::vec {
+  [[nodiscard]] inline auto step_function(const arma::vec& r, double R, double rho_in, double rho_out) -> arma::vec {
     arma::vec rho(r.n_elem);
     rho.fill(rho_out);
     rho.elem(arma::find(r < R)).fill(rho_in);
@@ -82,18 +80,21 @@ namespace nucleation {
   // R_eff = (3 Delta_N / (4 pi delta_rho))^(1/3)
 
   [[nodiscard]] inline auto effective_radius(
-      const arma::vec& rho, double rho_background, double delta_rho, double dv,
+      const arma::vec& rho,
+      double rho_background,
+      double delta_rho,
+      double dv,
       const arma::vec& /*r*/ = {}
   ) -> double {
     double delta_N = (arma::accu(rho) - static_cast<double>(rho.n_elem) * rho_background) * dv;
-    if (delta_N <= 0.0) return 0.0;
+    if (delta_N <= 0.0)
+      return 0.0;
     return std::cbrt(3.0 * delta_N / (4.0 * std::numbers::pi * delta_rho));
   }
 
-  [[nodiscard]] inline auto extract_radial(
-      const arma::vec& rho, const dft::Grid& grid, const arma::vec& r
-  ) -> RadialSnapshot {
-    double r_max = std::min({grid.box_size[0], grid.box_size[1], grid.box_size[2]}) / 2.0;
+  [[nodiscard]] inline auto extract_radial(const arma::vec& rho, const dft::Grid& grid, const arma::vec& r)
+      -> RadialSnapshot {
+    double r_max = std::min({ grid.box_size[0], grid.box_size[1], grid.box_size[2] }) / 2.0;
     auto n_bins = static_cast<arma::uword>(r_max / grid.dx);
 
     arma::vec bin_sum(n_bins, arma::fill::zeros);
@@ -115,18 +116,18 @@ namespace nucleation {
       }
     }
 
-    return {.time = 0.0, .r = r_out, .rho = rho_out};
+    return { .time = 0.0, .r = r_out, .rho = rho_out };
   }
 
   // Equimolar radius from the radial density profile.
   // Finds where the radially-averaged profile crosses the midpoint
   // between the center density and the far-field density.
 
-  [[nodiscard]] inline auto equimolar_radius(
-      const arma::vec& rho, const dft::Grid& grid, const arma::vec& r
-  ) -> double {
+  [[nodiscard]] inline auto equimolar_radius(const arma::vec& rho, const dft::Grid& grid, const arma::vec& r)
+      -> double {
     auto profile = extract_radial(rho, grid, r);
-    if (profile.r.size() < 4) return 0.0;
+    if (profile.r.size() < 4)
+      return 0.0;
 
     double rho_in = profile.rho.front();
 
@@ -134,10 +135,12 @@ namespace nucleation {
     std::size_t n = profile.r.size();
     std::size_t n_far = std::max<std::size_t>(n / 4, 1);
     double rho_out = 0.0;
-    for (std::size_t i = n - n_far; i < n; ++i) rho_out += profile.rho[i];
+    for (std::size_t i = n - n_far; i < n; ++i)
+      rho_out += profile.rho[i];
     rho_out /= static_cast<double>(n_far);
 
-    if (rho_in - rho_out < 0.01) return 0.0;
+    if (rho_in - rho_out < 0.01)
+      return 0.0;
 
     double rho_half = 0.5 * (rho_in + rho_out);
 
@@ -154,9 +157,7 @@ namespace nucleation {
 
   // Extract an x-axis slice through the centre of the box (iy=Ny/2, iz=Nz/2).
 
-  [[nodiscard]] inline auto extract_x_slice(
-      const arma::vec& rho, const dft::Grid& grid
-  ) -> SliceSnapshot {
+  [[nodiscard]] inline auto extract_x_slice(const arma::vec& rho, const dft::Grid& grid) -> SliceSnapshot {
     long nx = grid.shape[0];
     long iy = grid.shape[1] / 2;
     long iz = grid.shape[2] / 2;
@@ -168,16 +169,14 @@ namespace nucleation {
       x_out[static_cast<std::size_t>(ix)] = ix * grid.dx - centre;
       rho_out[static_cast<std::size_t>(ix)] = rho(static_cast<arma::uword>(grid.flat_index(ix, iy, iz)));
     }
-    return {.time = 0.0, .x = x_out, .rho = rho_out};
+    return { .time = 0.0, .x = x_out, .rho = rho_out };
   }
 
   // Center density rho_0 = rho(r=0): the density at the box center.
   // Smooth and parameter-free — avoids the binning artifacts of
   // volume-weighted averages.
 
-  [[nodiscard]] inline auto center_density(
-      const arma::vec& rho, const dft::Grid& grid
-  ) -> double {
+  [[nodiscard]] inline auto center_density(const arma::vec& rho, const dft::Grid& grid) -> double {
     long ix = grid.shape[0] / 2;
     long iy = grid.shape[1] / 2;
     long iz = grid.shape[2] / 2;
@@ -189,8 +188,10 @@ namespace nucleation {
 
   [[nodiscard]] inline auto extract_dynamics(
       const dft::algorithms::dynamics::SimulationResult& sim,
-      const dft::Grid& grid, const arma::vec& r,
-      double rho_background, double delta_rho
+      const dft::Grid& grid,
+      const arma::vec& r,
+      double rho_background,
+      double delta_rho
   ) -> DynamicsResult {
     double dv = grid.cell_volume();
     DynamicsResult result;
@@ -210,10 +211,9 @@ namespace nucleation {
 
   // Extract dynamics using equimolar radius and SimulationResult from grand-canonical simulate.
 
-  [[nodiscard]] inline auto extract_dynamics(
-      const dft::algorithms::dynamics::SimulationResult& sim,
-      const dft::Grid& grid, const arma::vec& r
-  ) -> DynamicsResult {
+  [[nodiscard]] inline auto
+  extract_dynamics(const dft::algorithms::dynamics::SimulationResult& sim, const dft::Grid& grid, const arma::vec& r)
+      -> DynamicsResult {
     DynamicsResult result;
     for (const auto& snap : sim.snapshots) {
       auto prof = extract_x_slice(snap.densities[0], grid);
@@ -239,8 +239,12 @@ namespace nucleation {
   // amp_factor < 1 dilutes, > 1 densifies.
 
   [[nodiscard]] inline auto perturb_cluster(
-      const arma::vec& rho, const dft::Grid& grid, const arma::vec& r,
-      double rad_factor, double amp_factor, double rho_background
+      const arma::vec& rho,
+      const dft::Grid& grid,
+      const arma::vec& r,
+      double rad_factor,
+      double amp_factor,
+      double rho_background
   ) -> arma::vec {
     auto profile = extract_radial(rho, grid, r);
     dft::math::CubicSpline spline(profile.r, profile.rho);

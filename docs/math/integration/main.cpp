@@ -40,9 +40,7 @@ int main() {
   // QAGI: full infinite (Gaussian).
 
   console::info("QAGI: full infinite (normal distribution)");
-  auto gaussian = math::Integrator([](double x) {
-    return std::exp(-x * x * 0.5) / std::sqrt(2.0 * std::numbers::pi);
-  });
+  auto gaussian = math::Integrator([](double x) { return std::exp(-x * x * 0.5) / std::sqrt(2.0 * std::numbers::pi); });
   auto r5 = gaussian.integrate_infinite();
   std::println(std::cout, "  int[-inf, +inf] normal(x) dx = {:.12}", r5.value);
   std::println(std::cout, "  error = {:.12}", r5.error);

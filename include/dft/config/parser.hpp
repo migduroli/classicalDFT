@@ -8,7 +8,10 @@
 
 namespace dft::config {
 
-  enum class FileType { INI, JSON };
+  enum class FileType {
+    INI,
+    JSON
+  };
 
   [[nodiscard]] auto parse_config(const std::string& path, FileType type = FileType::INI) -> nlohmann::json;
 

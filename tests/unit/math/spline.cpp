@@ -7,38 +7,38 @@
 using namespace dft::math;
 
 TEST_CASE("CubicSpline interpolates linear function exactly", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0};
-  std::vector<double> y = {0.0, 2.0, 4.0, 6.0, 8.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0, 4.0 };
+  std::vector<double> y = { 0.0, 2.0, 4.0, 6.0, 8.0 };
   CubicSpline s(x, y);
   CHECK(s(0.5) == Catch::Approx(1.0).epsilon(1e-10));
   CHECK(s(2.5) == Catch::Approx(5.0).epsilon(1e-10));
 }
 
 TEST_CASE("CubicSpline derivative of linear function is constant", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0};
-  std::vector<double> y = {0.0, 2.0, 4.0, 6.0, 8.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0, 4.0 };
+  std::vector<double> y = { 0.0, 2.0, 4.0, 6.0, 8.0 };
   CubicSpline s(x, y);
   CHECK(s.derivative(1.5) == Catch::Approx(2.0).epsilon(1e-8));
 }
 
 TEST_CASE("CubicSpline second derivative of linear function is zero", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0};
-  std::vector<double> y = {0.0, 2.0, 4.0, 6.0, 8.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0, 4.0 };
+  std::vector<double> y = { 0.0, 2.0, 4.0, 6.0, 8.0 };
   CubicSpline s(x, y);
   CHECK(s.derivative2(2.0) == Catch::Approx(0.0).margin(1e-8));
 }
 
 TEST_CASE("CubicSpline integrate gives correct area", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0};
-  std::vector<double> y = {0.0, 2.0, 4.0, 6.0, 8.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0, 4.0 };
+  std::vector<double> y = { 0.0, 2.0, 4.0, 6.0, 8.0 };
   CubicSpline s(x, y);
   // integral of 2x from 0 to 4 = 16
   CHECK(s.integrate(0.0, 4.0) == Catch::Approx(16.0).epsilon(1e-8));
 }
 
 TEST_CASE("CubicSpline reports x_min and x_max", "[spline]") {
-  std::vector<double> x = {1.0, 2.0, 3.0, 4.0, 5.0};
-  std::vector<double> y = {1.0, 4.0, 9.0, 16.0, 25.0};
+  std::vector<double> x = { 1.0, 2.0, 3.0, 4.0, 5.0 };
+  std::vector<double> y = { 1.0, 4.0, 9.0, 16.0, 25.0 };
   CubicSpline s(x, y);
   CHECK(s.x_min() == 1.0);
   CHECK(s.x_max() == 5.0);
@@ -58,20 +58,20 @@ TEST_CASE("CubicSpline interpolates quadratic well", "[spline]") {
 }
 
 TEST_CASE("CubicSpline throws for mismatched sizes", "[spline]") {
-  std::vector<double> x = {1.0, 2.0, 3.0};
-  std::vector<double> y = {1.0, 2.0};
+  std::vector<double> x = { 1.0, 2.0, 3.0 };
+  std::vector<double> y = { 1.0, 2.0 };
   REQUIRE_THROWS_AS(CubicSpline(x, y), std::invalid_argument);
 }
 
 TEST_CASE("CubicSpline throws for too few points", "[spline]") {
-  std::vector<double> x = {1.0, 2.0};
-  std::vector<double> y = {1.0, 2.0};
+  std::vector<double> x = { 1.0, 2.0 };
+  std::vector<double> y = { 1.0, 2.0 };
   REQUIRE_THROWS_AS(CubicSpline(x, y), std::invalid_argument);
 }
 
 TEST_CASE("CubicSpline is move-constructible", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0};
-  std::vector<double> y = {0.0, 1.0, 4.0, 9.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0 };
+  std::vector<double> y = { 0.0, 1.0, 4.0, 9.0 };
   CubicSpline s1(x, y);
   CubicSpline s2(std::move(s1));
   CHECK(s2(1.5) == Catch::Approx(2.25).epsilon(0.1));
@@ -79,8 +79,8 @@ TEST_CASE("CubicSpline is move-constructible", "[spline]") {
 
 TEST_CASE("BivariateSpline interpolates bilinear function", "[spline]") {
   // f(x, y) = x + 2*y on a 4x4 grid (bicubic needs >= 4 points per axis)
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0};
-  std::vector<double> y = {0.0, 1.0, 2.0, 3.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0 };
+  std::vector<double> y = { 0.0, 1.0, 2.0, 3.0 };
   // GSL expects z in column-major order: z[j*nx + i] = f(x[i], y[j])
   std::vector<double> z;
   for (double yj : y) {
@@ -94,8 +94,8 @@ TEST_CASE("BivariateSpline interpolates bilinear function", "[spline]") {
 }
 
 TEST_CASE("BivariateSpline derivatives of f(x,y) = x + 2y", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0};
-  std::vector<double> y = {0.0, 1.0, 2.0, 3.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0 };
+  std::vector<double> y = { 0.0, 1.0, 2.0, 3.0 };
   std::vector<double> z;
   for (double yj : y) {
     for (double xi : x) {
@@ -108,8 +108,8 @@ TEST_CASE("BivariateSpline derivatives of f(x,y) = x + 2y", "[spline]") {
 }
 
 TEST_CASE("BivariateSpline second derivatives of bilinear are zero", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0};
-  std::vector<double> y = {0.0, 1.0, 2.0, 3.0};
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0 };
+  std::vector<double> y = { 0.0, 1.0, 2.0, 3.0 };
   std::vector<double> z;
   for (double yj : y) {
     for (double xi : x) {
@@ -123,15 +123,15 @@ TEST_CASE("BivariateSpline second derivatives of bilinear are zero", "[spline]")
 }
 
 TEST_CASE("BivariateSpline throws for wrong z size", "[spline]") {
-  std::vector<double> x = {0.0, 1.0, 2.0, 3.0};
-  std::vector<double> y = {0.0, 1.0, 2.0, 3.0};
-  std::vector<double> z = {1.0, 2.0};  // wrong size
+  std::vector<double> x = { 0.0, 1.0, 2.0, 3.0 };
+  std::vector<double> y = { 0.0, 1.0, 2.0, 3.0 };
+  std::vector<double> z = { 1.0, 2.0 };  // wrong size
   REQUIRE_THROWS_AS(BivariateSpline(x, y, z), std::invalid_argument);
 }
 
 TEST_CASE("BivariateSpline throws for empty x", "[spline]") {
   std::vector<double> x;
-  std::vector<double> y = {0.0, 1.0};
+  std::vector<double> y = { 0.0, 1.0 };
   std::vector<double> z;
   REQUIRE_THROWS_AS(BivariateSpline(x, y, z), std::invalid_argument);
 }

@@ -18,19 +18,18 @@ namespace dft::algorithms::dynamics {
   // The force callback computes functional derivatives at the current
   // density.  Returns (Omega, {dOmega/drho_s * dV}).
 
-  using ForceCallback = std::function<std::pair<double, std::vector<arma::vec>>(
-      const std::vector<arma::vec>& densities
-  )>;
+  using ForceCallback =
+      std::function<std::pair<double, std::vector<arma::vec>>(const std::vector<arma::vec>& densities)>;
 
   // Configuration for a single DDFT timestep.
 
   struct StepConfig {
-    double dt{1e-4};
-    double diffusion_coefficient{1.0};
-    double min_density{1e-18};
-    double dt_max{1.0};
-    double fp_tolerance{1e-4};
-    int fp_max_iterations{100};
+    double dt{ 1e-4 };
+    double diffusion_coefficient{ 1.0 };
+    double min_density{ 1e-18 };
+    double dt_max{ 1.0 };
+    double fp_tolerance{ 1e-4 };
+    int fp_max_iterations{ 100 };
   };
 
   // Result of a single DDFT timestep.
@@ -104,16 +103,16 @@ namespace dft::algorithms::dynamics {
       }
 
       return IntegratingFactorState{
-          .shape = {nx, ny, nz},
-          .dx = dx,
-          .fourier_total = nx * ny * nz_half,
-          .lam_x = std::move(lx),
-          .lam_y = std::move(ly),
-          .lam_z = std::move(lz),
-          .fx = {},
-          .fy = {},
-          .fz = {},
-          .dt = 0.0,
+        .shape = { nx, ny, nz },
+        .dx = dx,
+        .fourier_total = nx * ny * nz_half,
+        .lam_x = std::move(lx),
+        .lam_y = std::move(ly),
+        .lam_z = std::move(lz),
+        .fx = {},
+        .fy = {},
+        .fz = {},
+        .dt = 0.0,
       };
     }
 
@@ -133,10 +132,8 @@ namespace dft::algorithms::dynamics {
 
     // div(rho * grad(x)) via central differences.
 
-    inline void divergence_flux(
-        const arma::vec& rho, const arma::vec& x, arma::vec& gx,
-        long nx, long ny, long nz, double dx
-    ) {
+    inline void
+    divergence_flux(const arma::vec& rho, const arma::vec& x, arma::vec& gx, long nx, long ny, long nz, double dx) {
       double D = 0.5 / (dx * dx);
       long nyz = ny * nz;
 
@@ -165,8 +162,8 @@ namespace dft::algorithms::dynamics {
             auto mz = static_cast<arma::uword>(ix0 + iy0 + izm);
 
             gx(p) = D * ((rho(px) + d0) * (x(px) - x0) - (d0 + rho(mx)) * (x0 - x(mx)))
-                   + D * ((rho(py) + d0) * (x(py) - x0) - (d0 + rho(my)) * (x0 - x(my)))
-                   + D * ((rho(pz) + d0) * (x(pz) - x0) - (d0 + rho(mz)) * (x0 - x(mz)));
+                + D * ((rho(py) + d0) * (x(py) - x0) - (d0 + rho(my)) * (x0 - x(my)))
+                + D * ((rho(pz) + d0) * (x(pz) - x0) - (d0 + rho(mz)) * (x0 - x(mz)));
           }
         }
       }
@@ -174,10 +171,7 @@ namespace dft::algorithms::dynamics {
 
     // Subtract the ideal-gas Laplacian: rhs -= Laplacian(rho).
 
-    inline void subtract_laplacian(
-        const arma::vec& rho, arma::vec& rhs,
-        long nx, long ny, long nz, double dx
-    ) {
+    inline void subtract_laplacian(const arma::vec& rho, arma::vec& rhs, long nx, long ny, long nz, double dx) {
       double D = 1.0 / (dx * dx);
       long nyz = ny * nz;
 
@@ -204,9 +198,8 @@ namespace dft::algorithms::dynamics {
             auto pz = static_cast<arma::uword>(ix0 + iy0 + izp);
             auto mz = static_cast<arma::uword>(ix0 + iy0 + izm);
 
-            rhs(p) -= D * (rho(px) + rho(mx) - 2.0 * d0)
-                    + D * (rho(py) + rho(my) - 2.0 * d0)
-                    + D * (rho(pz) + rho(mz) - 2.0 * d0);
+            rhs(p) -= D * (rho(px) + rho(mx) - 2.0 * d0) + D * (rho(py) + rho(my) - 2.0 * d0)
+                + D * (rho(pz) + rho(mz) - 2.0 * d0);
           }
         }
       }
@@ -217,8 +210,13 @@ namespace dft::algorithms::dynamics {
     // R(rho) = div(rho * grad(dOmega/drho)) - Laplacian(rho)
 
     inline void excess_rhs_fourier(
-        const arma::vec& rho, const arma::vec& forces, double dv,
-        long nx, long ny, long nz, double dx,
+        const arma::vec& rho,
+        const arma::vec& forces,
+        double dv,
+        long nx,
+        long ny,
+        long nz,
+        double dx,
         math::FourierTransform& rhs_ft
     ) {
       auto n = static_cast<arma::uword>(nx * ny * nz);
@@ -232,10 +230,9 @@ namespace dft::algorithms::dynamics {
 
     // Compute excess RHS in real space (no FFT).
 
-    [[nodiscard]] inline auto excess_rhs_real(
-        const arma::vec& rho, const arma::vec& forces, double dv,
-        long nx, long ny, long nz, double dx
-    ) -> arma::vec {
+    [[nodiscard]] inline auto
+    excess_rhs_real(const arma::vec& rho, const arma::vec& forces, double dv, long nx, long ny, long nz, double dx)
+        -> arma::vec {
       auto n = static_cast<arma::uword>(nx * ny * nz);
       arma::vec df_drho = forces / dv;
       arma::vec rhs(n);
@@ -315,16 +312,12 @@ namespace dft::algorithms::dynamics {
     long fourier_total = grid.shape[0] * grid.shape[1] * nz_half;
     arma::vec k2(static_cast<arma::uword>(fourier_total));
 
-    grid.for_each_wavevector([&](const Wavevector& wv) {
-      k2(static_cast<arma::uword>(wv.idx)) = wv.norm2();
-    });
+    grid.for_each_wavevector([&](const Wavevector& wv) { k2(static_cast<arma::uword>(wv.idx)) = wv.norm2(); });
 
     return k2;
   }
 
-  [[nodiscard]] inline auto diffusion_propagator(
-      const arma::vec& k_squared, double D, double dt
-  ) -> arma::vec {
+  [[nodiscard]] inline auto diffusion_propagator(const arma::vec& k_squared, double D, double dt) -> arma::vec {
     return arma::exp(-D * k_squared * dt);
   }
 
@@ -338,8 +331,10 @@ namespace dft::algorithms::dynamics {
   // goes negative, the timestep is reduced and the step restarts.
 
   [[nodiscard]] inline auto integrating_factor_step(
-      const std::vector<arma::vec>& densities, const Grid& grid,
-      _internal::IntegratingFactorState& st, const ForceCallback& compute,
+      const std::vector<arma::vec>& densities,
+      const Grid& grid,
+      _internal::IntegratingFactorState& st,
+      const ForceCallback& compute,
       StepConfig& config
   ) -> StepResult {
     long nx = st.shape[0];
@@ -370,7 +365,7 @@ namespace dft::algorithms::dynamics {
       double deviation = 1e30;
 
       for (int iter = 0; iter < config.fp_max_iterations; ++iter) {
-        auto [e1, f1] = compute({d1});
+        auto [e1, f1] = compute({ d1 });
         _internal::excess_rhs_fourier(d1, f1[0], dv, nx, ny, nz, dx, rhs1);
 
         double old_deviation = deviation;
@@ -396,12 +391,12 @@ namespace dft::algorithms::dynamics {
       }
     } while (restart);
 
-    auto [e_final, f_final] = compute({d1});
+    auto [e_final, f_final] = compute({ d1 });
 
     return StepResult{
-        .densities = {d1},
-        .energy = e_final,
-        .dt_used = config.dt,
+      .densities = { d1 },
+      .energy = e_final,
+      .dt_used = config.dt,
     };
   }
 
@@ -413,9 +408,12 @@ namespace dft::algorithms::dynamics {
   // Euler for the excess nonlinear contribution.
 
   [[nodiscard]] inline auto split_operator_step(
-      const std::vector<arma::vec>& densities, const Grid& grid,
-      const arma::vec& k_squared, const arma::vec& propagator,
-      const ForceCallback& compute, const StepConfig& config
+      const std::vector<arma::vec>& densities,
+      const Grid& grid,
+      const arma::vec& k_squared,
+      const arma::vec& propagator,
+      const ForceCallback& compute,
+      const StepConfig& config
   ) -> StepResult {
     auto shape = std::vector<long>(grid.shape.begin(), grid.shape.end());
     long n_total = grid.total_points();
@@ -440,7 +438,7 @@ namespace dft::algorithms::dynamics {
     rho_star = arma::clamp(rho_star, config.min_density, arma::datum::inf);
 
     // Full nonlinear step (forward Euler).
-    auto [energy, forces] = compute({rho_star});
+    auto [energy, forces] = compute({ rho_star });
     arma::vec rhs = _internal::excess_rhs_real(rho_star, forces[0], dv, nx, ny, nz, grid.dx);
     arma::vec rho_dstar = rho_star + config.dt * rhs;
     rho_dstar = arma::clamp(rho_dstar, config.min_density, arma::datum::inf);
@@ -458,11 +456,11 @@ namespace dft::algorithms::dynamics {
     arma::vec d1 = ft.real_vec() * inv_n;
     d1 = arma::clamp(d1, config.min_density, arma::datum::inf);
 
-    auto [e_final, f_final] = compute({d1});
+    auto [e_final, f_final] = compute({ d1 });
     return StepResult{
-        .densities = {d1},
-        .energy = e_final,
-        .dt_used = config.dt,
+      .densities = { d1 },
+      .energy = e_final,
+      .dt_used = config.dt,
     };
   }
 
@@ -472,8 +470,10 @@ namespace dft::algorithms::dynamics {
   // where a = D k^2 dt / 2. Iterated to self-consistency.
 
   [[nodiscard]] inline auto crank_nicholson_step(
-      const std::vector<arma::vec>& densities, const Grid& grid,
-      const arma::vec& k_squared, const ForceCallback& compute,
+      const std::vector<arma::vec>& densities,
+      const Grid& grid,
+      const arma::vec& k_squared,
+      const ForceCallback& compute,
       const StepConfig& config
   ) -> StepResult {
     auto shape = std::vector<long>(grid.shape.begin(), grid.shape.end());
@@ -502,7 +502,7 @@ namespace dft::algorithms::dynamics {
     math::FourierTransform work(shape);
 
     for (int iter = 0; iter < config.fp_max_iterations; ++iter) {
-      auto [e1, f1] = compute({d1});
+      auto [e1, f1] = compute({ d1 });
       arma::vec rhs1 = _internal::excess_rhs_real(d1, f1[0], dv, nx, ny, nz, grid.dx);
       math::FourierTransform r1_ft(shape);
       r1_ft.set_real(rhs1);
@@ -529,11 +529,11 @@ namespace dft::algorithms::dynamics {
       }
     }
 
-    auto [e_final, f_final] = compute({d1});
+    auto [e_final, f_final] = compute({ d1 });
     return StepResult{
-        .densities = {d1},
-        .energy = e_final,
-        .dt_used = dt,
+      .densities = { d1 },
+      .energy = e_final,
+      .dt_used = dt,
     };
   }
 
@@ -548,9 +548,7 @@ namespace dft::algorithms::dynamics {
   // reservoir at fixed chemical potential, allowing mass to flow in/out
   // through the boundary (Lutsko, J. Chem. Phys. 2008; Sci. Adv. 2019).
 
-  [[nodiscard]] inline auto reservoir_boundary(
-      const arma::uvec& mask, double reservoir_density
-  ) -> BoundaryCondition {
+  [[nodiscard]] inline auto reservoir_boundary(const arma::uvec& mask, double reservoir_density) -> BoundaryCondition {
     return [mask, reservoir_density](std::vector<arma::vec>& densities) {
       for (auto& rho : densities) {
         rho.elem(arma::find(mask)).fill(reservoir_density);
@@ -565,10 +563,10 @@ namespace dft::algorithms::dynamics {
 
   struct Simulation {
     StepConfig step;
-    int n_steps{1000};
-    int snapshot_interval{100};
-    int log_interval{50};
-    double energy_offset{0.0};
+    int n_steps{ 1000 };
+    int snapshot_interval{ 100 };
+    int log_interval{ 50 };
+    double energy_offset{ 0.0 };
     BoundaryCondition boundary{};
     StopCondition stop_condition{};
 
@@ -577,18 +575,13 @@ namespace dft::algorithms::dynamics {
     // Boundary conditions are applied after each step via the boundary
     // callback (empty = periodic/canonical).
 
-    [[nodiscard]] auto run(
-        std::vector<arma::vec> densities,
-        const Grid& grid,
-        const ForceCallback& force_fn
-    ) const -> SimulationResult;
+    [[nodiscard]] auto run(std::vector<arma::vec> densities, const Grid& grid, const ForceCallback& force_fn) const
+        -> SimulationResult;
   };
 
-  [[nodiscard]] inline auto Simulation::run(
-      std::vector<arma::vec> densities,
-      const Grid& grid,
-      const ForceCallback& force_fn
-  ) const -> SimulationResult {
+  [[nodiscard]] inline auto
+  Simulation::run(std::vector<arma::vec> densities, const Grid& grid, const ForceCallback& force_fn) const
+      -> SimulationResult {
     double dv = grid.cell_volume();
 
     // Apply boundary condition to initial state.
@@ -617,11 +610,17 @@ namespace dft::algorithms::dynamics {
     });
 
     if (log_interval > 0) {
-      std::cout << std::format("  {:>8s}  {:>14s}  {:>12s}  {:>18s}  {:>14s}\n",
-                               "step", "time", "dt", "Delta_E", "mass");
+      std::cout
+          << std::format("  {:>8s}  {:>14s}  {:>12s}  {:>18s}  {:>14s}\n", "step", "time", "dt", "Delta_E", "mass");
       std::cout << "  " << std::string(74, '-') << "\n";
-      std::cout << std::format("  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
-                               0, 0.0, step_cfg.dt, e0 - energy_offset, mass_initial);
+      std::cout << std::format(
+          "  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
+          0,
+          0.0,
+          step_cfg.dt,
+          e0 - energy_offset,
+          mass_initial
+      );
     }
 
     int successes = 0;
@@ -629,9 +628,7 @@ namespace dft::algorithms::dynamics {
 
     for (int step = 1; step <= n_steps; ++step) {
       double dt_before = step_cfg.dt;
-      auto step_result = integrating_factor_step(
-          densities, grid, st, force_fn, step_cfg
-      );
+      auto step_result = integrating_factor_step(densities, grid, st, force_fn, step_cfg);
       densities = std::move(step_result.densities);
       double e_step = step_result.energy;
       time += step_result.dt_used;
@@ -658,8 +655,14 @@ namespace dft::algorithms::dynamics {
         }
         result.times.push_back(time);
         result.energies.push_back(e_step);
-        std::cout << std::format("  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
-                                 step, time, step_cfg.dt, e_step - energy_offset, mass);
+        std::cout << std::format(
+            "  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
+            step,
+            time,
+            step_cfg.dt,
+            e_step - energy_offset,
+            mass
+        );
       }
 
       if (snapshot_interval > 0 && step % snapshot_interval == 0) {

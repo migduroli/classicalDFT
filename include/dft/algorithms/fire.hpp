@@ -1,8 +1,8 @@
 #ifndef DFT_ALGORITHMS_FIRE_HPP
 #define DFT_ALGORITHMS_FIRE_HPP
 
-#include <armadillo>
 #include <algorithm>
+#include <armadillo>
 #include <functional>
 #include <stdexcept>
 #include <vector>
@@ -17,57 +17,48 @@ namespace dft::algorithms::fire {
     std::vector<arma::vec> v;
     double dt;
     double alpha;
-    int n_positive{0};
-    int n_negative{0};
-    double energy{0.0};
-    double rms_force{0.0};
-    int iteration{0};
-    bool converged{false};
+    int n_positive{ 0 };
+    int n_negative{ 0 };
+    double energy{ 0.0 };
+    double rms_force{ 0.0 };
+    int iteration{ 0 };
+    bool converged{ false };
   };
 
   // Force function: given positions x, returns (energy, forces).
   // Forces are negative gradients: f = -grad(E).
 
-  using ForceFunction = std::function<std::pair<double, std::vector<arma::vec>>(
-      const std::vector<arma::vec>&
-  )>;
+  using ForceFunction = std::function<std::pair<double, std::vector<arma::vec>>(const std::vector<arma::vec>&)>;
 
   struct Fire {
-    double dt{1e-3};
-    double dt_max{1e-2};
-    double dt_min{1e-8};
-    double alpha_start{0.1};
-    double f_inc{1.1};
-    double f_dec{0.5};
-    double f_alpha{0.99};
-    int n_delay{5};
-    int max_uphill{20};
-    double force_tolerance{0.1};
-    int max_steps{10000};
+    double dt{ 1e-3 };
+    double dt_max{ 1e-2 };
+    double dt_min{ 1e-8 };
+    double alpha_start{ 0.1 };
+    double f_inc{ 1.1 };
+    double f_dec{ 0.5 };
+    double f_alpha{ 0.99 };
+    int n_delay{ 5 };
+    int max_uphill{ 20 };
+    double force_tolerance{ 0.1 };
+    int max_steps{ 10000 };
 
     // Initialize a FIRE state from starting positions.
 
-    [[nodiscard]] auto initialize(
-        std::vector<arma::vec> x0, const ForceFunction& compute
-    ) const -> FireState;
+    [[nodiscard]] auto initialize(std::vector<arma::vec> x0, const ForceFunction& compute) const -> FireState;
 
     // Perform one FIRE2 step. Returns the updated state and forces.
 
-    [[nodiscard]] auto step(
-        FireState state, const std::vector<arma::vec>& forces,
-        const ForceFunction& compute
-    ) const -> std::pair<FireState, std::vector<arma::vec>>;
+    [[nodiscard]] auto step(FireState state, const std::vector<arma::vec>& forces, const ForceFunction& compute) const
+        -> std::pair<FireState, std::vector<arma::vec>>;
 
     // Run FIRE2 to convergence or max_steps.
 
-    [[nodiscard]] auto minimize(
-        std::vector<arma::vec> x0, const ForceFunction& compute
-    ) const -> FireState;
+    [[nodiscard]] auto minimize(std::vector<arma::vec> x0, const ForceFunction& compute) const -> FireState;
   };
 
-  [[nodiscard]] inline auto Fire::initialize(
-      std::vector<arma::vec> x0, const ForceFunction& compute
-  ) const -> FireState {
+  [[nodiscard]] inline auto Fire::initialize(std::vector<arma::vec> x0, const ForceFunction& compute) const
+      -> FireState {
     auto [energy, forces] = compute(x0);
 
     double total_dof = 0.0;
@@ -82,20 +73,19 @@ namespace dft::algorithms::fire {
     double rms = std::sqrt(sum_f2 / total_dof);
 
     return FireState{
-        .x = std::move(x0),
-        .v = std::move(v),
-        .dt = dt,
-        .alpha = alpha_start,
-        .energy = energy,
-        .rms_force = rms,
-        .converged = rms < force_tolerance,
+      .x = std::move(x0),
+      .v = std::move(v),
+      .dt = dt,
+      .alpha = alpha_start,
+      .energy = energy,
+      .rms_force = rms,
+      .converged = rms < force_tolerance,
     };
   }
 
-  [[nodiscard]] inline auto Fire::step(
-      FireState state, const std::vector<arma::vec>& forces,
-      const ForceFunction& compute
-  ) const -> std::pair<FireState, std::vector<arma::vec>> {
+  [[nodiscard]] inline auto
+  Fire::step(FireState state, const std::vector<arma::vec>& forces, const ForceFunction& compute) const
+      -> std::pair<FireState, std::vector<arma::vec>> {
     // Power: P = v . f  (f is negative gradient, so P > 0 means downhill)
     double power = 0.0;
     for (std::size_t s = 0; s < state.x.size(); ++s) {
@@ -171,12 +161,10 @@ namespace dft::algorithms::fire {
     state.iteration++;
     state.converged = state.rms_force < force_tolerance;
 
-    return {std::move(state), std::move(new_forces)};
+    return { std::move(state), std::move(new_forces) };
   }
 
-  [[nodiscard]] inline auto Fire::minimize(
-      std::vector<arma::vec> x0, const ForceFunction& compute
-  ) const -> FireState {
+  [[nodiscard]] inline auto Fire::minimize(std::vector<arma::vec> x0, const ForceFunction& compute) const -> FireState {
     auto state = initialize(std::move(x0), compute);
     auto [energy, forces] = compute(state.x);
 

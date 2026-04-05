@@ -11,12 +11,12 @@ namespace dft::console {
 
   namespace color {
 
-    inline const std::string RED{"\033[0;31m"};
-    inline const std::string GREEN{"\033[1;32m"};
-    inline const std::string YELLOW{"\033[1;33m"};
-    inline const std::string CYAN{"\033[0;36m"};
-    inline const std::string MAGENTA{"\033[0;35m"};
-    inline const std::string RESET{"\033[0m"};
+    inline const std::string RED{ "\033[0;31m" };
+    inline const std::string GREEN{ "\033[1;32m" };
+    inline const std::string YELLOW{ "\033[1;33m" };
+    inline const std::string CYAN{ "\033[0;36m" };
+    inline const std::string MAGENTA{ "\033[0;35m" };
+    inline const std::string RESET{ "\033[0m" };
 
   }  // namespace color
 
@@ -49,9 +49,13 @@ namespace dft::console {
     }
   }
 
-  inline void new_line() { std::println(std::cout, ""); }
+  inline void new_line() {
+    std::println(std::cout, "");
+  }
 
-  inline void pause() { std::cin.ignore(); }
+  inline void pause() {
+    std::cin.ignore();
+  }
 
   [[nodiscard]] inline auto read_line() -> std::string {
     std::string out;

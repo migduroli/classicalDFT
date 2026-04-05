@@ -35,10 +35,9 @@ namespace dft::functionals::bulk {
 
   namespace hard_sphere {
 
-    [[nodiscard]] inline auto free_energy_density(
-        const fmt::FMTModel& model, const arma::vec& rho,
-        const std::vector<Species>& species
-    ) -> double {
+    [[nodiscard]] inline auto
+    free_energy_density(const fmt::FMTModel& model, const arma::vec& rho, const std::vector<Species>& species)
+        -> double {
       fmt::Measures total;
       for (arma::uword i = 0; i < rho.n_elem; ++i) {
         auto m = fmt::make_uniform_measures(rho(i), species[i].hard_sphere_diameter);
@@ -53,8 +52,10 @@ namespace dft::functionals::bulk {
     }
 
     [[nodiscard]] inline auto excess_chemical_potential(
-        const fmt::FMTModel& model, const arma::vec& rho,
-        const std::vector<Species>& species, arma::uword species_idx
+        const fmt::FMTModel& model,
+        const arma::vec& rho,
+        const std::vector<Species>& species,
+        arma::uword species_idx
     ) -> double {
       fmt::Measures total;
       for (arma::uword i = 0; i < rho.n_elem; ++i) {
@@ -92,9 +93,7 @@ namespace dft::functionals::bulk {
 
   namespace mean_field {
 
-    [[nodiscard]] inline auto free_energy_density(
-        const MeanFieldWeights& weights, const arma::vec& rho
-    ) -> double {
+    [[nodiscard]] inline auto free_energy_density(const MeanFieldWeights& weights, const arma::vec& rho) -> double {
       double f = 0.0;
       for (const auto& iw : weights.interactions) {
         auto i = static_cast<arma::uword>(iw.species_i);
@@ -108,9 +107,8 @@ namespace dft::functionals::bulk {
       return f;
     }
 
-    [[nodiscard]] inline auto chemical_potential(
-        const MeanFieldWeights& weights, const arma::vec& rho, arma::uword species_idx
-    ) -> double {
+    [[nodiscard]] inline auto
+    chemical_potential(const MeanFieldWeights& weights, const arma::vec& rho, arma::uword species_idx) -> double {
       double mu = 0.0;
       for (const auto& iw : weights.interactions) {
         auto i = static_cast<arma::uword>(iw.species_i);
@@ -130,10 +128,8 @@ namespace dft::functionals::bulk {
 
   // Total Helmholtz free energy density (per unit volume, in kT units).
 
-  [[nodiscard]] inline auto free_energy_density(
-      const arma::vec& rho, const std::vector<Species>& species,
-      const Weights& weights
-  ) -> double {
+  [[nodiscard]] inline auto
+  free_energy_density(const arma::vec& rho, const std::vector<Species>& species, const Weights& weights) -> double {
     double f = ideal::free_energy_density(rho);
     f += hard_sphere::free_energy_density(weights.fmt_model, rho, species);
     f += mean_field::free_energy_density(weights.mean_field, rho);
@@ -143,8 +139,10 @@ namespace dft::functionals::bulk {
   // Total chemical potential for species s (in kT units).
 
   [[nodiscard]] inline auto chemical_potential(
-      const arma::vec& rho, const std::vector<Species>& species,
-      const Weights& weights, arma::uword species_idx
+      const arma::vec& rho,
+      const std::vector<Species>& species,
+      const Weights& weights,
+      arma::uword species_idx
   ) -> double {
     double mu = ideal::chemical_potential(rho(species_idx));
     mu += hard_sphere::excess_chemical_potential(weights.fmt_model, rho, species, species_idx);
@@ -154,10 +152,8 @@ namespace dft::functionals::bulk {
 
   // Chemical potentials for all species.
 
-  [[nodiscard]] inline auto chemical_potentials(
-      const arma::vec& rho, const std::vector<Species>& species,
-      const Weights& weights
-  ) -> arma::vec {
+  [[nodiscard]] inline auto
+  chemical_potentials(const arma::vec& rho, const std::vector<Species>& species, const Weights& weights) -> arma::vec {
     arma::vec mu(rho.n_elem);
     for (arma::uword s = 0; s < rho.n_elem; ++s) {
       mu(s) = chemical_potential(rho, species, weights, s);
@@ -167,10 +163,8 @@ namespace dft::functionals::bulk {
 
   // Pressure via P = sum_i rho_i mu_i - f (in kT units).
 
-  [[nodiscard]] inline auto pressure(
-      const arma::vec& rho, const std::vector<Species>& species,
-      const Weights& weights
-  ) -> double {
+  [[nodiscard]] inline auto pressure(const arma::vec& rho, const std::vector<Species>& species, const Weights& weights)
+      -> double {
     double f = free_energy_density(rho, species, weights);
     double p = -f;
     for (arma::uword s = 0; s < rho.n_elem; ++s) {
@@ -181,19 +175,17 @@ namespace dft::functionals::bulk {
 
   // Grand potential density: omega = -P.
 
-  [[nodiscard]] inline auto grand_potential_density(
-      const arma::vec& rho, const std::vector<Species>& species,
-      const Weights& weights
-  ) -> double {
+  [[nodiscard]] inline auto
+  grand_potential_density(const arma::vec& rho, const std::vector<Species>& species, const Weights& weights) -> double {
     return -pressure(rho, species, weights);
   }
 
   // Lightweight interaction data for bulk thermodynamics (no FFT data).
 
   struct BulkInteraction {
-    int species_i{0};
-    int species_j{0};
-    double a_vdw{0.0};
+    int species_i{ 0 };
+    int species_j{ 0 };
+    double a_vdw{ 0.0 };
   };
 
   // The equation of state for a bulk (homogeneous) fluid.
@@ -261,26 +253,22 @@ namespace dft::functionals::bulk {
       return p;
     }
 
-    [[nodiscard]] auto grand_potential_density(const arma::vec& rho) const -> double {
-      return -pressure(rho);
-    }
+    [[nodiscard]] auto grand_potential_density(const arma::vec& rho) const -> double { return -pressure(rho); }
   };
 
   // Factory: construct a BulkThermodynamics from a Weights struct.
 
-  [[nodiscard]] inline auto make_bulk_thermodynamics(
-      const std::vector<Species>& species,
-      const Weights& weights
-  ) -> BulkThermodynamics {
+  [[nodiscard]] inline auto make_bulk_thermodynamics(const std::vector<Species>& species, const Weights& weights)
+      -> BulkThermodynamics {
     std::vector<BulkInteraction> interactions;
     interactions.reserve(weights.mean_field.interactions.size());
     for (const auto& iw : weights.mean_field.interactions) {
-      interactions.push_back({.species_i = iw.species_i, .species_j = iw.species_j, .a_vdw = iw.a_vdw});
+      interactions.push_back({ .species_i = iw.species_i, .species_j = iw.species_j, .a_vdw = iw.a_vdw });
     }
     return BulkThermodynamics{
-        .species = species,
-        .fmt_model = weights.fmt_model,
-        .interactions = std::move(interactions),
+      .species = species,
+      .fmt_model = weights.fmt_model,
+      .interactions = std::move(interactions),
     };
   }
 

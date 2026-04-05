@@ -40,8 +40,7 @@ namespace dft::physics::hard_spheres {
     }
 
     [[nodiscard]] static auto d_excess_free_energy(double eta) -> double {
-      auto [f, df] =
-          math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
+      auto [f, df] = math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
       return df;
     }
 
@@ -81,8 +80,7 @@ namespace dft::physics::hard_spheres {
     }
 
     [[nodiscard]] static auto d_excess_free_energy(double eta) -> double {
-      auto [f, df] =
-          math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
+      auto [f, df] = math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
       return df;
     }
 
@@ -122,8 +120,7 @@ namespace dft::physics::hard_spheres {
     }
 
     [[nodiscard]] static auto d_excess_free_energy(double eta) -> double {
-      auto [f, df] =
-          math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
+      auto [f, df] = math::derivatives_up_to_1([](math::dual x) -> math::dual { return excess_free_energy(x); }, eta);
       return df;
     }
 
@@ -159,29 +156,27 @@ namespace dft::physics::hard_spheres {
   namespace transport {
 
     [[nodiscard]] inline auto bulk_viscosity(double density, double chi) -> double {
-      return (5.0 / (16.0 * std::sqrt(std::numbers::pi))) * (64.0 / 45.0) * std::numbers::pi * density * density *
-          chi;
+      return (5.0 / (16.0 * std::sqrt(std::numbers::pi))) * (64.0 / 45.0) * std::numbers::pi * density * density * chi;
     }
 
     [[nodiscard]] inline auto shear_viscosity(double density, double chi) -> double {
       double term = 1.0 + 4.0 * std::numbers::pi * density * chi / 15.0;
-      return (5.0 / (16.0 * std::sqrt(std::numbers::pi) * chi)) * term * term +
-          0.6 * bulk_viscosity(density, chi);
+      return (5.0 / (16.0 * std::sqrt(std::numbers::pi) * chi)) * term * term + 0.6 * bulk_viscosity(density, chi);
     }
 
     [[nodiscard]] inline auto thermal_conductivity(double density, double chi) -> double {
       double term = 1.0 + 0.4 * std::numbers::pi * density * chi;
-      return (75.0 / (64.0 * std::sqrt(std::numbers::pi) * chi)) * term * term +
-          (128.0 / 225.0) * std::numbers::pi * density * density * chi;
+      return (75.0 / (64.0 * std::sqrt(std::numbers::pi) * chi)) * term * term
+          + (128.0 / 225.0) * std::numbers::pi * density * density * chi;
     }
 
     [[nodiscard]] inline auto sound_damping(double density, double chi) -> double {
       constexpr double CV = 1.5;
       constexpr double CP = 2.5;
       constexpr double GAMMA = CP / CV;
-      return (((GAMMA - 1.0) / CP) * thermal_conductivity(density, chi) +
-              (4.0 / 3.0) * shear_viscosity(density, chi) + bulk_viscosity(density, chi)) /
-          density;
+      return (((GAMMA - 1.0) / CP) * thermal_conductivity(density, chi) + (4.0 / 3.0) * shear_viscosity(density, chi)
+              + bulk_viscosity(density, chi))
+          / density;
     }
 
   }  // namespace transport

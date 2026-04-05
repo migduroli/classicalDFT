@@ -160,7 +160,9 @@ TEST_CASE("excess_chemical_potential matches numerical derivative of rho*f_ex", 
   double rho = 0.3;
   double h = 1e-6;
 
-  auto density_f = [&](double r) { return r * model.excess_free_energy(r); };
+  auto density_f = [&](double r) {
+    return r * model.excess_free_energy(r);
+  };
   double numerical = (density_f(rho + h) - density_f(rho - h)) / (2.0 * h);
   double analytic = model.excess_chemical_potential(rho);
 

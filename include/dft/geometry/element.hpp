@@ -8,7 +8,11 @@
 
 namespace dft::geometry {
 
-  enum class Direction { X = 0, Y = 1, Z = 2 };
+  enum class Direction {
+    X = 0,
+    Y = 1,
+    Z = 2
+  };
 
   struct Element {
     std::vector<Vertex> vertices;

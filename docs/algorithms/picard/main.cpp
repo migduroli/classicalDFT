@@ -31,10 +31,10 @@ int main() {
   double rho_bulk = 0.6;
 
   physics::Model model{
-      .grid = make_grid(dx, {box_x, box_yz, box_yz}),
-      .species = {Species{.name = "HS", .hard_sphere_diameter = sigma}},
-      .interactions = {},
-      .temperature = temperature,
+    .grid = make_grid(dx, { box_x, box_yz, box_yz }),
+    .species = { Species{ .name = "HS", .hard_sphere_diameter = sigma } },
+    .interactions = {},
+    .temperature = temperature,
   };
 
   auto func = functionals::make_functional(functionals::fmt::WhiteBearII{}, model);
@@ -50,8 +50,8 @@ int main() {
   // Bulk chemical potential at the target density.
 
   auto eos = func.bulk();
-  double mu_bulk = eos.chemical_potential(arma::vec{rho_bulk}, 0);
-  double p_bulk = eos.pressure(arma::vec{rho_bulk});
+  double mu_bulk = eos.chemical_potential(arma::vec{ rho_bulk }, 0);
+  double p_bulk = eos.pressure(arma::vec{ rho_bulk });
 
   std::println(std::cout, "  mu_bulk:     {:.6f}", mu_bulk);
   std::println(std::cout, "  P_bulk:      {:.6f}\n", p_bulk);
@@ -59,9 +59,8 @@ int main() {
   // Initial density: uniform with a small sinusoidal perturbation.
 
   arma::vec x_vals = arma::linspace(0.0, (nx - 1) * func.model.grid.dx, nx);
-  arma::vec profile_1d = rho_bulk * (1.0 + 0.05 * arma::sin(
-      2.0 * arma::datum::pi * x_vals / func.model.grid.box_size[0]
-  ));
+  arma::vec profile_1d = rho_bulk
+      * (1.0 + 0.05 * arma::sin(2.0 * arma::datum::pi * x_vals / func.model.grid.box_size[0]));
 
   arma::vec rho_init = arma::repelem(profile_1d, ny * nz, 1);
 
@@ -82,16 +81,14 @@ int main() {
   console::info("Running Picard iteration");
 
   algorithms::picard::Picard picard_config{
-      .mixing = 0.005,
-      .min_density = 1e-30,
-      .tolerance = 1e-8,
-      .max_iterations = 5000,
-      .log_interval = 500,
+    .mixing = 0.005,
+    .min_density = 1e-30,
+    .tolerance = 1e-8,
+    .max_iterations = 5000,
+    .log_interval = 500,
   };
 
-  auto picard_result = picard_config.solve(
-      {rho_init}, force_fn, func.model.grid.cell_volume()
-  );
+  auto picard_result = picard_config.solve({ rho_init }, force_fn, func.model.grid.cell_volume());
 
   std::println(std::cout, "\n=== Picard result ===\n");
   std::println(std::cout, "  Converged:        {}", picard_result.converged ? "true" : "false");
@@ -111,13 +108,11 @@ int main() {
 
   // Verify that Omega/V = -P_bulk.
 
-  double volume = func.model.grid.cell_volume()
-                  * static_cast<double>(func.model.grid.total_points());
+  double volume = func.model.grid.cell_volume() * static_cast<double>(func.model.grid.total_points());
   double omega_per_vol = picard_result.grand_potential / volume;
   std::println(std::cout, "  Omega/V:          {:.6f}", omega_per_vol);
   std::println(std::cout, "  -P_bulk:          {:.6f}", -p_bulk);
-  std::println(std::cout, "  relative error:   {:.6e}",
-               std::abs(omega_per_vol + p_bulk) / p_bulk);
+  std::println(std::cout, "  relative error:   {:.6e}", std::abs(omega_per_vol + p_bulk) / p_bulk);
 
   // Collect plot data.
 

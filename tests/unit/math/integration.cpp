@@ -55,7 +55,7 @@ TEST_CASE("integrate_infinite on Gaussian", "[integration]") {
 }
 
 TEST_CASE("custom integration config tolerances", "[integration]") {
-  IntegrationConfig cfg{.absolute_tolerance = 1e-12, .relative_tolerance = 1e-12, .workspace_size = 2000};
+  IntegrationConfig cfg{ .absolute_tolerance = 1e-12, .relative_tolerance = 1e-12, .workspace_size = 2000 };
   Integrator ig([](double x) { return std::exp(-x * x); }, cfg);
   auto r = ig.integrate(-5.0, 5.0);
   CHECK(r.value == Catch::Approx(std::sqrt(M_PI)).epsilon(1e-10));
