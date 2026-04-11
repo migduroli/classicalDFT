@@ -46,15 +46,15 @@ RESULTS_FILE="${1:-doc-results.md}"
 
 run_inside_docker() {
   # Configure
-  message "info" "Configuring doc examples build"
+  message "info" "Configuring doc examples build" >&2
   cmake -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DDFT_BUILD_TESTS=OFF \
     -DDFT_BUILD_DOCS=ON \
-    -DDFT_USE_MATPLOTLIB=OFF
+    -DDFT_USE_MATPLOTLIB=OFF >&2
 
   # Phase 1: build all doc targets (compilation check)
-  message "info" "Phase 1: compiling all doc examples"
+  message "info" "Phase 1: compiling all doc examples" >&2
 
   local compile_fail=false
   declare -A build_status
@@ -71,7 +71,7 @@ run_inside_docker() {
   done
 
   # Phase 2: build and run all check targets (cross-validation)
-  message "info" "Phase 2: building and running cross-validation checks"
+  message "info" "Phase 2: building and running cross-validation checks" >&2
 
   declare -A check_build_status
   declare -A check_run_status
@@ -160,11 +160,11 @@ if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
   if [[ -f /.dockerenv ]]; then
     run_inside_docker
   else
-    # Write results to mounted 'coverage/' dir so they survive container exit
-    mkdir -p coverage
+    # Inner script sends log messages to stderr and the markdown table to stdout.
+    # Capture stdout into the results file; stderr passes through to the console.
     local_rc=0
-    docker compose run --rm -T app scripts/docs coverage/doc-results.md || local_rc=$?
-    cp coverage/doc-results.md "${RESULTS_FILE}" 2>/dev/null || true
+    docker compose run --rm -T app scripts/docs > "${RESULTS_FILE}" || local_rc=$?
+    cat "${RESULTS_FILE}"
     exit "$local_rc"
   fi
 fi

@@ -97,12 +97,7 @@ jobs:
       - name: Run doc examples and checks
         id: doc-check
         continue-on-error: true
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /app \
-            ${{ env.DOCKER_IMAGE }}:local \
-            bash -c "scripts/docs /workspace/doc-results.md"
+        run: ./scripts/docs doc-results.md
       - name: Post results to PR
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
