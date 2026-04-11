@@ -251,7 +251,8 @@ namespace {
               .tolerance = 1e-4,
               .max_iterations = 300,
               .hessian_eps = 1e-6,
-              .log_interval = 0
+              .log_interval = 0,
+              .boundary_mask = fx.boundary,
           }
               .solve(eig_force_fn, fx.our_cluster);
 

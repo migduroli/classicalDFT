@@ -1,0 +1,77 @@
+-- OpenMP: using Homebrew libomp from /opt/homebrew/opt/libomp
+-- Eigen library has been found.
+-- No CUDA compiler found
+-- FFTW3 threads: enabled (/opt/homebrew/Cellar/fftw/3.3.10_3/lib/libfftw3_threads.dylib)
+-- OpenMP: enabled
+-- Configuring done (3.7s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/migduroli/dev/personal/classicalDFT/build-local
+[ 75%] Built target classicaldft
+[ 87%] Building CXX object docs/CMakeFiles/doc_nucleation.dir/nucleation/main.cpp.o
+[100%] Linking CXX executable doc_nucleation
+[100%] Built target doc_nucleation
+Potential: LennardJones  split: WeeksChandlerAndersen  hsd_scheme: WeeksChandlerAndersen  kT=0.5000
+Coexistence: rho_v=0.000192  rho_l=0.834125
+Spinodal (vapor): rho_sp=0.041734  S_max=217.22
+Supersaturation: S=4.0000  rho_out=0.000769  mu=-7.189820
+Initial seed: Crystal
+Seed centre: (7.000, 7.000, 2.258)
+Export directory: exports/LJ_WCA_Wall_T0.5_S4
+  exports/LJ_WCA_Wall_T0.5_S4/initial_condition.png
+  exports/LJ_WCA_Wall_T0.5_S4/initial_condition_sections_full.png
+  exports/LJ_WCA_Wall_T0.5_S4/initial_condition_sections.png
+Periodic predictor: solving homogeneous critical droplet
+    iter               F         monitor          dt
+  --------------------------------------------------
+       0     -475.053385    4.360498e-02    1.00e-01
+     686     -583.888938    9.956796e-09    8.84e-02
+Periodic predictor done: converged=true  iters=686  F=-583.888938  excess_mass=92.851504  elapsed=20.9s
+Wall background: solving grand-potential minimum at final wall field
+    iter           Omega         monitor          dt
+  --------------------------------------------------
+       0       -1.568479    1.067521e-05    2.00e-02
+      20       -1.568487    7.754157e-05    8.35e-02
+      40       -1.568589    9.440058e-06    2.50e-01
+Wall background done: converged=true  iters=40  Omega=-1.568589  elapsed=12.8s
+    iter               F         monitor          dt
+  --------------------------------------------------
+       0     -512.673963    5.586433e-03    1.00e-01
+     233     -622.918138    9.956659e-09    5.00e-01
+Constrained solve done: converged=true  iters=233  F=-622.918138  excess_mass=92.851504  elapsed=70.4s
+
+Critical cluster:
+  converged=true (233 iters)
+  R_eff=2.9886  background=0.000762
+  rho_v(mu)=0.000769  rho_l(mu)=0.870105
+  Delta_Omega=57.664387  (barrier height)
+
+Exporting critical-cluster preview...
+  exports/LJ_WCA_Wall_T0.5_S4/critical_cluster.png
+  exports/LJ_WCA_Wall_T0.5_S4/critical_cluster_1d.png
+  exports/LJ_WCA_Wall_T0.5_S4/critical_cluster_sections_preview.png
+  exports/LJ_WCA_Wall_T0.5_S4/critical_cluster_sections_packing_preview.png
+    iter      eigenvalue        residual
+  ----------------------------------------
+       0    5.864377e+05    6.298154e+08
+      20    3.224577e+08    2.817523e+08
+      40    1.002426e+08    1.897706e+08
+      60    1.647479e+08    1.266449e+08
+      80    8.639070e+07    1.928864e+08
+     100    1.068735e+08    4.486636e+08
+     120    1.154247e+08    4.207584e+08
+     140    3.297274e+08    3.638342e+08
+     160    3.758934e+08    5.005749e+08
+     180    2.285127e+07    4.874916e+07
+     200    1.303491e+08    4.154585e+08
+     220    3.723199e+08    5.032385e+08
+     240    2.285139e+07    4.874910e+07
+     260    1.303491e+08    4.154585e+08
+     280    3.723199e+08    5.032385e+08
+
+Eigenvalue: 22851388.888975  converged=false
+
+Growth (perturb along +eigenvector):
+      step            time            dt             Delta_E            mass
+  --------------------------------------------------------------------------
+         0        0.000000  1.000000e-02    437489952.016531       98.229466
+make: *** [run-local] Terminated: 15

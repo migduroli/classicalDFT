@@ -1,6 +1,5 @@
 #include "legacy/algorithms.hpp"
 #include "legacy/classicaldft.hpp"
-#include "plot.hpp"
 #include "utils.hpp"
 
 #include <dftlib>
@@ -31,13 +30,8 @@ int main() {
 #ifdef DOC_SOURCE_DIR
   std::filesystem::current_path(DOC_SOURCE_DIR);
 #endif
-  std::filesystem::create_directories("exports");
   std::cout << std::fixed << std::setprecision(12);
   std::cout << std::unitbuf; // flush after every output
-
-#ifdef DFT_HAS_MATPLOTLIB
-  matplotlibcpp::backend("Agg");
-#endif
 
   auto cfg = config::parse_config("check/config.ini", config::FileType::INI);
 
@@ -302,8 +296,8 @@ int main() {
   std::cout << "  Jim QF grid a_vdw/kT:            " << jim_wt.a_vdw_over_kT << "\n";
   std::cout << "  Difference = " << (weights.mean_field.interactions[0].a_vdw - jim_wt.a_vdw_over_kT) << "\n\n";
 
-  auto r = nucleation::radial_distances(model.grid);
-  arma::vec rho0 = nucleation::step_function(r, R0, rho_l, rho_out);
+  auto r = model.grid.radial_distances();
+  arma::vec rho0 = dft::StepProfile{.radius = R0, .rho_in = rho_l, .rho_out = rho_out}.apply(r);
   double target_mass = arma::accu(rho0) * model.grid.cell_volume();
 
   std::cout << "  Initial: rho_in=" << rho_l << " rho_out=" << rho_out << " R=" << R0 << "\n";
@@ -462,7 +456,7 @@ int main() {
   // ================================================================
 
   double delta_rho = rho_l - rho_v;
-  double R_eff = nucleation::effective_radius(cluster.densities[0], background, delta_rho, model.grid.cell_volume());
+  double R_eff = dft::effective_radius(cluster.densities[0], background, delta_rho, model.grid.cell_volume());
   std::cout << "  R_eff = " << R_eff << "\n";
 
   if (R_eff < 0.5 || cluster.densities[0].max() < 2.0 * background) {
@@ -556,8 +550,10 @@ int main() {
       dft::math::FourierTransform rho_ft(shape);
       rho_ft.set_real(rho_c);
       rho_ft.forward();
+      dft::math::ConvolutionWorkspace workspace(shape);
 
-      auto wd = dft::functionals::detail::convolve_weights(esfmt_weights.fmt.per_species[0], rho_ft.fourier(), shape);
+      auto wd =
+          dft::functionals::detail::convolve_weights(esfmt_weights.fmt.per_species[0], rho_ft.fourier(), workspace);
 
       double max_phi3_diff = 0.0;
       double max_dphi3_dn2_diff = 0.0;
@@ -660,6 +656,7 @@ int main() {
           .max_iterations = config::get<int>(cfg, "eigen.max_iterations"),
           .hessian_eps = config::get<double>(cfg, "eigen.hessian_eps"),
           .log_interval = config::get<int>(cfg, "eigen.log_interval"),
+          .boundary_mask = bdry,
       }
           .solve(eig_force_fn, cluster.densities[0]);
 
@@ -699,136 +696,6 @@ int main() {
   }
   std::cout << "\n  Eigenvalue comparison done.\n";
 
-  // ================================================================
-  // Diagnostics: dump slices for comparison with Jim's code
-  // ================================================================
-
-  {
-    long nx = model.grid.shape[0];
-    long ny = model.grid.shape[1];
-    long nz = model.grid.shape[2];
-    double centre = model.grid.box_size[0] / 2.0;
-    arma::vec rho_c = cluster.densities[0];
-    arma::vec ev = eig_result.eigenvector;
-
-    // 1. X-slice through centre: rho(x, Ny/2, Nz/2) and eigenvector
-    {
-      std::ofstream f("exports/x_slice.csv");
-      f << "x,rho,eigvec\n" << std::setprecision(15);
-      long iy = ny / 2;
-      long iz = nz / 2;
-      for (long ix = 0; ix < nx; ++ix) {
-        auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
-        f << (ix * dx - centre) << "," << rho_c(idx) << "," << ev(idx) << "\n";
-      }
-    }
-
-    // 2. Y-slice through centre: rho(Nx/2, y, Nz/2)
-    {
-      std::ofstream f("exports/y_slice.csv");
-      f << "y,rho,eigvec\n" << std::setprecision(15);
-      long ix = nx / 2;
-      long iz = nz / 2;
-      for (long iy = 0; iy < ny; ++iy) {
-        auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
-        f << (iy * dx - centre) << "," << rho_c(idx) << "," << ev(idx) << "\n";
-      }
-    }
-
-    // 3. 2D slice rho(x,y) at z=Nz/2
-    {
-      std::ofstream f("exports/xy_plane.csv");
-      f << "ix,iy,x,y,rho,eigvec\n" << std::setprecision(15);
-      long iz = nz / 2;
-      for (long ix = 0; ix < nx; ++ix) {
-        for (long iy = 0; iy < ny; ++iy) {
-          auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
-          f << ix << "," << iy << "," << (ix * dx - centre) << "," << (iy * dx - centre) << "," << rho_c(idx) << ","
-            << ev(idx) << "\n";
-        }
-      }
-    }
-
-    // 4. Radial profile (azimuthal average)
-    {
-      std::ofstream f("exports/radial.csv");
-      f << "r,rho,eigvec,count\n" << std::setprecision(15);
-      long n_bins = static_cast<long>(centre / dx) + 1;
-      arma::vec sum_rho(static_cast<arma::uword>(n_bins), arma::fill::zeros);
-      arma::vec sum_ev(static_cast<arma::uword>(n_bins), arma::fill::zeros);
-      arma::ivec cnt(static_cast<arma::uword>(n_bins), arma::fill::zeros);
-
-      for (long ix = 0; ix < nx; ++ix) {
-        double rx = ix * dx - centre;
-        for (long iy = 0; iy < ny; ++iy) {
-          double ry = iy * dx - centre;
-          for (long iz2 = 0; iz2 < nz; ++iz2) {
-            double rz = iz2 * dx - centre;
-            double rad = std::sqrt(rx * rx + ry * ry + rz * rz);
-            long bin = static_cast<long>(rad / dx);
-            if (bin < n_bins) {
-              auto b = static_cast<arma::uword>(bin);
-              auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz2));
-              sum_rho(b) += rho_c(idx);
-              sum_ev(b) += ev(idx);
-              cnt(b) += 1;
-            }
-          }
-        }
-      }
-      for (arma::uword i = 0; i < static_cast<arma::uword>(n_bins); ++i) {
-        if (cnt(i) > 0) {
-          f << ((i + 0.5) * dx) << "," << (sum_rho(i) / cnt(i)) << "," << (sum_ev(i) / cnt(i)) << "," << cnt(i) << "\n";
-        }
-      }
-    }
-
-    // 5. Eigenvector statistics
-    double ev_max = ev.max();
-    double ev_min = ev.min();
-    auto idx_max = ev.index_max();
-    auto idx_min = ev.index_min();
-    long ix_max = static_cast<long>(idx_max) / (ny * nz);
-    long iy_max = (static_cast<long>(idx_max) / nz) % ny;
-    long iz_max = static_cast<long>(idx_max) % nz;
-    long ix_min = static_cast<long>(idx_min) / (ny * nz);
-    long iy_min = (static_cast<long>(idx_min) / nz) % ny;
-    long iz_min = static_cast<long>(idx_min) % nz;
-
-    std::cout << "\n  Eigenvector diagnostics:\n";
-    std::cout << "    ev range: [" << ev_min << ", " << ev_max << "]\n";
-    std::cout << "    ev max at (" << ix_max << "," << iy_max << "," << iz_max << ")\n";
-    std::cout << "    ev min at (" << ix_min << "," << iy_min << "," << iz_min << ")\n";
-    std::cout << "    ev(centre) = " << ev(static_cast<arma::uword>(model.grid.flat_index(nx / 2, ny / 2, nz / 2)))
-              << "\n";
-    std::cout << "    ev norm = " << arma::norm(ev) << "\n";
-    std::cout << "    ev mass = " << arma::accu(ev) * model.grid.cell_volume() << "\n";
-
-    // 6. Perturbed profile diagnostics
-    double ps = config::get<double>(cfg, "ddft.perturb_scale");
-    arma::vec rho_plus = rho_c + ps * ev;
-    arma::vec rho_minus = rho_c - ps * ev;
-    {
-      std::ofstream f("exports/perturbed_x_slice.csv");
-      f << "x,rho_cluster,rho_plus,rho_minus\n" << std::setprecision(15);
-      long iy = ny / 2;
-      long iz = nz / 2;
-      for (long ix = 0; ix < nx; ++ix) {
-        auto idx = static_cast<arma::uword>(model.grid.flat_index(ix, iy, iz));
-        f << (ix * dx - centre) << "," << rho_c(idx) << "," << rho_plus(idx) << "," << rho_minus(idx) << "\n";
-      }
-    }
-    std::cout << "    rho_cluster(centre) = "
-              << rho_c(static_cast<arma::uword>(model.grid.flat_index(nx / 2, ny / 2, nz / 2))) << "\n";
-
-    // Mass of perturbation
-    double mass_plus = arma::accu(rho_plus) * model.grid.cell_volume();
-    double mass_minus = arma::accu(rho_minus) * model.grid.cell_volume();
-    double mass_cluster = arma::accu(rho_c) * model.grid.cell_volume();
-    std::cout << "    mass: cluster=" << mass_cluster << " plus=" << mass_plus << " minus=" << mass_minus << "\n";
-
-    std::cout << "\n  CSV files written to exports/\n";
-  }
   std::cout << "\n================================================================\n";
   std::cout << "  Phase 3: DDFT dynamics (step-by-step comparison)\n";
   std::cout << "================================================================\n\n";
@@ -1018,24 +885,6 @@ int main() {
   arma::vec rho_grow = rho_cluster + perturb_scale * eig_result.eigenvector;
   rho_grow = arma::clamp(rho_grow, 1e-18, arma::datum::inf);
   auto sim_grow = sim_cfg.run({rho_grow}, model.grid, ddft_force_fn);
-
-#ifdef DFT_HAS_MATPLOTLIB
-  std::cout << "\n  Generating plots...\n";
-  std::string export_dir = "exports/RSLT";
-  std::filesystem::create_directories(export_dir);
-  plot::make_plots(
-      nucleation::extract_x_slice(rho_cluster, model.grid),
-      nucleation::extract_x_slice(rho0, model.grid),
-      nucleation::extract_dynamics(sim_shrink, model.grid, r, background, delta_rho),
-      nucleation::extract_dynamics(sim_grow, model.grid, r, background, delta_rho),
-      {.radius = R_eff, .energy = cluster_result.grand_potential},
-      omega_bg,
-      rho_v,
-      rho_l,
-      "RSLT",
-      export_dir
-  );
-#endif
 
   std::cout << "\nDone.\n";
 }

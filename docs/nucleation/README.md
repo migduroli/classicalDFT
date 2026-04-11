@@ -7,9 +7,40 @@ and (3) simulating the post-critical dynamics in both the dissolution and growth
 directions. Each phase is described in full below, with the theoretical
 motivation, the algorithmic strategy, and the corresponding library calls.
 
+The program supports both **homogeneous nucleation** (HON, periodic box) and
+**heterogeneous nucleation** (HEN, wall-attached droplets) from a single
+executable; the scenario is selected by the TOML configuration file.
+
+<p align="center">
+  <img src="exports/WhiteBearII/lj_hon.gif" alt="LJ homogeneous nucleation dynamics" width="700"/>
+</p>
+
 ---
 
 ## 1. Setting up the model
+
+### Key library types
+
+The library is built around a small number of value types that carry all
+configuration for a DFT calculation:
+
+| Type | Header | Role |
+|------|--------|------|
+| `Grid` | `dft/grid.hpp` | Spatial discretisation (box size, spacing, periodicity) |
+| `Species` | `dft/types.hpp` | Per-species data (name, hard-sphere diameter) |
+| `Interaction` | `dft/physics/interactions.hpp` | Pair potential, splitting scheme, convolution quadrature |
+| `physics::Model` | `dft/physics/model.hpp` | Aggregate of `Grid` + species + interactions + temperature |
+| `functionals::Functional` | `dft/functionals/functional.hpp` | Owns a `Model` and pre-computed convolution `Weights`; entry point for all evaluations |
+
+A `Functional` is constructed from a `Model` and an FMT variant via
+`make_functional`. It exposes:
+
+- `evaluate(rho, mu)` / `evaluate(rho, mu, external_field)` returning
+  `Result{free_energy, grand_potential, forces}`
+- `bulk()` returning a `BulkThermodynamics` object (pressure, chemical
+  potential, coexistence search)
+- `grand_potential_callback(mu, ...)` returning a `ForceCallback` suitable
+  for DDFT time integration
 
 ### The Lennard-Jones fluid
 
@@ -35,13 +66,15 @@ In the library this is set up with a single declarative `Model` struct:
 
 ```cpp
 physics::Model model{
-    .grid = make_grid(dx, {box_length, box_length, box_length}),
-    .species = {Species{.name = "LJ",
-                        .hard_sphere_diameter =
-                            make_lennard_jones(sigma, epsilon, rcut)
-                                .hard_sphere_diameter(kT, SplitScheme::WeeksChandlerAndersen)}},
+    .grid = make_grid(dx, box_size, {true, true, !has_wall}),
+    .species = {Species{
+        .name = "LJ",
+        .hard_sphere_diameter =
+            potential.hard_sphere_diameter(kT, SplitScheme::WeeksChandlerAndersen),
+    }},
     .interactions = {{
-        .species_i = 0, .species_j = 0,
+        .species_i = 0,
+        .species_j = 0,
         .potential = make_lennard_jones(sigma, epsilon, rcut),
         .split = SplitScheme::WeeksChandlerAndersen,
         .weight_scheme = physics::WeightScheme::InterpolationQuadraticF,
@@ -77,36 +110,36 @@ $$
 F_{\mathrm{mf}} = \frac{1}{2}\iint \rho(\mathbf{r})\,w_{\mathrm{att}}(|\mathbf{r}-\mathbf{r}'|)\,\rho(\mathbf{r}')\,d\mathbf{r}\,d\mathbf{r}'
 $$
 
-The FMT variant is selected at runtime from the `config.ini` file (see below),
-and all convolution weights (FMT + mean-field) are built in one call:
+The FMT variant is selected at runtime from the TOML config file, and all
+convolution weights (FMT + mean-field) are built in one call:
 
 ```cpp
-auto fmt_name = config::get<std::string>(cfg, "model.fmt_model");
 auto func = functionals::make_functional(
-    functionals::fmt::FMTModel::from_name(fmt_name), model);
+    functionals::fmt::FMTModel::from_name(cfg.model.functional.name), model);
 ```
 
-This creates a `Functional` object that owns the physics model, the
+This creates a `Functional` object that owns the physics `Model`, the
 inhomogeneous convolution weights (`func.weights`), and the analytical bulk
-weights (`func.bulk_weights`). All subsequent operations go through `func`.
+weights (`func.bulk_weights`). Every subsequent operation (evaluation,
+coexistence search, force callbacks) goes through `func`.
 
 ### Bulk thermodynamics and coexistence
 
 Liquid-vapor coexistence is found by equating chemical potentials and pressures
-of the bulk EOS at a range of densities. The library provides a Newton-based
-solver wrapped in `PhaseSearch`:
+of the bulk EOS at a range of densities. The `BulkThermodynamics` object
+returned by `func.bulk()` provides `pressure(rho)`,
+`chemical_potential(rho, species)`, and `free_energy_density(rho)` from the
+pre-computed analytical bulk weights. `PhaseSearch` wraps a Newton solver that
+scans along the EOS and converges on the coexistence tie-line:
 
 ```cpp
 auto eos = func.bulk();
 auto coex = functionals::bulk::PhaseSearch{
-    .rho_max = 1.0, .rho_scan_step = 0.005,
+    .rho_max = 1.0,
+    .rho_scan_step = 0.005,
     .newton = {.max_iterations = 300, .tolerance = 1e-10},
 }.find_coexistence(eos);
 ```
-
-The `func.bulk()` method creates a `BulkThermodynamics` object from the
-pre-computed analytical bulk weights, providing `eos.pressure(rho)`,
-`eos.chemical_potential(rho, species)`, and `eos.free_energy_density(rho)`.
 
 This returns the coexistence densities $\rho_v$ and $\rho_l$. The
 supersaturation is defined as $S = \rho_{\mathrm{out}} / \rho_v$, where
@@ -121,8 +154,23 @@ sets the thermodynamic driving force for nucleation.
 
 ### Configuration
 
-All model, solver, and dynamics parameters live in `config.ini` and are
-parsed at startup. The values used in this document are:
+All model, solver, and dynamics parameters are specified in TOML configuration
+files under `config/`. The scenario is selected at the command line:
+
+```bash
+doc_nucleation --config config/lj_hon.toml   # homogeneous nucleation
+doc_nucleation --config config/lj_hen.toml   # heterogeneous (wall) nucleation
+```
+
+Three configurations are provided:
+
+| File | Scenario | Notes |
+|------|----------|-------|
+| `config/lj_hon.toml` | LJ homogeneous nucleation | Periodic box, droplet seed |
+| `config/lj_hen.toml` | LJ heterogeneous nucleation | LJ 9-3 wall, crystalline seed |
+| `config/tWF_hon.toml` | Ten Wolde-Frenkel HON | Alternative potential |
+
+The HON reference values used in this document are:
 
 | Parameter | Symbol | Value |
 |-----------|--------|-------|
@@ -258,9 +306,46 @@ auto cluster = algorithms::minimization::Minimizer{
 }.fixed_mass(func.model, func.weights, rho0, mu_out, target_mass);
 ```
 
-The `Minimizer` struct configures the FIRE2 engine and parametrization, then
-`.fixed_mass(...)` runs the constrained minimization using the weights owned
-by the `Functional` object.
+The `Minimizer` struct configures the FIRE2 engine (`fire`), the
+parametrization scheme (`param`), and the boundary treatment. Three constrained
+minimization modes are available: `.fixed_mass(...)` for HON,
+`.fixed_excess_mass(...)` for HEN, and `.grand_potential(...)` for
+unconstrained minimization (e.g. computing the wall background profile).
+
+### Wall-attached clusters
+
+With an external wall potential the background is not uniform, so constraining
+the total mass is the wrong problem: the wall layering and the droplet excess
+get mixed by every mass rescaling step. The wall workflow therefore separates
+the two pieces:
+
+1. Minimize the grand potential once at the final wall field to obtain the
+   equilibrium wall background $
+ho_{\mathrm{bg}}(\mathbf{r})$.
+2. Build an attached seed on top of that background.
+3. Minimize the Helmholtz free energy at fixed excess mass
+   $N_{\mathrm{ex}} = \int (\rho - \rho_{\mathrm{bg}}) \, d\mathbf{r}$.
+
+In code this uses `.fixed_excess_mass(...)` rather than `.fixed_mass(...)`:
+
+```cpp
+auto rho_background = background_solver.grand_potential(
+    func.model, func.weights, background_guess, mu_out, wall_field
+).densities[0];
+
+auto cluster = algorithms::minimization::Minimizer{/* ... */}.fixed_excess_mass(
+    func.model,
+    func.weights,
+    rho0,
+    mu_out,
+    rho_background,
+    target_excess_mass,
+    wall_field
+);
+```
+
+This keeps the wall adsorption profile fixed in the constraint and removes the
+need for the old multi-stage wall continuation.
 
 ### Effective radius and barrier height
 
@@ -354,19 +439,26 @@ the box faces:
 
 ```cpp
 auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
-    auto result = func.evaluate(rho, mu_bg);
-    return {result.grand_potential, fixed_boundary(result.forces[0], bdry)};
+    auto result = func.evaluate(rho, mu_bg, wall_field);
+    return {result.grand_potential, fixed_boundary(result.forces[0], eig_bdry)};
 };
 
-auto eig = algorithms::saddle_point::EigenvalueSolver{
-    .tolerance = 1e-4, .max_iterations = 300,
-    .hessian_eps = 1e-6, .log_interval = 20,
-}.solve(eig_force_fn, cluster.densities[0]);
+auto eig =
+    algorithms::saddle_point::EigenvalueSolver{
+        .tolerance = 1e-4,
+        .max_iterations = 300,
+        .hessian_eps = 1e-6,
+        .log_interval = 20,
+        .boundary_mask = eig_bdry,
+    }
+        .solve(eig_force_fn, rho_critical, eig_init);
 ```
 
-The `func.evaluate(rho, mu_bg)` convenience method replaces the manual
-`init::from_profile` / `functionals::total` sequence with a single call that
-returns `{free_energy, grand_potential, forces}`.
+The `EigenvalueSolver` struct configures the LOBPCG iteration. The
+`boundary_mask` field ensures the eigenvector is projected to zero at masked
+grid points (box faces and the wall depletion zone) at every iteration,
+yielding a symmetric projected Hessian $P H P$. `.solve()` returns an
+`EigenResult{eigenvalue, eigenvector, converged, iterations}`.
 
 A negative eigenvalue ($\lambda_{\min} < 0$) confirms the saddle point.
 
@@ -398,9 +490,9 @@ After this convention:
 - $\rho^* - s\,\mathbf{e}$: the droplet **dissolves** back to the vapor
 
 ```cpp
-arma::vec ev = eig.eigenvector;
-double delta_mass = arma::accu(ev) * model.grid.cell_volume();
-if (delta_mass < 0.0) ev = -ev;
+arma::vec ev = algorithms::saddle_point::orient_eigenvector(
+    eig.eigenvector, model.grid.cell_volume()
+);
 ```
 
 ### The DDFT equation
@@ -418,32 +510,68 @@ derivation).
 
 ### Running the simulations
 
-```cpp
-auto gc_force_fn = func.grand_potential_callback(mu_bg);
+For homogeneous nucleation (periodic box), boundary cells are pinned to the
+background density via `reservoir_boundary`. For heterogeneous nucleation (wall),
+the depletion zone near the wall contains extremely small densities where
+$1/\rho \sim 10^{18}$. Three mechanisms keep the spectral DDFT scheme stable:
 
-algorithms::dynamics::Simulation ddft_cfg{
-    .step = {.dt = 0.01, .diffusion_coefficient = 1.0, .min_density = 1e-18,
-             .dt_max = 1.0, .fp_tolerance = 1e-4, .fp_max_iterations = 100},
-    .n_steps = 25000,
-    .snapshot_interval = 10,
-    .log_interval = 100,
+1. `grand_potential_callback(mu, wall_field, frozen_mask)` zeros forces at
+   frozen grid points before they enter the Fourier RHS.
+2. `frozen_boundary(mask, reference)` pins densities at masked points to their
+   critical-cluster values after each fixed-point iteration.
+3. `frozen_mask` in the `Simulation` struct zeros the finite-difference RHS at
+   frozen points before the FFT, preventing spectral leakage.
+
+```cpp
+auto gc_force_fn = func.grand_potential_callback(mu_bg, wall_field, frozen_mask);
+
+algorithms::dynamics::Simulation ddft{
+    .step =
+        {.dt = cfg.ddft.dt,
+         .diffusion_coefficient = 1.0,
+         .min_density = 1e-18,
+         .dt_max = cfg.ddft.dt_max,
+         .fp_tolerance = 1e-4,
+         .fp_max_iterations = 100},
+    .n_steps = cfg.ddft.n_steps,
+    .snapshot_interval = cfg.ddft.snapshot_interval,
+    .log_interval = cfg.ddft.log_interval,
     .energy_offset = omega_bg,
-    .boundary = algorithms::dynamics::reservoir_boundary(bdry, background),
+    .boundary = algorithms::dynamics::frozen_boundary(frozen_mask, rho_critical),
+    .frozen_mask = frozen_mask,
 };
 
-arma::vec rho_grow = cluster.densities[0] + perturb_scale * ev;
-auto sim_grow = ddft_cfg.run({rho_grow}, func.model.grid, gc_force_fn);
+arma::vec ev = algorithms::saddle_point::orient_eigenvector(
+    eig.eigenvector, func.model.grid.cell_volume()
+);
 
-arma::vec rho_shrink = cluster.densities[0] - perturb_scale * ev;
-auto sim_shrink = ddft_cfg.run({rho_shrink}, func.model.grid, gc_force_fn);
+auto rho_grow = algorithms::saddle_point::eigenvector_perturbation(
+    rho_critical, ev, perturb_scale, +1.0
+);
+auto sim_grow = ddft.run({rho_grow}, func.model.grid, gc_force_fn);
+
+auto rho_shrink = algorithms::saddle_point::eigenvector_perturbation(
+    rho_critical, ev, perturb_scale, -1.0
+);
+auto sim_shrink = ddft.run({rho_shrink}, func.model.grid, gc_force_fn);
 ```
 
-The `func.grand_potential_callback(mu_bg)` method returns a `ForceCallback`
-that internally builds a `State`, evaluates the full functional, and returns
-`{Omega, forces}`. The `reservoir_boundary` applies Dirichlet boundary
-conditions: boundary cells are reset to the background density after each
-step, allowing mass to flow in and out of the simulation box as in Lutsko's
-grand-canonical scheme.
+The `Functional::grand_potential_callback` method returns a `ForceCallback`
+(a callable `(vector<vec>) -> pair<double, vector<vec>>`) that internally
+builds a `State`, evaluates the full functional, zeros forces at masked
+points, and returns `{Omega, forces}`. The three-argument overload
+`(mu, external_field, boundary_mask)` is essential for wall simulations
+where force values at depletion-zone points would otherwise overflow.
+
+The `Simulation` struct configures the integrating-factor time stepper.
+`StepConfig` controls the adaptive timestep (`dt`, `dt_max`), fixed-point
+iteration (`fp_tolerance`, `fp_max_iterations`), and density floor
+(`min_density`). Two boundary factories are provided:
+- `reservoir_boundary(mask, rho_bg)` pins boundary cells to a uniform density
+- `frozen_boundary(mask, reference)` pins cells to per-point reference values
+
+`.run(initial_densities, grid, force_callback)` returns a
+`SimulationResult{densities, snapshots, energies, times}`.
 
 ### Tracking the pathway
 
@@ -524,6 +652,32 @@ original classicalDFT library (the `legacy/` adapter).
 ## 6. Build and run
 
 ```bash
-make run-local  # local build (runs the full nucleation workflow)
-make run-checks # cross-validation against legacy code
+# Homogeneous nucleation (default: config/lj_hon.toml)
+make run-local
+
+# Heterogeneous nucleation (wall-attached droplet)
+make run-local CONFIG=config/lj_hen.toml
+
+# Stop after critical-cluster preview (skip DDFT)
+make run-preview-local
+
+# Cross-validation against legacy code
+make run-checks
+```
+
+Override the config file with `CONFIG=path/to/file.toml`. Results are saved to
+`exports/<config_name>/` with subdirectories:
+
+```
+exports/<config>/
+├── data/              # Armadillo binary densities (saved before plotting)
+│   ├── rho_critical.arma
+│   ├── rho_growth_final.arma
+│   └── rho_dissolution_final.arma
+├── initial/           # Initial condition plots
+├── critical/          # Critical cluster cross-sections
+├── dynamics/          # Energy barrier, profiles, rho_center
+└── frames/            # Per-snapshot density section PDFs
+    ├── growth/
+    └── dissolution/
 ```

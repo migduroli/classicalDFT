@@ -1,4 +1,4 @@
-.PHONY: help check clean build test unit-tests integration-tests format format-check lint lint-fix install
+.PHONY: help check clean build test unit-tests integration-tests format format-check lint lint-fix install nucleation-preview nucleation-run
 .DEFAULT_GOAL := help
 
 BUILD_DIR ?= build-local
@@ -38,3 +38,9 @@ lint: ## Lint source code (format check + clang-tidy)
 
 lint-fix: ## Auto-fix lint issues (format + clang-tidy --fix)
 	@./scripts/lint --fix
+
+nucleation-run: ## Build and run the nucleation example locally
+	@$(MAKE) -C docs/nucleation run-local CONFIG=$(NUCLEATION_CONFIG)
+
+nucleation-preview: ## Build and run nucleation locally, stopping after the critical-cluster preview
+	@$(MAKE) -C docs/nucleation run-preview-local CONFIG=$(NUCLEATION_CONFIG)

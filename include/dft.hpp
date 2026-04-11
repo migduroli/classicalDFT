@@ -7,6 +7,7 @@
 // Core types and grid.
 #include "dft/console.hpp"
 #include "dft/exceptions.hpp"
+#include "dft/fields.hpp"
 #include "dft/grid.hpp"
 #include "dft/init.hpp"
 #include "dft/types.hpp"
@@ -23,6 +24,7 @@
 #include "dft/physics/interactions.hpp"
 #include "dft/physics/model.hpp"
 #include "dft/physics/potentials.hpp"
+#include "dft/physics/walls.hpp"
 
 // Functionals.
 #include "dft/functionals/bulk/coexistence.hpp"
@@ -56,5 +58,9 @@
 
 // Configuration.
 #include "dft/config/parser.hpp"
+
+// Plotting.
+#include "dft/plotting/exceptions.hpp"
+#include "dft/plotting/matplotlib.hpp"
 
 #endif // DFT_HPP

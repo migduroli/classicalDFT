@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <toml++/toml.hpp>
 
 namespace dft::config {
 
@@ -59,13 +60,55 @@ namespace dft::config {
         }
 
         if (!current_section.empty()) {
-          result[current_section][key] = json_value;
+          // Handle dotted sections: [a.b.c] → result["a"]["b"]["c"][key].
+          nlohmann::json* node = &result;
+          std::istringstream section_stream(current_section);
+          std::string section_token;
+          while (std::getline(section_stream, section_token, '.')) {
+            node = &(*node)[section_token];
+          }
+          (*node)[key] = json_value;
         } else {
           result[key] = json_value;
         }
       }
 
       return result;
+    }
+
+    auto toml_to_json(const toml::node& node) -> nlohmann::json {
+      if (auto* tbl = node.as_table()) {
+        nlohmann::json obj = nlohmann::json::object();
+        for (auto& [k, v] : *tbl) {
+          obj[std::string(k)] = toml_to_json(v);
+        }
+        return obj;
+      }
+      if (auto* arr = node.as_array()) {
+        nlohmann::json jarr = nlohmann::json::array();
+        for (auto& v : *arr) {
+          jarr.push_back(toml_to_json(v));
+        }
+        return jarr;
+      }
+      if (auto* v = node.as_string())
+        return nlohmann::json(v->get());
+      if (auto* v = node.as_integer())
+        return nlohmann::json(v->get());
+      if (auto* v = node.as_floating_point())
+        return nlohmann::json(v->get());
+      if (auto* v = node.as_boolean())
+        return nlohmann::json(v->get());
+      return nlohmann::json{};
+    }
+
+    auto parse_toml(const std::string& path) -> nlohmann::json {
+      try {
+        auto tbl = toml::parse_file(path);
+        return toml_to_json(tbl);
+      } catch (const toml::parse_error& err) {
+        throw std::runtime_error("TOML parse error in " + path + ": " + std::string(err.description()));
+      }
     }
 
   } // namespace
@@ -81,8 +124,22 @@ namespace dft::config {
         }
         return nlohmann::json::parse(f);
       }
+      case FileType::TOML:
+        return parse_toml(path);
     }
     throw std::runtime_error("Unknown file type");
+  }
+
+  auto parse_config(const std::string& path) -> nlohmann::json {
+    auto ext_pos = path.rfind('.');
+    if (ext_pos != std::string::npos) {
+      auto ext = path.substr(ext_pos);
+      if (ext == ".toml")
+        return parse_config(path, FileType::TOML);
+      if (ext == ".json")
+        return parse_config(path, FileType::JSON);
+    }
+    return parse_config(path, FileType::INI);
   }
 
 } // namespace dft::config

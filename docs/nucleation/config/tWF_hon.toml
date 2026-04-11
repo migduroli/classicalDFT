@@ -1,0 +1,62 @@
+# Nucleation with the ten Wolde-Frenkel (tWF) soft-core potential.
+# alpha=50 (canonical short-range protein potential).
+# Hybrid split: BH for HSD, WCA for interaction weights.
+# Same base parameters as LJ homogeneous; only potential, split, T, S differ.
+
+[model.grid]
+box_length = 12.8
+dx = 0.2
+
+[model.potential]
+alpha = 50.0
+cutoff = 3.0
+epsilon = 1.0
+name = "TenWoldeFrenkel"
+sigma = 1.0
+
+[model.split]
+hard_sphere_diameter = "BarkerHenderson"
+interaction = "WeeksChandlerAndersen"
+
+[model.functional]
+name = "WhiteBearII"
+temperature = 0.42
+
+[droplet]
+radius = 3.0
+supersaturation = 3.21
+
+[seed]
+kind = "Droplet"
+
+[wall]
+kind = "None"
+
+[output]
+# directory = ""  # auto-generated from config params if omitted
+
+[fire]
+alpha_fac = 0.99
+alpha_start = 0.01
+dt = 0.1
+dt_max = 1.0
+force_tolerance = 1e-8
+log_interval = 1000
+max_steps = 500_000
+
+[eigen]
+hessian_eps = 1e-6
+log_interval = 20
+max_iterations = 300
+tolerance = 1e-4
+
+[ddft]
+diffusion_coefficient = 1.0
+dt = 1e-2
+dt_max = 1.0
+fp_max_iterations = 100
+fp_tolerance = 1e-4
+log_interval = 100
+n_steps = 25_000
+perturb_scale = 5.0
+snapshot_interval = 50

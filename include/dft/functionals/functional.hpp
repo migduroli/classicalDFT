@@ -36,10 +36,29 @@ namespace dft::functionals {
       return total(model, state, weights);
     }
 
+    // Evaluate with an external field applied to the first species.
+
+    [[nodiscard]] auto evaluate(const arma::vec& rho, double chemical_potential, const arma::vec& external_field) const
+        -> Result {
+      auto state = init::from_profile(model, rho);
+      state.species[0].chemical_potential = chemical_potential;
+      if (!external_field.is_empty()) {
+        state.species[0].density.external_field = external_field;
+      }
+      return total(model, state, weights);
+    }
+
     // Compute the grand potential of a density profile.
 
     [[nodiscard]] auto grand_potential(const arma::vec& rho, double chemical_potential) const -> double {
       return evaluate(rho, chemical_potential).grand_potential;
+    }
+
+    // Compute the grand potential with an external field.
+
+    [[nodiscard]] auto grand_potential(const arma::vec& rho, double chemical_potential, const arma::vec& external_field)
+        const -> double {
+      return evaluate(rho, chemical_potential, external_field).grand_potential;
     }
 
     // Build the bulk (homogeneous) equation of state from this functional.
@@ -68,6 +87,52 @@ namespace dft::functionals {
           sp.chemical_potential = chemical_potential;
         }
         auto result = total(model, state, weights);
+        return {result.grand_potential, std::move(result.forces)};
+      };
+    }
+
+    // Create a force callback that also applies an external field.
+
+    [[nodiscard]] auto grand_potential_callback(double chemical_potential, const arma::vec& external_field) const
+        -> algorithms::dynamics::ForceCallback {
+      return [this, chemical_potential, external_field](const std::vector<arma::vec>& densities
+             ) -> std::pair<double, std::vector<arma::vec>> {
+        auto state = init::from_profiles(model, densities);
+        for (auto& sp : state.species) {
+          sp.chemical_potential = chemical_potential;
+        }
+        if (!external_field.is_empty()) {
+          state.species[0].density.external_field = external_field;
+        }
+        auto result = total(model, state, weights);
+        return {result.grand_potential, std::move(result.forces)};
+      };
+    }
+
+    // Create a force callback with an external field and a boundary
+    // mask. Forces at masked points are zeroed before returning so
+    // that frozen regions (e.g. wall depletion zones) do not inject
+    // spurious contributions into spectral DDFT solvers.
+
+    [[nodiscard]] auto grand_potential_callback(
+        double chemical_potential,
+        const arma::vec& external_field,
+        const arma::uvec& boundary_mask
+    ) const -> algorithms::dynamics::ForceCallback {
+      arma::uvec frozen_idx = arma::find(boundary_mask);
+      return [this, chemical_potential, external_field, frozen_idx](const std::vector<arma::vec>& densities
+             ) -> std::pair<double, std::vector<arma::vec>> {
+        auto state = init::from_profiles(model, densities);
+        for (auto& sp : state.species) {
+          sp.chemical_potential = chemical_potential;
+        }
+        if (!external_field.is_empty()) {
+          state.species[0].density.external_field = external_field;
+        }
+        auto result = total(model, state, weights);
+        for (auto& f : result.forces) {
+          f.elem(frozen_idx).zeros();
+        }
         return {result.grand_potential, std::move(result.forces)};
       };
     }

@@ -202,11 +202,12 @@ namespace dft::functionals {
   [[nodiscard]] inline auto
   make_mean_field_weights(const Grid& grid, const std::vector<physics::Interaction>& interactions, double kT)
       -> MeanFieldWeights {
+    auto conv_grid = grid.convolution_grid();
     MeanFieldWeights w;
     w.interactions.reserve(interactions.size());
 
     for (const auto& inter : interactions) {
-      auto [ft, a_vdw] = detail::generate_interaction_weight(inter, grid, kT);
+      auto [ft, a_vdw] = detail::generate_interaction_weight(inter, conv_grid, kT);
       w.interactions.push_back(InteractionWeight{
           .species_i = inter.species_i,
           .species_j = inter.species_j,
@@ -236,43 +237,40 @@ namespace dft::functionals {
     auto n_species = species.size();
     auto n_points = static_cast<arma::uword>(grid.total_points());
     double dv = grid.cell_volume();
-    std::vector<long> shape(grid.shape.begin(), grid.shape.end());
 
-    // FFT all density profiles
+    // Use convolution shape for all FFT operations.
+    auto cs = grid.convolution_shape();
+    std::vector<long> conv_shape(cs.begin(), cs.end());
+
+    // FFT all density profiles (padded for non-periodic axes).
     std::vector<math::FourierTransform> rho_ft;
     rho_ft.reserve(n_species);
     for (std::size_t s = 0; s < n_species; ++s) {
-      rho_ft.emplace_back(shape);
-      rho_ft.back().set_real(state.species[s].density.values);
+      rho_ft.emplace_back(conv_shape);
+      rho_ft.back().set_real(pad(state.species[s].density.values, grid));
       rho_ft.back().forward();
     }
 
     // Accumulate per-species forces
     std::vector<arma::vec> forces(n_species, arma::zeros(n_points));
     double free_energy = 0.0;
+    math::ConvolutionWorkspace workspace(conv_shape);
 
     for (const auto& iw : weights.interactions) {
       auto i = static_cast<std::size_t>(iw.species_i);
       auto j = static_cast<std::size_t>(iw.species_j);
 
-      // Convolve weight with rho_j to get [w * rho_j](r)
-      arma::vec conv_j = math::convolve(iw.weight.fourier(), rho_ft[j].fourier(), shape);
+      // Convolve weight with rho_j and unpad to physical grid.
+      arma::vec conv_j = unpad(math::convolve(iw.weight.fourier(), rho_ft[j].fourier(), workspace), grid);
 
       if (i == j) {
-        // Self-interaction: F = (1/2) sum rho_i * conv_j * dV
         free_energy += 0.5 * arma::dot(state.species[i].density.values, conv_j) * dv;
-
-        // dF/d rho_i = conv_j * dV (the 1/2 cancels with double counting)
         forces[i] += conv_j * dv;
       } else {
-        // Cross-interaction: F = (1/2) sum rho_i * conv_j * dV
         free_energy += 0.5 * arma::dot(state.species[i].density.values, conv_j) * dv;
-
-        // dF/d rho_i = (1/2) [w * rho_j] * dV
         forces[i] += 0.5 * conv_j * dv;
 
-        // dF/d rho_j = (1/2) [w * rho_i] * dV
-        arma::vec conv_i = math::convolve(iw.weight.fourier(), rho_ft[i].fourier(), shape);
+        arma::vec conv_i = unpad(math::convolve(iw.weight.fourier(), rho_ft[i].fourier(), workspace), grid);
         forces[j] += 0.5 * conv_i * dv;
       }
     }
