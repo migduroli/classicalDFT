@@ -160,10 +160,10 @@ int main(int argc, char* argv[]) {
 
   auto critical_profile = nucleation::extract_profile_slice(rho_critical, func.model.grid, cfg);
   auto initial_profile = nucleation::extract_profile_slice(rho_initial, func.model.grid, cfg);
-  auto critical_views = plot::detail::density_views(rho_critical, func.model.grid, cfg);
 
 #ifdef DFT_HAS_MATPLOTLIB
   try {
+    auto critical_views = plot::detail::density_views(rho_critical, func.model.grid, cfg);
     std::println(std::cout, "\nExporting critical-cluster preview...");
     plot::detail::plot_critical_cluster(
         critical_profile,

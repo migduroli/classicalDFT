@@ -168,7 +168,9 @@ if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
   else
     # Write results to mounted 'coverage/' dir so they survive container exit
     mkdir -p coverage
-    docker compose run --rm -T app scripts/docs coverage/doc-results.md
+    local_rc=0
+    docker compose run --rm -T app scripts/docs coverage/doc-results.md || local_rc=$?
     cp coverage/doc-results.md "${RESULTS_FILE}" 2>/dev/null || true
+    exit "$local_rc"
   fi
 fi
