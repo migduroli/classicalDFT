@@ -93,37 +93,31 @@ run_inside_docker() {
 
   # Generate markdown report
   {
-    echo "## Doc examples CI report"
+    echo "## Documentation tests"
     echo ""
-    echo "### Compilation (doc targets)"
-    echo ""
-    echo "| Target | Status |"
-    echo "|--------|--------|"
+    echo "| Target | Build | Check |"
+    echo "|--------|-------|-------|"
 
     for target in "${DOC_TARGETS[@]}"; do
-      if [[ "${build_status[$target]}" == "pass" ]]; then
-        echo "| \`$target\` | :white_check_mark: |"
-      else
-        echo "| \`$target\` | :x: |"
-      fi
-    done
-
-    echo ""
-    echo "### Cross-validation checks"
-    echo ""
-    echo "| Target | Build | Run |"
-    echo "|--------|-------|-----|"
-
-    for target in "${CHECK_TARGETS[@]}"; do
+      local name="${target#doc_}"
       local b_icon=":x:"
-      local r_icon=":x:"
-      [[ "${check_build_status[$target]}" == "pass" ]] && b_icon=":white_check_mark:"
-      if [[ "${check_run_status[$target]}" == "pass" ]]; then
-        r_icon=":white_check_mark:"
-      elif [[ "${check_run_status[$target]}" == "skip" ]]; then
-        r_icon=":construction: skipped"
+      [[ "${build_status[$target]}" == "pass" ]] && b_icon=":white_check_mark:"
+
+      local check_target="check_${name}"
+      local c_icon=":heavy_minus_sign:"
+      if [[ -n "${check_build_status[$check_target]:-}" ]]; then
+        if [[ "${check_build_status[$check_target]}" != "pass" ]]; then
+          c_icon=":x:"
+        elif [[ "${check_run_status[$check_target]}" == "pass" ]]; then
+          c_icon=":white_check_mark:"
+        elif [[ "${check_run_status[$check_target]}" == "skip" ]]; then
+          c_icon=":construction:"
+        else
+          c_icon=":x:"
+        fi
       fi
-      echo "| \`$target\` | $b_icon | $r_icon |"
+
+      echo "| \`$name\` | $b_icon | $c_icon |"
     done
 
     # Show build errors inline for failed targets
