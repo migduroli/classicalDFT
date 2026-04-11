@@ -40,6 +40,19 @@ Lattice data can be exported to:
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `crystal::Lattice` | `dft/crystal/lattice.hpp` | Lattice positions + box dimensions for a given structure and orientation |
+| `crystal::Structure` | `dft/crystal/lattice.hpp` | Enum: `FCC`, `BCC`, `HCP` |
+| `crystal::Orientation` | `dft/crystal/lattice.hpp` | Enum: `Along100`, `Along110`, `Along111` |
+
+`build_lattice(structure, orientation, sigma, n_layers)` returns a `Lattice`
+with `.positions` (3-column matrix) and `.dimensions` (box size).
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Enumerate all unit cell configurations
