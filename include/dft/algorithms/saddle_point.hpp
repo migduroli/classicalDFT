@@ -47,112 +47,6 @@ namespace dft::algorithms::saddle_point {
       return (forces_shifted - forces_at_rho) / eps;
     }
 
-    struct EigenvalueConfig {
-      double tolerance{1e-4};
-      int max_iterations{300};
-      double hessian_eps{1e-6};
-      int log_interval{0};
-    };
-
-    // Find the smallest eigenvalue and its eigenvector of the Hessian
-    // using the LOBPCG algorithm.
-
-    [[nodiscard]] inline auto lobpcg(
-        const ForceFunction& force_fn,
-        const arma::vec& rho,
-        const EigenvalueConfig& config = {},
-        const arma::vec& initial_guess = {}
-    ) -> std::pair<arma::vec, double> {
-      auto [omega, forces] = force_fn(rho);
-      arma::uword n = rho.n_elem;
-
-      arma::vec v = initial_guess.n_elem == n ? initial_guess : arma::randn(n);
-      v /= arma::norm(v);
-
-      if (config.log_interval > 0) {
-        std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}\n", "iter", "eigenvalue", "residual");
-        std::cout << "  " << std::string(40, '-') << "\n";
-      }
-
-      arma::vec hv = hessian_times_vector(force_fn, rho, forces, v, config.hessian_eps);
-      double lambda = arma::dot(v, hv);
-      arma::vec p_raw;
-      arma::vec hp_raw;
-
-      for (int iter = 0; iter < config.max_iterations; ++iter) {
-        arma::vec residual = hv - lambda * v;
-        double res_norm = arma::norm(residual);
-
-        if (config.log_interval > 0 && (iter % config.log_interval == 0 || res_norm < config.tolerance)) {
-          std::cout << std::format("  {:>6d}  {:>14.6e}  {:>14.6e}\n", iter, lambda, res_norm);
-        }
-
-        if (res_norm < config.tolerance) {
-          break;
-        }
-
-        arma::vec q0 = v;
-        arma::vec q1 = residual - arma::dot(residual, q0) * q0;
-        double q1n = arma::norm(q1);
-        if (q1n < 1e-30) {
-          break;
-        }
-        q1 /= q1n;
-
-        arma::vec hq0 = hv;
-        arma::vec hq1 = hessian_times_vector(force_fn, rho, forces, q1, config.hessian_eps);
-
-        int dim = 2;
-        arma::vec q2;
-        arma::vec hq2;
-
-        if (p_raw.n_elem == n) {
-          q2 = p_raw - arma::dot(p_raw, q0) * q0 - arma::dot(p_raw, q1) * q1;
-          double q2n = arma::norm(q2);
-          if (q2n > 1e-10) {
-            q2 /= q2n;
-            hq2 = hessian_times_vector(force_fn, rho, forces, q2, config.hessian_eps);
-            dim = 3;
-          }
-        }
-
-        arma::mat H_proj(dim, dim);
-        H_proj(0, 0) = arma::dot(q0, hq0);
-        H_proj(0, 1) = arma::dot(q0, hq1);
-        H_proj(1, 0) = H_proj(0, 1);
-        H_proj(1, 1) = arma::dot(q1, hq1);
-
-        if (dim == 3) {
-          H_proj(0, 2) = arma::dot(q0, hq2);
-          H_proj(1, 2) = arma::dot(q1, hq2);
-          H_proj(2, 0) = H_proj(0, 2);
-          H_proj(2, 1) = H_proj(1, 2);
-          H_proj(2, 2) = arma::dot(q2, hq2);
-        }
-
-        arma::vec eigvals;
-        arma::mat eigvecs;
-        arma::eig_sym(eigvals, eigvecs, H_proj);
-        arma::vec c = eigvecs.col(0);
-
-        arma::vec v_new = c(0) * q0 + c(1) * q1;
-        arma::vec hv_new = c(0) * hq0 + c(1) * hq1;
-        if (dim == 3) {
-          v_new += c(2) * q2;
-          hv_new += c(2) * hq2;
-        }
-
-        p_raw = v_new - v;
-        hp_raw = hv_new - hv;
-
-        v = v_new / arma::norm(v_new);
-        hv = hessian_times_vector(force_fn, rho, forces, v, config.hessian_eps);
-        lambda = arma::dot(v, hv);
-      }
-
-      return {v, lambda};
-    }
-
   } // namespace _internal
 
   // Eigenvalue result (public, needed by nucleation example).
@@ -191,13 +85,6 @@ namespace dft::algorithms::saddle_point {
   [[nodiscard]] inline auto
   EigenvalueSolver::solve(const ForceFunction& force_fn, const arma::vec& rho, const arma::vec& initial_guess) const
       -> EigenvalueResult {
-    _internal::EigenvalueConfig internal_cfg{
-        .tolerance = tolerance,
-        .max_iterations = max_iterations,
-        .hessian_eps = hessian_eps,
-        .log_interval = log_interval,
-    };
-
     auto [omega, forces] = force_fn(rho);
     arma::uword n = rho.n_elem;
 

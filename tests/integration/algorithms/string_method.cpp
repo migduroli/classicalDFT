@@ -51,7 +51,7 @@ namespace {
     return {relaxed, energy};
   }
 
-}  // namespace
+} // namespace
 
 // --- End-to-end tests ---
 

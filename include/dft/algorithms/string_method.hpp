@@ -33,8 +33,7 @@ namespace dft::algorithms::string_method {
 
   // Relaxation function: given x, returns (relaxed_x, energy).
 
-  using RelaxFunction =
-      std::function<std::pair<std::vector<arma::vec>, double>(const std::vector<arma::vec>&)>;
+  using RelaxFunction = std::function<std::pair<std::vector<arma::vec>, double>(const std::vector<arma::vec>&)>;
 
   // Optional callback invoked after each outer iteration.
   // Return true to stop early.
@@ -390,6 +389,6 @@ namespace dft::algorithms::string_method {
     };
   }
 
-}  // namespace dft::algorithms::string_method
+} // namespace dft::algorithms::string_method
 
-#endif  // DFT_ALGORITHMS_STRING_METHOD_HPP
+#endif // DFT_ALGORITHMS_STRING_METHOD_HPP

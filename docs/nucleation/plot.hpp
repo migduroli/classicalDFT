@@ -527,6 +527,89 @@ namespace plot {
       std::cout << "  " << path << "\n";
     }
 
+    inline void plot_n_vs_R(
+        const std::vector<nucleation::PathwayPoint>& dissolution,
+        const std::vector<nucleation::PathwayPoint>& growth,
+        nucleation::PathwayPoint critical,
+        double rho_v,
+        double rho_l,
+        const std::string& model_name,
+        const std::string& export_dir
+    ) {
+      namespace plt = matplotlibcpp;
+      plt::figure_size(900, 500);
+
+      auto filt_d = filter_pathway(dissolution, rho_v);
+      auto filt_g = filter_pathway(growth, rho_v);
+
+      auto unzip_rn = [](const std::vector<nucleation::PathwayPoint>& pts) {
+        std::vector<double> r(pts.size()), n(pts.size());
+        for (std::size_t i = 0; i < pts.size(); ++i) {
+          r[i] = pts[i].radius;
+          n[i] = pts[i].n_cluster;
+        }
+        return std::pair{r, n};
+      };
+
+      auto [r_d, n_d] = unzip_rn(filt_d);
+      auto [r_g, n_g] = unzip_rn(filt_g);
+
+      plt::plot(
+          r_d,
+          n_d,
+          {{"color", "#00BBD5"}, {"linewidth", "1.5"}, {"marker", "o"}, {"markersize", "4"}, {"label", R"(Dissolution)"}
+          }
+      );
+      plt::plot(
+          r_g,
+          n_g,
+          {{"color", "#E25822"}, {"linewidth", "1.5"}, {"marker", "o"}, {"markersize", "4"}, {"label", R"(Growth)"}}
+      );
+
+      plt::plot(
+          {critical.radius},
+          {critical.n_cluster},
+          {{"color", "black"}, {"marker", "*"}, {"markersize", "14"}, {"label", R"($n^*$ (saddle))"}}
+      );
+
+      double r_min_data = critical.radius, r_max_data = critical.radius;
+      for (double r : r_d) {
+        r_min_data = std::min(r_min_data, r);
+        r_max_data = std::max(r_max_data, r);
+      }
+      for (double r : r_g) {
+        r_min_data = std::min(r_min_data, r);
+        r_max_data = std::max(r_max_data, r);
+      }
+      double r_pad = std::max(0.2 * (r_max_data - r_min_data), 0.5);
+
+      plt::plot(
+          {0.0, r_max_data + r_pad},
+          {rho_v, rho_v},
+          {{"color", "#00976E"}, {"linestyle", "--"}, {"linewidth", "1.0"}, {"label", R"($\rho_v(\mu)$)"}}
+      );
+      plt::plot(
+          {0.0, r_max_data + r_pad},
+          {rho_l, rho_l},
+          {{"color", "#00976E"}, {"linestyle", "--"}, {"linewidth", "1.0"}, {"label", R"($\rho_l(\mu)$)"}}
+      );
+
+      plt::xlim(0.0, r_max_data + r_pad);
+
+      plt::xlabel(R"($R / \sigma$)");
+      plt::ylabel(R"($n\, \sigma^3$)");
+      plt::title(std::format(R"(Cluster average density vs radius [{}])", model_name));
+      plt::legend();
+      plt::grid(true);
+      plt::tight_layout();
+      std::filesystem::create_directories(export_dir + "/dynamics");
+      auto path = export_dir + "/dynamics/n_vs_R.pdf";
+      plt::save(path);
+      plt::clf();
+      plt::close();
+      std::cout << "  " << path << "\n";
+    }
+
     inline void plot_rho_center_vs_radius(
         const std::vector<nucleation::PathwayPoint>& dissolution,
         const std::vector<nucleation::PathwayPoint>& growth,
@@ -660,8 +743,8 @@ namespace plot {
       const dft::algorithms::dynamics::SimulationResult& sim,
       const dft::Grid& grid,
       const nucleation::NucleationConfig& cfg,
-      double rho_min,
-      double rho_max,
+      double rho_v,
+      double rho_l,
       const std::string& label,
       const std::string& frame_dir
   ) {
@@ -669,9 +752,10 @@ namespace plot {
     std::println(std::cout, "  Writing {} frames to {}/", sim.snapshots.size(), frame_dir);
     for (std::size_t i = 0; i < sim.snapshots.size(); ++i) {
       auto views = detail::density_views(sim.snapshots[i].densities[0], grid, cfg);
+      auto window = detail::packing_window(views, rho_v, rho_l);
       auto title = std::format(R"({}: $t = {:.4f}$)", label, sim.snapshots[i].time);
       auto filepath = std::format("{}/frame_{:05d}.pdf", frame_dir, i);
-      detail::plot_density_views(views, rho_min, rho_max, title, filepath, cfg);
+      detail::plot_density_views(views, window.vmin, window.vmax, title, filepath, cfg, "turbo", 128, "both");
     }
   }
 
@@ -769,12 +853,12 @@ namespace plot {
         rho_v,
         rho_l,
         R"(Dissolution dynamics ($N < N^*$))",
+        28,
+        220,
+        244,
         0,
-        187,
-        213,
-        0,
-        62,
-        62,
+        50,
+        53,
         export_dir + "/dynamics/dissolution_profiles.pdf",
         model_name
     );
@@ -785,12 +869,12 @@ namespace plot {
         rho_v,
         rho_l,
         R"(Growth dynamics ($N > N^*$))",
-        226,
-        88,
-        34,
-        62,
-        0,
-        0,
+        233,
+        128,
+        78,
+        61,
+        17,
+        13,
         export_dir + "/dynamics/growth_profiles.pdf",
         model_name
     );
@@ -813,6 +897,8 @@ namespace plot {
         model_name,
         export_dir
     );
+
+    detail::plot_n_vs_R(dissolution.pathway, growth.pathway, critical_point, rho_v, rho_l, model_name, export_dir);
 
     plot_density_frames(sim_growth, grid, cfg, rho_v, rho_l, "Growth", export_dir + "/frames/growth");
     plot_density_frames(sim_dissolution, grid, cfg, rho_v, rho_l, "Dissolution", export_dir + "/frames/dissolution");

@@ -1,8 +1,7 @@
 #pragma once
 
-#include <dft/plotting/matplotlib.hpp>
-
 #include <cmath>
+#include <dft/plotting/matplotlib.hpp>
 #include <string>
 #include <vector>
 
@@ -60,7 +59,7 @@ namespace plot {
       };
 
       // Reference parabola y = x^2, clipped to the plot range.
-      double x_clip = std::sqrt(y_hi);  // x beyond this gives y > y_hi.
+      double x_clip = std::sqrt(y_hi); // x beyond this gives y > y_hi.
       dft::plotting::ContourfLine valley;
       valley.x.resize(100);
       valley.y.resize(100);
@@ -154,26 +153,27 @@ namespace plot {
       plt::figure_size(800, 500);
 
       plt::plot(
-          alpha_simplified, energy_simplified,
+          alpha_simplified,
+          energy_simplified,
           {{"color", "#9E744F"}, {"linewidth", "1.5"}, {"linestyle", "--"}, {"label", "Simplified"}}
       );
       plt::plot(
-          alpha_simplified, energy_simplified,
+          alpha_simplified,
+          energy_simplified,
           {{"color", "#9E744F"}, {"marker", "s"}, {"markersize", "3"}, {"linestyle", "None"}}
       );
 
+      plt::plot(alpha_full, energy_full, {{"color", "#008080"}, {"linewidth", "2.0"}, {"label", "Full (perp. force)"}});
       plt::plot(
-          alpha_full, energy_full,
-          {{"color", "#008080"}, {"linewidth", "2.0"}, {"label", "Full (perp. force)"}}
-      );
-      plt::plot(
-          alpha_full, energy_full,
+          alpha_full,
+          energy_full,
           {{"color", "#008080"}, {"marker", "o"}, {"markersize", "4"}, {"linestyle", "None"}}
       );
 
       // Reference barrier line.
       plt::plot(
-          {alpha_full.front(), alpha_full.back()}, {1.0, 1.0},
+          {alpha_full.front(), alpha_full.back()},
+          {1.0, 1.0},
           {{"color", "#656775"}, {"linestyle", ":"}, {"linewidth", "0.8"}, {"label", R"(Saddle $V = 1$)"}}
       );
 
@@ -192,10 +192,7 @@ namespace plot {
 
     // Plot 3: convergence history (error vs iteration).
 
-    inline void convergence(
-        const std::vector<double>& iterations,
-        const std::vector<double>& errors
-    ) {
+    inline void convergence(const std::vector<double>& iterations, const std::vector<double>& errors) {
       namespace plt = matplotlibcpp;
       plt::figure_size(800, 500);
 
@@ -214,7 +211,7 @@ namespace plot {
       std::cout << "Plot saved: exports/string_method_convergence.pdf\n";
     }
 
-  }  // namespace detail
+  } // namespace detail
 
   struct PlotData {
     std::vector<double> path_x_init;
@@ -235,13 +232,19 @@ namespace plot {
 
   inline void make_plots(const PlotData& data) {
     detail::energy_landscape(
-        data.path_x_init, data.path_y_init, data.path_x_simplified, data.path_y_simplified, data.path_x_full,
-        data.path_y_full, data.theo_mep_x, data.theo_mep_y
+        data.path_x_init,
+        data.path_y_init,
+        data.path_x_simplified,
+        data.path_y_simplified,
+        data.path_x_full,
+        data.path_y_full,
+        data.theo_mep_x,
+        data.theo_mep_y
     );
     detail::energy_along_path(data.alpha_simplified, data.energy_simplified, data.alpha_full, data.energy_full);
     detail::convergence(data.iter_history, data.error_history);
   }
 
-}  // namespace plot
+} // namespace plot
 
 #endif

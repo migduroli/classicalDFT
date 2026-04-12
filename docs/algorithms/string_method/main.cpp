@@ -117,11 +117,12 @@ int main() {
       .log_interval = 10,
       .evolution_steps = 20,
       .evolution_alpha = 0.01,
-      .on_iteration = [&](int iteration, double error, const auto& /*images*/) {
-        iter_history.push_back(static_cast<double>(iteration));
-        error_history.push_back(error);
-        return false;
-      },
+      .on_iteration =
+          [&](int iteration, double error, const auto& /*images*/) {
+            iter_history.push_back(static_cast<double>(iteration));
+            error_history.push_back(error);
+            return false;
+          },
   };
 
   console::info("Running full string method (perpendicular-force evolution)");

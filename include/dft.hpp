@@ -46,11 +46,11 @@
 #include "dft/algorithms/minimization.hpp"
 #include "dft/algorithms/picard.hpp"
 #include "dft/algorithms/saddle_point.hpp"
-#include "dft/algorithms/string_method.hpp"
 #include "dft/algorithms/solvers/continuation.hpp"
 #include "dft/algorithms/solvers/gmres.hpp"
 #include "dft/algorithms/solvers/jacobian.hpp"
 #include "dft/algorithms/solvers/newton.hpp"
+#include "dft/algorithms/string_method.hpp"
 
 // Geometry.
 #include "dft/geometry/element.hpp"

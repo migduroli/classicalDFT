@@ -414,7 +414,8 @@ namespace dft::plotting {
     bool has_labels = false;
     for (const auto& line : lines) {
       detail::plot_line(ax, line);
-      if (!line.label.empty()) has_labels = true;
+      if (!line.label.empty())
+        has_labels = true;
     }
 
     if (has_labels) {

@@ -1,5 +1,13 @@
-# LJ nucleation (Jim's parameters: Droplet/LJ/M103/T0.8).
-# Jim uses dx=0.10, L=12.8 (128^3 grid). We use dx=0.2 for speed (64^3).
+# LJ crystallization — replicating Lutsko, Sci. Adv. 5, eaav7399 (2019).
+#
+# T* = 0.4 is below the LJ triple point (≈0.694), so the equilibrium dense
+# phase is FCC crystal rather than liquid. This is the regime where the
+# two-step nucleation mechanism operates: liquid droplet forms first, then
+# crystalline ordering develops inside.
+#
+# Jim uses RSLT, dx=0.10 (128^3), S ≈ 2.8-4.3 for 150-400 molecule clusters.
+# We start at dx=0.2 (64^3) for tractability. Refine to dx=0.15 or 0.10 if
+# crystal peaks are under-resolved.
 
 [model.grid]
 box_length = 12.8
@@ -12,25 +20,30 @@ name = "LennardJones"
 sigma = 1.0
 
 [model.functional]
-name = "WhiteBearII"
-temperature = 0.7
+name = "RSLT"
+temperature = 0.4
 
 [model.split]
 hard_sphere_diameter = "WeeksChandlerAndersen"
 interaction = "WeeksChandlerAndersen"
 
 [droplet]
-radius = 3.0
-supersaturation = 1.08
+radius = 4.0
+supersaturation = 3.5
 
 [seed]
-kind = "Droplet"
+envelope_radii = [4.5, 4.5, 4.5]
+gaussian_width = 0.25
+interface_width = 0.30
+kind = "Crystal"
+modulation_amplitude = 0.35
+offset = [0.35, -0.20, 0.15]
+orientation = "001"
+structure = "FCC"
+unit_cells = [8, 8, 8]
 
 [wall]
 kind = "None"
-
-[output]
-# directory = ""  # auto-generated from config params if omitted
 
 [fire]
 alpha_fac = 0.99
@@ -44,8 +57,8 @@ max_steps = 500_000
 [eigen]
 hessian_eps = 1e-6
 log_interval = 20
-max_iterations = 300
-tolerance = 1e-4
+max_iterations = 1000
+tolerance = 1e-3
 
 [ddft]
 diffusion_coefficient = 1.0
@@ -54,6 +67,17 @@ dt_max = 1.0
 fp_max_iterations = 100
 fp_tolerance = 1e-4
 log_interval = 100
-n_steps = 25_000
-perturb_scale = 5.0
-snapshot_interval = 50
+n_steps = 1000
+perturb_scale = 20.0
+snapshot_interval = 100
+
+[string]
+dt = 1e-2
+dt_max = 1.0
+enabled = true
+log_interval = 1
+max_iterations = 30
+num_images = 15
+relax_steps = 20
+reparametrize_passes = 4
+tolerance = 1e-4

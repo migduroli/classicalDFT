@@ -257,10 +257,11 @@ TEST_CASE("find_pathway invokes iteration callback", "[string_method]") {
       .tolerance = 1e-3,
       .max_iterations = 3,
       .log_interval = 0,
-      .on_iteration = [&](int, double, const std::vector<Image>&) {
-        ++callback_count;
-        return false;
-      },
+      .on_iteration =
+          [&](int, double, const std::vector<Image>&) {
+            ++callback_count;
+            return false;
+          },
   };
 
   auto result = sm.find_pathway(a, b, 4, quadratic_energy, trivial_relax);
@@ -276,9 +277,7 @@ TEST_CASE("find_pathway early stop via callback", "[string_method]") {
       .tolerance = 1e-12,
       .max_iterations = 100,
       .log_interval = 0,
-      .on_iteration = [](int iteration, double, const std::vector<Image>&) {
-        return iteration >= 1;
-      },
+      .on_iteration = [](int iteration, double, const std::vector<Image>&) { return iteration >= 1; },
   };
 
   auto result = sm.find_pathway(a, b, 4, quadratic_energy, trivial_relax);

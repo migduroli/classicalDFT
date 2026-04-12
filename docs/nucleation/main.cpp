@@ -3,6 +3,7 @@
 
 #include <dftlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 
@@ -207,25 +208,16 @@ int main(int argc, char* argv[]) {
   }
 
   // Phase 2: eigenvalue (confirm saddle point)
-  // Radial initial guess avoids near-zero translation modes on fine grids.
-  // Mask all box faces AND the wall depletion zone (where rho ~ 0 and
-  // the ideal-gas Hessian 1/rho diverges) to keep H well-conditioned.
 
-  arma::uvec eig_bdry = func.model.grid.boundary_mask();
-  double depletion_threshold = 0.01 * info.background;
-  for (arma::uword i = 0; i < rho_critical.n_elem; ++i) {
-    if (rho_critical(i) < depletion_threshold) {
-      eig_bdry(i) = 1;
-    }
-  }
+  arma::uvec eig_bdry = nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
 
   auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
     auto result = func.evaluate(rho, info.mu_background, wall_field);
     return {result.grand_potential, fixed_boundary(result.forces[0], eig_bdry)};
   };
 
-  arma::vec eig_init = rho_critical - info.background;
-  eig_init /= arma::norm(eig_init);
+  auto eig_init = nucleation::radial_gaussian_guess(r, info.effective_radius, eig_bdry);
+  auto deflation = nucleation::translation_modes(rho_critical, func.model.grid);
 
   auto eig =
       algorithms::saddle_point::EigenvalueSolver{
@@ -234,6 +226,7 @@ int main(int argc, char* argv[]) {
           .hessian_eps = cfg.eigen.hessian_eps,
           .log_interval = cfg.eigen.log_interval,
           .boundary_mask = eig_bdry,
+          .deflation_vectors = deflation,
       }
           .solve(eig_force_fn, rho_critical, eig_init);
 
@@ -244,19 +237,98 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Phase 3: DDFT dynamics (growth and dissolution)
-  // The wall depletion zone has rho ~ 0 and forces ~ 1/rho ~ 1e18.
-  // The 3-arg grand_potential_callback zeros forces at frozen points
-  // so the spectral RHS stays clean; frozen_boundary pins densities.
+  // Phase 2.5: string method (minimum free-energy path)
+  // When the string method is enabled, it replaces the DDFT dynamics phase.
+  // The string method gives the static MEP; DDFT gives time-resolved dynamics.
 
-  arma::uvec ddft_frozen = info.boundary_mask;
-  for (arma::uword i = 0; i < rho_critical.n_elem; ++i) {
-    if (rho_critical(i) < depletion_threshold) {
-      ddft_frozen(i) = 1;
-    }
-  }
+  arma::uvec ddft_frozen = nucleation::depletion_mask(rho_critical, info.background, info.boundary_mask);
 
   auto gc_force_fn = func.grand_potential_callback(info.mu_background, wall_field, ddft_frozen);
+  arma::vec ev = algorithms::saddle_point::orient_eigenvector(eig.eigenvector, func.model.grid.cell_volume());
+
+  if (cfg.string_method.enabled) {
+    std::println(std::cout, "\n--- String method ---");
+
+    // Endpoints: uniform metastable vapor → grown cluster.
+    std::vector<arma::vec> x_uniform = {rho_out * arma::ones(arma::size(rho_critical))};
+    arma::vec rho_grown =
+        algorithms::saddle_point::eigenvector_perturbation(rho_critical, ev, cfg.ddft.perturb_scale * 2.0, +1.0);
+    std::vector<arma::vec> x_grown = {rho_grown};
+
+    // Build DDFT-based relaxation function.
+    auto ddft_boundary = algorithms::dynamics::frozen_boundary(ddft_frozen, rho_critical);
+
+    auto relax_fn = [&](const std::vector<arma::vec>& x) -> std::pair<std::vector<arma::vec>, double> {
+      algorithms::dynamics::Simulation sim{
+          .step = {.dt = cfg.string_method.dt, .dt_max = cfg.string_method.dt_max},
+          .n_steps = cfg.string_method.relax_steps,
+          .snapshot_interval = 0,
+          .log_interval = 0,
+          .boundary = ddft_boundary,
+          .frozen_mask = ddft_frozen,
+      };
+      auto result = sim.run(x, func.model.grid, gc_force_fn);
+      return {std::move(result.densities), result.energies.back()};
+    };
+
+    algorithms::string_method::StringMethod sm{
+        .tolerance = cfg.string_method.tolerance,
+        .max_iterations = cfg.string_method.max_iterations,
+        .reparametrize_passes = cfg.string_method.reparametrize_passes,
+        .log_interval = cfg.string_method.log_interval,
+    };
+
+    auto string_result = sm.find_pathway(x_uniform, x_grown, cfg.string_method.num_images, gc_force_fn, relax_fn);
+
+    std::println(
+        std::cout,
+        "String method: iterations={}  error={:.6e}  converged={}",
+        string_result.iterations,
+        string_result.final_error,
+        string_result.converged
+    );
+
+    // Save pathway data.
+    auto str_data_dir = export_dir / "data";
+    std::filesystem::create_directories(str_data_dir);
+
+    double delta_rho = rho_l - rho_v;
+    double dv = func.model.grid.cell_volume();
+    auto alpha = algorithms::string_method::arc_lengths(string_result.images);
+    auto radial = func.model.grid.radial_distances();
+
+    std::ofstream pathway_file(str_data_dir / "string_pathway.csv");
+    pathway_file << "image,arc_length,energy,mass,effective_radius,cluster_density\n";
+    for (std::size_t j = 0; j < string_result.images.size(); ++j) {
+      const auto& img = string_result.images[j];
+      double mass = arma::accu(img.x[0]) * dv;
+      double r_eff = dft::effective_radius(img.x[0], info.background, delta_rho, dv);
+      double n_cl = dft::cluster_average_density(img.x[0], radial, r_eff, dv);
+      pathway_file
+          << std::format("{},{:.8e},{:.8e},{:.8e},{:.8e},{:.8e}\n", j, alpha[j], img.energy, mass, r_eff, n_cl);
+    }
+    for (std::size_t j = 0; j < string_result.images.size(); ++j) {
+      string_result.images[j].x[0].save(str_data_dir / std::format("string_image_{:03d}.arma", j), arma::arma_binary);
+    }
+    std::println(std::cout, "  Saved pathway ({} images) to {}/", string_result.images.size(), str_data_dir.string());
+
+#ifdef DFT_HAS_MATPLOTLIB
+    auto str_plot_dir = export_dir / "string_frames";
+    std::filesystem::create_directories(str_plot_dir);
+    std::println(std::cout, "  Writing {} contour frames to {}/", string_result.images.size(), str_plot_dir.string());
+    for (std::size_t j = 0; j < string_result.images.size(); ++j) {
+      auto views = plot::detail::density_views(string_result.images[j].x[0], func.model.grid, cfg);
+      auto window = plot::detail::packing_window(views, rho_v, rho_l);
+      auto title = std::format(R"(Image {}: $\Omega = {:.4f}$)", j, string_result.images[j].energy);
+      auto filepath = std::format("{}/string_{:03d}.pdf", str_plot_dir.string(), j);
+      plot::detail::plot_density_views(views, window.vmin, window.vmax, title, filepath, cfg, "turbo", 128, "both");
+    }
+#endif
+  }
+
+  // Phase 3: DDFT dynamics (growth and dissolution)
+  // The 3-arg grand_potential_callback zeros forces at frozen points
+  // so the spectral RHS stays clean; frozen_boundary pins densities.
 
   algorithms::dynamics::Simulation ddft{
       .step =
@@ -273,8 +345,6 @@ int main(int argc, char* argv[]) {
       .boundary = algorithms::dynamics::frozen_boundary(ddft_frozen, rho_critical),
       .frozen_mask = ddft_frozen,
   };
-
-  arma::vec ev = algorithms::saddle_point::orient_eigenvector(eig.eigenvector, func.model.grid.cell_volume());
 
   double dv = func.model.grid.cell_volume();
   double ev_mass = arma::accu(ev) * dv;
@@ -328,6 +398,8 @@ int main(int argc, char* argv[]) {
   std::println(std::cout, "\nGenerating plots...");
   try {
     double rho_center_critical = nucleation::center_density(rho_critical, func.model.grid, cfg);
+    double n_cluster_critical =
+        dft::cluster_average_density(rho_critical, r, info.effective_radius, func.model.grid.cell_volume());
 
     plot::make_plots(
         critical_profile,
@@ -339,7 +411,10 @@ int main(int argc, char* argv[]) {
         sim_grow,
         func.model.grid,
         cfg,
-        {.radius = info.effective_radius, .energy = info.omega_cluster, .rho_center = rho_center_critical},
+        {.radius = info.effective_radius,
+         .energy = info.omega_cluster,
+         .rho_center = rho_center_critical,
+         .n_cluster = n_cluster_critical},
         info.omega_background,
         info.rho_vapor_meta,
         info.rho_liquid_meta,

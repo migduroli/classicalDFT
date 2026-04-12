@@ -34,6 +34,78 @@
 
 namespace nucleation {
 
+  // Smooth radial Gaussian initial guess for the eigenvalue solver.
+  // Spherically symmetric by construction, so orthogonal to translation
+  // modes. Mean-subtracted and boundary-masked for use with P H P.
+
+  [[nodiscard]] inline auto
+  radial_gaussian_guess(const arma::vec& radial_distances, double sigma, const arma::uvec& boundary_mask = {})
+      -> arma::vec {
+    double sigma_safe = std::max(sigma, 1.0);
+    arma::vec v = arma::exp(-0.5 * arma::square(radial_distances / sigma_safe));
+    v -= arma::mean(v);
+    if (boundary_mask.n_elem == v.n_elem) {
+      v.elem(arma::find(boundary_mask)).zeros();
+    }
+    double n = arma::norm(v);
+    if (n > 1e-30) {
+      v /= n;
+    }
+    return v;
+  }
+
+  // Translation mode vectors via periodic central differences.
+  // Returns normalized ∂ρ/∂x, ∂ρ/∂y, ∂ρ/∂z for use as deflation
+  // vectors in the eigenvalue solver.
+
+  [[nodiscard]] inline auto translation_modes(const arma::vec& density, const dft::Grid& grid)
+      -> std::vector<arma::vec> {
+    std::vector<arma::vec> modes;
+    auto [nx, ny, nz] = grid.shape;
+    double inv_2dx = 0.5 / grid.dx;
+
+    for (int d = 0; d < 3; ++d) {
+      arma::vec grad(density.n_elem);
+      for (long ix = 0; ix < nx; ++ix) {
+        for (long iy = 0; iy < ny; ++iy) {
+          for (long iz = 0; iz < nz; ++iz) {
+            std::array<long, 3> idx = {ix, iy, iz};
+            auto ip = idx, im = idx;
+            ip[d] = (ip[d] + 1) % grid.shape[d];
+            im[d] = (im[d] - 1 + grid.shape[d]) % grid.shape[d];
+            auto i_c = grid.flat_index(ix, iy, iz);
+            auto i_p = grid.flat_index(ip[0], ip[1], ip[2]);
+            auto i_m = grid.flat_index(im[0], im[1], im[2]);
+            grad(i_c) = (density(i_p) - density(i_m)) * inv_2dx;
+          }
+        }
+      }
+      double gn = arma::norm(grad);
+      if (gn > 1e-10) {
+        modes.push_back(grad / gn);
+      }
+    }
+    return modes;
+  }
+
+  // Depletion-zone mask: flags grid points where ρ < threshold as
+  // boundary points (in addition to box faces). At these points the
+  // ideal-gas Hessian 1/ρ diverges, so the projected operator P H P
+  // must zero them out.
+
+  [[nodiscard]] inline auto
+  depletion_mask(const arma::vec& density, double background, const arma::uvec& face_mask, double factor = 0.01)
+      -> arma::uvec {
+    arma::uvec mask = face_mask;
+    double threshold = factor * background;
+    for (arma::uword i = 0; i < density.n_elem; ++i) {
+      if (density(i) < threshold) {
+        mask(i) = 1;
+      }
+    }
+    return mask;
+  }
+
   // Text utilities for TOML token parsing.
 
   [[nodiscard]] inline auto normalize_token(std::string_view token) -> std::string {
@@ -286,6 +358,18 @@ namespace nucleation {
     double perturb_scale;
   };
 
+  struct StringConfig {
+    bool enabled{false};
+    int num_images{11};
+    int relax_steps{20};
+    double tolerance{1e-4};
+    int max_iterations{20};
+    int reparametrize_passes{4};
+    double dt{1e-2};
+    double dt_max{1.0};
+    int log_interval{1};
+  };
+
   struct NucleationConfig {
     ModelConfig model;
     DropletConfig droplet;
@@ -296,6 +380,7 @@ namespace nucleation {
     FireConfig fire;
     EigenConfig eigen;
     DdftConfig ddft;
+    StringConfig string_method;
 
     [[nodiscard]] auto profile_axis() const -> int { return wall.is_active() ? wall_axis(wall.normal) : 0; }
 
@@ -436,6 +521,16 @@ namespace nucleation {
              .snapshot_interval = get<int>(cfg, "ddft.snapshot_interval"),
              .log_interval = get<int>(cfg, "ddft.log_interval"),
              .perturb_scale = get<double>(cfg, "ddft.perturb_scale")},
+        .string_method =
+            {.enabled = get_or("string.enabled", false),
+             .num_images = get_or("string.num_images", 11),
+             .relax_steps = get_or("string.relax_steps", 20),
+             .tolerance = get_or("string.tolerance", 1e-4),
+             .max_iterations = get_or("string.max_iterations", 20),
+             .reparametrize_passes = get_or("string.reparametrize_passes", 4),
+             .dt = get_or("string.dt", 1e-2),
+             .dt_max = get_or("string.dt_max", 1.0),
+             .log_interval = get_or("string.log_interval", 1)},
     };
   }
 
@@ -941,7 +1036,7 @@ namespace nucleation {
   [[nodiscard]] inline auto extract_dynamics(
       const dft::algorithms::dynamics::SimulationResult& sim,
       const dft::Grid& grid,
-      const arma::vec& /*r*/,
+      const arma::vec& r,
       double rho_background,
       double delta_rho,
       const NucleationConfig& cfg
@@ -953,10 +1048,12 @@ namespace nucleation {
       prof.time = snap.time;
       result.profiles.push_back(std::move(prof));
       double R = dft::effective_radius(snap.densities[0], rho_background, delta_rho, dv);
+      double n = dft::cluster_average_density(snap.densities[0], r, R, dv);
       result.pathway.push_back({
           .radius = R,
           .energy = snap.energy,
           .rho_center = center_density(snap.densities[0], grid, cfg),
+          .n_cluster = n,
       });
     }
     return result;

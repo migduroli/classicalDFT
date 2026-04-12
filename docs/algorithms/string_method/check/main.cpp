@@ -37,8 +37,7 @@ static void section(std::string_view title) {
 
 // Quadratic energy: F(x) = 0.5 * ||x||^2 with force = x.
 
-static auto quadratic_energy_ours(const std::vector<arma::vec>& x)
-    -> std::pair<double, std::vector<arma::vec>> {
+static auto quadratic_energy_ours(const std::vector<arma::vec>& x) -> std::pair<double, std::vector<arma::vec>> {
   double energy = 0.0;
   std::vector<arma::vec> forces(x.size());
   for (std::size_t s = 0; s < x.size(); ++s) {
@@ -54,8 +53,7 @@ static auto quadratic_energy_jim(const arma::vec& x) -> std::pair<double, arma::
 
 // Damped relaxation: x_new = (1 - alpha)^steps * x.
 
-static auto relax_ours(const std::vector<arma::vec>& x)
-    -> std::pair<std::vector<arma::vec>, double> {
+static auto relax_ours(const std::vector<arma::vec>& x) -> std::pair<std::vector<arma::vec>, double> {
   std::vector<arma::vec> result(x.size());
   double energy = 0.0;
   for (std::size_t s = 0; s < x.size(); ++s) {
@@ -94,7 +92,7 @@ int main() {
 
   for (int j = 0; j < num_images; ++j) {
     double t = static_cast<double>(j) / (num_images - 1);
-    double f = t * t;  // Quadratic distortion.
+    double f = t * t; // Quadratic distortion.
     arma::vec img = (1.0 - f) * endpoint_a + f * endpoint_b;
     our_images[j].x = {img};
     jim_images[j] = img;
@@ -109,7 +107,9 @@ int main() {
     for (int i = 0; i < N; ++i) {
       check(
           "reparam[" + std::to_string(j) + "][" + std::to_string(i) + "]",
-          our_images[j].x[0](i), jim_images[j](i), 1e-10
+          our_images[j].x[0](i),
+          jim_images[j](i),
+          1e-10
       );
       if (std::abs(our_images[j].x[0](i) - jim_images[j](i)) <= 1e-10) {
         ++step1_ok;
@@ -138,13 +138,10 @@ int main() {
       .tolerance = 1e-6,
       .max_iterations = 100,
       .reparametrize_passes = 4,
-      .log_interval = 0,  // Silent.
+      .log_interval = 0, // Silent.
   };
 
-  auto our_result = sm.find_pathway(
-      {state_a}, {state_b}, n_total,
-      quadratic_energy_ours, relax_ours
-  );
+  auto our_result = sm.find_pathway({state_a}, {state_b}, n_total, quadratic_energy_ours, relax_ours);
 
   // Run Jim's string method.
   legacy::algorithms::StringConfig jim_config{
@@ -153,10 +150,8 @@ int main() {
       .interpolation_passes = 4,
   };
 
-  auto jim_result = legacy::algorithms::string_method(
-      state_a, state_b, n_interior,
-      quadratic_energy_jim, relax_jim, jim_config
-  );
+  auto jim_result =
+      legacy::algorithms::string_method(state_a, state_b, n_interior, quadratic_energy_jim, relax_jim, jim_config);
 
   std::cout << "  Our iterations:  " << our_result.iterations << "\n";
   std::cout << "  Jim iterations:  " << jim_result.iterations << "\n";
@@ -165,18 +160,13 @@ int main() {
   std::cout << "  Our converged:   " << our_result.converged << "\n";
   std::cout << "  Jim converged:   " << jim_result.converged << "\n";
 
-  check("iterations", static_cast<double>(our_result.iterations),
-        static_cast<double>(jim_result.iterations), 0.0);
-  check("converged", static_cast<double>(our_result.converged),
-        static_cast<double>(jim_result.converged), 0.0);
+  check("iterations", static_cast<double>(our_result.iterations), static_cast<double>(jim_result.iterations), 0.0);
+  check("converged", static_cast<double>(our_result.converged), static_cast<double>(jim_result.converged), 0.0);
   check("final_error", our_result.final_error, jim_result.final_error, 1e-12);
 
   // Compare energies.
   for (int j = 0; j < n_total; ++j) {
-    check(
-        "energy[" + std::to_string(j) + "]",
-        our_result.images[j].energy, jim_result.energies[j], 1e-10
-    );
+    check("energy[" + std::to_string(j) + "]", our_result.images[j].energy, jim_result.energies[j], 1e-10);
   }
 
   // Compare densities pointwise.
@@ -185,7 +175,9 @@ int main() {
     for (int i = 0; i < N; ++i) {
       check(
           "x[" + std::to_string(j) + "][" + std::to_string(i) + "]",
-          our_result.images[j].x[0](i), jim_result.images[j](i), 1e-10
+          our_result.images[j].x[0](i),
+          jim_result.images[j](i),
+          1e-10
       );
       if (std::abs(our_result.images[j].x[0](i) - jim_result.images[j](i)) <= 1e-10) {
         ++step2_ok;
