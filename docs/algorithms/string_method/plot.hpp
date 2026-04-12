@@ -138,6 +138,7 @@ namespace plot {
       };
 
       panel.save("exports/string_method_landscape.pdf");
+      panel.save("exports/string_method_landscape.png");
       std::cout << "Plot saved: exports/string_method_landscape.pdf\n";
     }
 
@@ -183,6 +184,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/string_method_energy.pdf");
+      plt::save("exports/string_method_energy.png");
       plt::clf();
       plt::close();
       std::cout << "Plot saved: exports/string_method_energy.pdf\n";
@@ -206,6 +208,7 @@ namespace plot {
       plt::grid(true);
       plt::tight_layout();
       plt::save("exports/string_method_convergence.pdf");
+      plt::save("exports/string_method_convergence.png");
       plt::clf();
       plt::close();
       std::cout << "Plot saved: exports/string_method_convergence.pdf\n";
