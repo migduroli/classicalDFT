@@ -103,6 +103,20 @@ namespace dft {
     return std::cbrt(3.0 * delta_N / (4.0 * std::numbers::pi * delta_rho));
   }
 
+  // Average density inside a sphere of given radius.
+
+  [[nodiscard]] inline auto
+  cluster_average_density(const arma::vec& field, const arma::vec& radial_distances, double radius, double cell_volume)
+      -> double {
+    if (radius <= 0.0)
+      return 0.0;
+    arma::uvec inside = arma::find(radial_distances < radius);
+    if (inside.is_empty())
+      return 0.0;
+    (void)cell_volume;
+    return arma::mean(field.elem(inside));
+  }
+
 } // namespace dft
 
 #endif // DFT_FIELDS_HPP

@@ -43,6 +43,9 @@ namespace dft::plotting {
     std::string color{"black"};
     std::string linestyle{"-"};
     double linewidth{1.0};
+    std::string marker;
+    double markersize{5.0};
+    std::string label;
   };
 
   struct ContourfPanelsOptions {
@@ -230,6 +233,13 @@ namespace dft::plotting {
       set_dict_string(kwargs, "color", line.color);
       set_dict_string(kwargs, "linestyle", line.linestyle);
       set_dict_double(kwargs, "linewidth", line.linewidth);
+      if (!line.marker.empty()) {
+        set_dict_string(kwargs, "marker", line.marker);
+        set_dict_double(kwargs, "markersize", line.markersize);
+      }
+      if (!line.label.empty()) {
+        set_dict_string(kwargs, "label", line.label);
+      }
       PyObject* res = PyObject_Call(plot_fn, args, kwargs);
       if (!res)
         PyErr_Print();
@@ -388,7 +398,8 @@ namespace dft::plotting {
   inline void contourf_impl(
       const ContourfData& field,
       const std::optional<std::string>& filepath,
-      const ContourfOptions& options = {}
+      const ContourfOptions& options = {},
+      const std::vector<ContourfLine>& lines = {}
   ) {
     namespace plt = matplotlibcpp;
     plt::figure_size(options.width, options.height);
@@ -399,6 +410,27 @@ namespace dft::plotting {
     PyObject* res = detail::render_contourf(pyplot, cm, ax, field, options);
     if (options.colorbar)
       detail::add_colorbar(pyplot, res, ax, options.shrink, options.pad, "vertical");
+
+    bool has_labels = false;
+    for (const auto& line : lines) {
+      detail::plot_line(ax, line);
+      if (!line.label.empty()) has_labels = true;
+    }
+
+    if (has_labels) {
+      PyObject* legend_fn = detail::get_attr(ax, "legend");
+      PyObject* kwargs = PyDict_New();
+      detail::set_dict_string(kwargs, "loc", "upper left");
+      detail::set_dict_double(kwargs, "fontsize", 7.5);
+      detail::set_dict_double(kwargs, "framealpha", 0.9);
+      detail::set_dict_double(kwargs, "labelspacing", 0.8);
+      detail::set_dict_double(kwargs, "handletextpad", 0.6);
+      detail::set_dict_double(kwargs, "borderpad", 0.6);
+      PyObject* legend_res = PyObject_Call(legend_fn, PyTuple_New(0), kwargs);
+      Py_XDECREF(legend_res);
+      Py_DECREF(kwargs);
+      Py_DECREF(legend_fn);
+    }
 
     Py_DECREF(ax);
     Py_DECREF(res);
@@ -547,11 +579,11 @@ namespace dft::plotting {
   // Method implementations
 
   inline void ContourfPanel::save(const std::string& filepath) const {
-    contourf_impl(field, filepath, options);
+    contourf_impl(field, filepath, options, lines);
   }
 
   inline void ContourfPanel::show() const {
-    contourf_impl(field, std::nullopt, options);
+    contourf_impl(field, std::nullopt, options, lines);
   }
 
   inline void Figure::save(const std::string& filepath) const {

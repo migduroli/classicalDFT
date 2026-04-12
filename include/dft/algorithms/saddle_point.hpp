@@ -170,6 +170,7 @@ namespace dft::algorithms::saddle_point {
     double hessian_eps{1e-6};
     int log_interval{0};
     arma::uvec boundary_mask{};
+    std::vector<arma::vec> deflation_vectors{};
 
     // Find the smallest eigenvalue and its eigenvector of the Hessian
     // d^2 Omega / (drho_i drho_j) using LOBPCG.
@@ -177,6 +178,11 @@ namespace dft::algorithms::saddle_point {
     // When boundary_mask is set, the eigenvector is projected to zero
     // at masked indices each iteration so the effective operator is
     // P H P (symmetric) rather than P H (non-symmetric).
+    //
+    // When deflation_vectors is set, the eigenvector is orthogonalized
+    // against these directions each iteration. Use this to deflate
+    // known near-zero modes (e.g. translations) that would otherwise
+    // stall convergence toward the true lowest eigenvalue.
 
     [[nodiscard]] auto solve(const ForceFunction& force_fn, const arma::vec& rho, const arma::vec& initial_guess = {})
         const -> EigenvalueResult;
@@ -195,9 +201,29 @@ namespace dft::algorithms::saddle_point {
     auto [omega, forces] = force_fn(rho);
     arma::uword n = rho.n_elem;
 
+    // Prepare orthonormal deflation basis (boundary-masked, Gram-Schmidt).
+
+    std::vector<arma::vec> deflation;
+    for (auto d : deflation_vectors) {
+      if (boundary_mask.n_elem == n) {
+        d.elem(arma::find(boundary_mask)).zeros();
+      }
+      for (const auto& prev : deflation) {
+        d -= arma::dot(d, prev) * prev;
+      }
+      double dn = arma::norm(d);
+      if (dn > 1e-10) {
+        d /= dn;
+        deflation.push_back(std::move(d));
+      }
+    }
+
     arma::vec v = initial_guess.n_elem == n ? initial_guess : arma::randn(n);
     if (boundary_mask.n_elem == n) {
       v.elem(arma::find(boundary_mask)).zeros();
+    }
+    for (const auto& d : deflation) {
+      v -= arma::dot(v, d) * d;
     }
     v /= arma::norm(v);
 
@@ -282,8 +308,11 @@ namespace dft::algorithms::saddle_point {
       v = v_new / arma::norm(v_new);
       if (boundary_mask.n_elem == n) {
         v.elem(arma::find(boundary_mask)).zeros();
-        v /= arma::norm(v);
       }
+      for (const auto& d : deflation) {
+        v -= arma::dot(v, d) * d;
+      }
+      v /= arma::norm(v);
       hv = _internal::hessian_times_vector(force_fn, rho, forces, v, hessian_eps);
       lambda = arma::dot(v, hv);
     }

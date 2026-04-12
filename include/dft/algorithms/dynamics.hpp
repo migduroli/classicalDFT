@@ -767,6 +767,7 @@ namespace dft::algorithms::dynamics {
     double radius;
     double energy;
     double rho_center;
+    double n_cluster{0.0};
   };
 
   struct DynamicsAnalysis {
