@@ -143,7 +143,7 @@ path (dashed brown) and the converged MEP (solid orange). The converged
 path follows the parabolic valley $y = x^2$ through the saddle at the
 origin, avoiding the high-energy ridge at $y = 1$.
 
-![Energy landscape and MEP](exports/string_method_landscape.pdf)
+<iframe src="exports/string_method_landscape.pdf" width="100%" height="500" frameborder="0" />
 
 ### Energy along the path
 
@@ -151,14 +151,14 @@ The energy profile along the arc-length parameter shows the barrier
 reduction from $V \approx 11$ (initial linear path) to $V = 1$
 (converged MEP through the saddle).
 
-![Energy along the path](exports/string_method_energy.pdf)
+<iframe src="exports/string_method_energy.pdf" width="100%" height="500" frameborder="0" />
 
 ### Convergence
 
 The max perpendicular force across images decreases rapidly, reaching the
 tolerance of $10^{-6}$ within a few tens of iterations.
 
-![Convergence](exports/string_method_convergence.pdf)
+<iframe src="exports/string_method_convergence.pdf" width="100%" height="500" frameborder="0" />
 
 ## References
 
