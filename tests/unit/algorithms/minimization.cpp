@@ -7,7 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dft::algorithms::minimization;
-using namespace dft::algorithms::minimization::_internal;
+using namespace dft::algorithms::minimization::detail;
 
 // Unbounded parametrization: rho = rho_min + x^2
 

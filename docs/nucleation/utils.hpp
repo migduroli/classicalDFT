@@ -25,7 +25,6 @@
 #include <functional>
 #include <iostream>
 #include <memory>
-#include <numbers>
 #include <optional>
 #include <print>
 #include <stdexcept>
@@ -116,40 +115,6 @@ namespace nucleation {
         out.push_back(static_cast<char>(std::toupper(ch)));
       }
     }
-    return out;
-  }
-
-  [[nodiscard]] inline auto slugify_token(std::string_view token) -> std::string {
-    std::string out;
-    out.reserve(token.size() + 8);
-
-    auto append_separator = [&]() {
-      if (!out.empty() && out.back() != '_')
-        out.push_back('_');
-    };
-
-    for (std::size_t i = 0; i < token.size(); ++i) {
-      unsigned char ch = static_cast<unsigned char>(token[i]);
-      if (!std::isalnum(ch)) {
-        append_separator();
-        continue;
-      }
-
-      bool upper = std::isupper(ch);
-      if (upper && i > 0) {
-        unsigned char prev = static_cast<unsigned char>(token[i - 1]);
-        bool prev_lower_or_digit = std::islower(prev) || std::isdigit(prev);
-        if (prev_lower_or_digit)
-          append_separator();
-      }
-
-      out.push_back(static_cast<char>(std::tolower(ch)));
-    }
-
-    while (!out.empty() && out.back() == '_') {
-      out.pop_back();
-    }
-
     return out;
   }
 
@@ -358,18 +323,6 @@ namespace nucleation {
     double perturb_scale;
   };
 
-  struct StringConfig {
-    bool enabled{false};
-    int num_images{11};
-    int relax_steps{20};
-    double tolerance{1e-4};
-    int max_iterations{20};
-    int reparametrize_passes{4};
-    double dt{1e-2};
-    double dt_max{1.0};
-    int log_interval{1};
-  };
-
   struct NucleationConfig {
     ModelConfig model;
     DropletConfig droplet;
@@ -380,14 +333,8 @@ namespace nucleation {
     FireConfig fire;
     EigenConfig eigen;
     DdftConfig ddft;
-    StringConfig string_method;
 
     [[nodiscard]] auto profile_axis() const -> int { return wall.is_active() ? wall_axis(wall.normal) : 0; }
-
-    [[nodiscard]] auto cross_section_axes() const -> std::array<int, 2> {
-      int axis = profile_axis();
-      return {0, axis == 0 ? 1 : axis};
-    }
 
     [[nodiscard]] auto export_directory() const -> std::string {
       if (!output.directory.empty())
@@ -521,16 +468,6 @@ namespace nucleation {
              .snapshot_interval = get<int>(cfg, "ddft.snapshot_interval"),
              .log_interval = get<int>(cfg, "ddft.log_interval"),
              .perturb_scale = get<double>(cfg, "ddft.perturb_scale")},
-        .string_method =
-            {.enabled = get_or("string.enabled", false),
-             .num_images = get_or("string.num_images", 11),
-             .relax_steps = get_or("string.relax_steps", 20),
-             .tolerance = get_or("string.tolerance", 1e-4),
-             .max_iterations = get_or("string.max_iterations", 20),
-             .reparametrize_passes = get_or("string.reparametrize_passes", 4),
-             .dt = get_or("string.dt", 1e-2),
-             .dt_max = get_or("string.dt_max", 1.0),
-             .log_interval = get_or("string.log_interval", 1)},
     };
   }
 
@@ -538,19 +475,11 @@ namespace nucleation {
     return dft::physics::potentials::parse_split_scheme(name);
   }
 
-  struct RadialSnapshot {
-    double time{0.0};
-    std::vector<double> r;
-    std::vector<double> rho;
-  };
-
   using SliceSnapshot = dft::Slice1D;
 
   using PathwayPoint = dft::algorithms::dynamics::PathwayPoint;
 
   using DynamicsResult = dft::algorithms::dynamics::DynamicsAnalysis;
-
-  using ClusterInfo = dft::algorithms::saddle_point::ConstrainedResult;
 
   [[nodiscard]] inline auto
   shifted_coordinate(const dft::Grid& grid, int axis, long index, const std::optional<WallConfig>& wall = std::nullopt)
@@ -863,7 +792,7 @@ namespace nucleation {
           cfg.wall.is_active() ? std::optional<WallConfig>{cfg.wall} : std::nullopt
       );
     }
-    return dft::StepProfile{.radius = cfg.droplet.radius, .rho_in = rho_in, .rho_out = rho_out}.apply(r);
+    return dft::StepProfile{.radius = cfg.droplet.radius, .rho_in = rho_in, .rho_out = rho_out}(r);
   }
 
   // Build the combined external field (wall + gravity).
@@ -1009,16 +938,6 @@ namespace nucleation {
     return extract_plane_slice(rho, grid, {1, 2}, wall, fixed_x);
   }
 
-  [[nodiscard]] inline auto
-  extract_cross_section(const arma::vec& rho, const dft::Grid& grid, const NucleationConfig& cfg) -> Slice2D {
-    return extract_plane_slice(
-        rho,
-        grid,
-        cfg.cross_section_axes(),
-        cfg.wall.is_active() ? std::optional<WallConfig>{cfg.wall} : std::nullopt
-    );
-  }
-
   // Wall-aware center density: at the seed center (not the box center).
 
   [[nodiscard]] inline auto center_density(const arma::vec& rho, const dft::Grid& grid, const NucleationConfig& cfg)
@@ -1048,7 +967,7 @@ namespace nucleation {
       prof.time = snap.time;
       result.profiles.push_back(std::move(prof));
       double R = dft::effective_radius(snap.densities[0], rho_background, delta_rho, dv);
-      double n = dft::cluster_average_density(snap.densities[0], r, R, dv);
+      double n = dft::cluster_average_density(snap.densities[0], r, R);
       result.pathway.push_back({
           .radius = R,
           .energy = snap.energy,

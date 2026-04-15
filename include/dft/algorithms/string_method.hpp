@@ -7,6 +7,7 @@
 #include <format>
 #include <functional>
 #include <iostream>
+#include <unordered_set>
 #include <vector>
 
 namespace dft::algorithms::string_method {
@@ -78,17 +79,17 @@ namespace dft::algorithms::string_method {
   // Redistribute images at equal arc-length spacing via linear interpolation.
   // Endpoints are held fixed.
 
-  inline void reparametrize(std::vector<Image>& images, int passes = 4) {
+  [[nodiscard]] inline auto reparametrize(std::vector<Image> images, int passes = 4) -> std::vector<Image> {
     int n = static_cast<int>(images.size());
     if (n < 3) {
-      return;
+      return images;
     }
 
     for (int pass = 0; pass < passes; ++pass) {
       auto alpha = arc_lengths(images);
 
       if (alpha.back() <= 0.0) {
-        return;
+        return images;
       }
 
       double dl = alpha.back() / static_cast<double>(n - 1);
@@ -128,6 +129,7 @@ namespace dft::algorithms::string_method {
         }
       }
     }
+    return images;
   }
 
   // The simplified string method (E, Ren, Vanden-Eijnden, J. Chem. Phys.
@@ -153,6 +155,9 @@ namespace dft::algorithms::string_method {
     int log_interval{1};
     int evolution_steps{10};
     double evolution_alpha{0.01};
+    double relax_time{0.001};
+    double cell_volume{1.0};
+    std::vector<int> pinned_images{};
     IterationCallback on_iteration{};
 
     // Full string method: perpendicular-force evolution (no relax_fn).
@@ -164,6 +169,10 @@ namespace dft::algorithms::string_method {
         const ForceFunction& energy_fn
     ) const -> StringResult;
 
+    // Full string method with pre-initialized images.
+
+    [[nodiscard]] auto find_pathway(std::vector<Image> images, const ForceFunction& energy_fn) const -> StringResult;
+
     // Simplified string method: user-provided relaxation + reparametrize.
 
     [[nodiscard]] auto find_pathway(
@@ -173,6 +182,12 @@ namespace dft::algorithms::string_method {
         const ForceFunction& energy_fn,
         const RelaxFunction& relax_fn
     ) const -> StringResult;
+
+    // Simplified string method with pre-initialized images.
+
+    [[nodiscard]] auto
+    find_pathway(std::vector<Image> images, const ForceFunction& energy_fn, const RelaxFunction& relax_fn) const
+        -> StringResult;
   };
 
   // Full string method (E, Ren, Vanden-Eijnden, Phys. Rev. B 66,
@@ -190,13 +205,18 @@ namespace dft::algorithms::string_method {
       const ForceFunction& energy_fn
   ) const -> StringResult {
     auto images = linear_interpolation(initial, final_state, num_images);
-
-    // Evaluate initial energies.
-
     for (auto& img : images) {
       auto [energy, forces] = energy_fn(img.x);
       img.energy = energy;
     }
+    return find_pathway(std::move(images), energy_fn);
+  }
+
+  [[nodiscard]] inline auto StringMethod::find_pathway(std::vector<Image> images, const ForceFunction& energy_fn) const
+      -> StringResult {
+    int num_images = static_cast<int>(images.size());
+
+    std::unordered_set<int> pinned_set(pinned_images.begin(), pinned_images.end());
 
     if (log_interval > 0) {
       std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}  {:>14s}", "iter", "max|F_perp|", "F_min", "F_max");
@@ -207,10 +227,13 @@ namespace dft::algorithms::string_method {
     int iteration = 0;
 
     for (; iteration < max_iterations && err > tolerance; ++iteration) {
-      // Evolve interior images using only the perpendicular force.
+      // Evolve interior images using only the perpendicular force (skip pinned).
 
       for (int step = 0; step < evolution_steps; ++step) {
         for (int j = 1; j < num_images - 1; ++j) {
+          if (pinned_set.contains(j)) {
+            continue;
+          }
           auto [energy, forces] = energy_fn(images[j].x);
 
           // Path tangent from finite differences of neighbours.
@@ -233,26 +256,45 @@ namespace dft::algorithms::string_method {
 
           for (std::size_t s = 0; s < images[j].x.size(); ++s) {
             arma::vec f_perp = forces[s] - (f_dot_t / tangent_norm_sq) * tangent[s];
-            images[j].x[s] -= evolution_alpha * f_perp;
+            images[j].x[s] = arma::clamp(images[j].x[s] - evolution_alpha * f_perp, 1e-18, arma::datum::inf);
           }
+        }
+      }
+
+      // Save pinned image data before reparametrization.
+      std::vector<std::pair<int, Image>> pinned_data;
+      for (int idx : pinned_images) {
+        if (idx > 0 && idx < num_images - 1) {
+          pinned_data.emplace_back(idx, images[idx]);
         }
       }
 
       // Reparametrize to equal arc-length spacing.
 
-      reparametrize(images, reparametrize_passes);
+      images = reparametrize(std::move(images), reparametrize_passes);
 
-      // Recompute energies after reparametrization.
-
-      for (auto& img : images) {
-        auto [energy, forces] = energy_fn(img.x);
-        img.energy = energy;
+      // Restore pinned images.
+      for (const auto& [idx, img] : pinned_data) {
+        images[idx] = img;
       }
 
-      // Convergence: max |F_perp| across interior images.
+      // Recompute energies after reparametrization (skip pinned, already correct).
+
+      for (int j = 0; j < num_images; ++j) {
+        if (pinned_set.contains(j)) {
+          continue;
+        }
+        auto [energy, forces] = energy_fn(images[j].x);
+        images[j].energy = energy;
+      }
+
+      // Convergence: max |F_perp| across interior images (skip pinned).
 
       err = 0.0;
       for (int j = 1; j < num_images - 1; ++j) {
+        if (pinned_set.contains(j)) {
+          continue;
+        }
         auto [energy, forces] = energy_fn(images[j].x);
 
         double tangent_norm_sq = 0.0;
@@ -304,7 +346,12 @@ namespace dft::algorithms::string_method {
 
   // Simplified string method (E, Ren, Vanden-Eijnden, J. Chem. Phys.
   // 126, 164103, 2007).  Uses full-gradient relaxation via user callback
-  // followed by reparametrization.  Convergence: RMS energy change.
+  // followed by reparametrization.  Convergence: Lutsko velocity metric
+  // (Eq. 33 in SM of Sci. Adv. 5, eaav7399, 2019):
+  //   Delta^J = (1/delta) * ||rho_new - rho_old||_2 / sum(rho)
+  // where delta is the relaxation time. The metric max_J(Delta^J) is
+  // compared to tolerance. This measures how fast each image's density
+  // is still changing, normalised by total mass.
 
   [[nodiscard]] inline auto StringMethod::find_pathway(
       const std::vector<arma::vec>& initial,
@@ -314,20 +361,24 @@ namespace dft::algorithms::string_method {
       const RelaxFunction& relax_fn
   ) const -> StringResult {
     auto images = linear_interpolation(initial, final_state, num_images);
-
-    // Evaluate initial energies.
     for (auto& img : images) {
       auto [energy, forces] = energy_fn(img.x);
       img.energy = energy;
     }
+    return find_pathway(std::move(images), energy_fn, relax_fn);
+  }
 
-    std::vector<double> f_old(num_images);
-    for (int j = 0; j < num_images; ++j) {
-      f_old[j] = images[j].energy;
-    }
+  [[nodiscard]] inline auto StringMethod::find_pathway(
+      std::vector<Image> images,
+      const ForceFunction& energy_fn,
+      const RelaxFunction& relax_fn
+  ) const -> StringResult {
+    int num_images = static_cast<int>(images.size());
+
+    std::unordered_set<int> pinned_set(pinned_images.begin(), pinned_images.end());
 
     if (log_interval > 0) {
-      std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}  {:>14s}", "iter", "error", "F_min", "F_max");
+      std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}  {:>14s}", "iter", "max_velocity", "F_min", "F_max");
       std::println(std::cout, "  {}", std::string(54, '-'));
     }
 
@@ -335,33 +386,63 @@ namespace dft::algorithms::string_method {
     int iteration = 0;
 
     for (; iteration < max_iterations && err > tolerance; ++iteration) {
-      // Relax interior images.
+      // Save pre-relaxation densities for velocity metric.
+      std::vector<std::vector<arma::vec>> x_old(num_images);
       for (int j = 1; j < num_images - 1; ++j) {
+        x_old[j] = images[j].x;
+      }
+
+      // Relax interior images (skip pinned).
+      for (int j = 1; j < num_images - 1; ++j) {
+        if (pinned_set.contains(j)) {
+          continue;
+        }
         auto [relaxed_x, relaxed_energy] = relax_fn(images[j].x);
         images[j].x = std::move(relaxed_x);
         images[j].energy = relaxed_energy;
       }
 
+      // Save pinned image data before reparametrization.
+      std::vector<std::pair<int, Image>> pinned_data;
+      for (int idx : pinned_images) {
+        if (idx > 0 && idx < num_images - 1) {
+          pinned_data.emplace_back(idx, images[idx]);
+        }
+      }
+
       // Reparametrize to equal arc-length spacing.
-      reparametrize(images, reparametrize_passes);
+      images = reparametrize(std::move(images), reparametrize_passes);
 
-      // Recompute energies after reparametrization.
-      for (auto& img : images) {
-        auto [energy, forces] = energy_fn(img.x);
-        img.energy = energy;
+      // Restore pinned images.
+      for (const auto& [idx, img] : pinned_data) {
+        images[idx] = img;
       }
 
-      // Convergence: RMS change in free energies (interior images only).
-      double sum_sq = 0.0;
-      for (int j = 1; j < num_images - 1; ++j) {
-        double df = images[j].energy - f_old[j];
-        sum_sq += df * df;
-      }
-      err = std::sqrt(sum_sq / static_cast<double>(num_images - 2));
-
+      // Recompute energies after reparametrization (skip pinned, already correct).
       for (int j = 0; j < num_images; ++j) {
-        f_old[j] = images[j].energy;
+        if (pinned_set.contains(j)) {
+          continue;
+        }
+        auto [energy, forces] = energy_fn(images[j].x);
+        images[j].energy = energy;
       }
+
+      // Convergence: Lutsko velocity metric (SM Eq. 33, max over interior images).
+      // Delta^J = (1/delta) * ||N_new - N_old||_2 / N_total
+      // where N_i = rho_i * dV (particle numbers) and delta = relax_time.
+      double max_velocity = 0.0;
+      for (int j = 1; j < num_images - 1; ++j) {
+        double diff_sq = 0.0;
+        double mass = 0.0;
+        for (std::size_t s = 0; s < images[j].x.size(); ++s) {
+          arma::vec delta_n = (images[j].x[s] - x_old[j][s]) * cell_volume;
+          diff_sq += arma::dot(delta_n, delta_n);
+          mass += arma::accu(images[j].x[s]) * cell_volume;
+        }
+        double velocity = (mass > 1e-30 && relax_time > 1e-30) ? std::sqrt(diff_sq) / (relax_time * mass) : 0.0;
+        max_velocity = std::max(max_velocity, velocity);
+      }
+      err = max_velocity;
 
       if (log_interval > 0 && (iteration % log_interval == 0 || err <= tolerance)) {
         double f_min = images.front().energy;

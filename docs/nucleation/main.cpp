@@ -9,6 +9,17 @@
 
 using namespace dft;
 
+#ifdef DFT_HAS_MATPLOTLIB
+namespace {
+  void close_all_figures() {
+    try {
+      for (int i = 0; i < 200; ++i)
+        matplotlibcpp::close();
+    } catch (...) {}
+  }
+} // namespace
+#endif
+
 int main(int argc, char* argv[]) {
 #ifdef DOC_SOURCE_DIR
   std::filesystem::current_path(DOC_SOURCE_DIR);
@@ -80,7 +91,7 @@ int main(int argc, char* argv[]) {
   auto func = functionals::make_functional(functionals::fmt::FMTModel::from_name(cfg.model.functional.name), model);
   auto eos = func.bulk();
 
-  // Thermodynamics: coexistence and spinodal
+  // Step 1: Coexistence conditions
 
   auto phase_search = functionals::bulk::PhaseSearch{
       .rho_max = 1.0,
@@ -116,55 +127,171 @@ int main(int argc, char* argv[]) {
   );
   std::println(std::cout, "Initial seed: {}", cfg.seed.kind);
 
-  // Phase 1: critical cluster via constrained FIRE
+  // Steps 2-4: Critical cluster + eigenvalue (with checkpoint)
 
   auto wall_potential = cfg.wall.build();
   auto wall_field = nucleation::build_external_field(cfg, func.model.grid, wall_potential);
 
   auto seed_origin = nucleation::seed_center(func.model.grid, cfg);
   auto r = func.model.grid.radial_distances(seed_origin);
-  arma::vec rho0 = nucleation::make_initial_density(cfg, func.model.grid, r, rho_l, rho_out);
-
-  std::println(std::cout, "Seed centre: ({:.3f}, {:.3f}, {:.3f})", seed_origin[0], seed_origin[1], seed_origin[2]);
 
   export_dir = std::filesystem::path("exports") / cfg.export_directory();
-  std::filesystem::create_directories(export_dir);
+  auto data_dir = export_dir / "data";
+  std::filesystem::create_directories(data_dir);
   std::println(std::cout, "Export directory: {}", export_dir.string());
 
-#ifdef DFT_HAS_MATPLOTLIB
-  try {
-    plot::plot_initial_condition(
-        nucleation::extract_profile_slice(rho0, func.model.grid, cfg),
-        rho0,
-        func.model.grid,
-        cfg,
-        rho_v,
-        rho_l,
-        cfg.model.functional.name,
-        export_dir.string()
-    );
-  } catch (const std::exception& e) {
-    std::println(std::cerr, "Initial condition plot failed: {}", e.what());
+  auto stored_config = data_dir / "config.toml";
+  if (std::filesystem::exists(stored_config)) {
+    auto stored_cfg = nucleation::read_config(stored_config);
+    if (stored_cfg.model.grid.dx != cfg.model.grid.dx || stored_cfg.model.grid.box_size != cfg.model.grid.box_size) {
+      std::println(
+          std::cout,
+          "Grid mismatch: stored dx={:.4f}, current dx={:.4f}. Discarding old checkpoints.",
+          stored_cfg.model.grid.dx,
+          cfg.model.grid.dx
+      );
+      std::filesystem::remove_all(data_dir);
+      std::filesystem::create_directories(data_dir);
+    }
   }
+  std::filesystem::copy_file(config_file, stored_config, std::filesystem::copy_options::overwrite_existing);
+
+  auto checkpoint_critical = data_dir / "rho_critical.arma";
+  auto checkpoint_eigvec = data_dir / "eigenvector.arma";
+  auto checkpoint_info = data_dir / "critical_info.csv";
+
+  algorithms::saddle_point::ConstrainedResult info;
+  arma::vec rho_initial;
+  arma::vec rho_critical;
+  algorithms::saddle_point::EigenvalueResult eig;
+
+  bool loaded_checkpoint = false;
+
+  if (std::filesystem::exists(checkpoint_critical) && std::filesystem::exists(checkpoint_eigvec)
+      && std::filesystem::exists(checkpoint_info)) {
+    std::println(std::cout, "\nLoading checkpoint from {}/", data_dir.string());
+
+    rho_critical.load(checkpoint_critical, arma::arma_binary);
+    eig.eigenvector.load(checkpoint_eigvec, arma::arma_binary);
+
+    std::ifstream ifs(checkpoint_info);
+    std::string header;
+    std::getline(ifs, header);
+    char comma{};
+    ifs >> info.background >> comma >> info.mu_background >> comma >> info.omega_cluster >> comma
+        >> info.omega_background >> comma >> info.barrier >> comma >> info.effective_radius >> comma
+        >> info.rho_vapor_meta >> comma >> info.rho_liquid_meta >> comma >> eig.eigenvalue;
+    eig.converged = true;
+
+    info.boundary_mask = func.model.grid.boundary_mask();
+    rho_initial = rho_critical;
+    loaded_checkpoint = true;
+
+    std::println(
+        std::cout,
+        "  barrier={:.6f}  R_eff={:.4f}  eigenvalue={:.6f}",
+        info.barrier,
+        info.effective_radius,
+        eig.eigenvalue
+    );
+  }
+
+  if (!loaded_checkpoint) {
+    // Step 2: Initial seed density
+
+    arma::vec rho0 = nucleation::make_initial_density(cfg, func.model.grid, r, rho_l, rho_out);
+
+    std::println(std::cout, "Seed centre: ({:.3f}, {:.3f}, {:.3f})", seed_origin[0], seed_origin[1], seed_origin[2]);
+
+#ifdef DFT_HAS_MATPLOTLIB
+    try {
+      plot::plot_initial_condition(
+          nucleation::extract_profile_slice(rho0, func.model.grid, cfg),
+          rho0,
+          func.model.grid,
+          cfg,
+          rho_v,
+          rho_l,
+          cfg.model.functional.name,
+          export_dir.string()
+      );
+    } catch (const std::exception& e) {
+      std::println(std::cerr, "Initial condition plot failed: {}", e.what());
+    }
 #endif
 
-  auto result = nucleation::
-      find_critical_cluster(func, cfg, wall_potential, wall_field, seed_origin, rho_v, rho_l, rho_out, mu_out);
-  const auto& info = result.cluster;
-  const auto& rho_initial = result.rho_initial;
-  const auto& rho_critical = info.minimization.densities[0];
+    // Step 3: Constrained minimization (FIRE)
 
-  if (info.effective_radius < 0.5 || rho_critical.max() < 2.0 * info.background) {
-    std::println(std::cout, "Cluster evaporated. Exiting.");
-    return 0;
+    auto result = nucleation::
+        find_critical_cluster(func, cfg, wall_potential, wall_field, seed_origin, rho_v, rho_l, rho_out, mu_out);
+    info = result.cluster;
+    rho_initial = result.rho_initial;
+    rho_critical = info.minimization.densities[0];
+
+    if (info.effective_radius < 0.5 || rho_critical.max() < 2.0 * info.background) {
+      std::println(std::cout, "Cluster evaporated. Exiting.");
+      return 0;
+    }
+
+    // Step 4: Eigenvalue (saddle point verification)
+
+    arma::uvec eig_bdry = nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
+
+    auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
+      auto result = func.evaluate(rho, info.mu_background, wall_field);
+      return {result.grand_potential, fixed_boundary(result.forces[0], eig_bdry)};
+    };
+
+    auto eig_init = nucleation::radial_gaussian_guess(r, info.effective_radius, eig_bdry);
+    auto deflation = nucleation::translation_modes(rho_critical, func.model.grid);
+
+    eig =
+        algorithms::saddle_point::EigenvalueSolver{
+            .tolerance = cfg.eigen.tolerance,
+            .max_iterations = cfg.eigen.max_iterations,
+            .hessian_eps = cfg.eigen.hessian_eps,
+            .log_interval = cfg.eigen.log_interval,
+            .boundary_mask = eig_bdry,
+            .deflation_vectors = deflation,
+        }
+            .solve(eig_force_fn, rho_critical, eig_init);
+
+    std::println(std::cout, "\nEigenvalue: {:.6f}  converged={}", eig.eigenvalue, eig.converged);
+
+    if (!eig.converged) {
+      std::println(std::cout, "Eigenvalue solver did not converge. Aborting.");
+      return 1;
+    }
+
+    // Save checkpoint.
+    rho_critical.save(checkpoint_critical, arma::arma_binary);
+    eig.eigenvector.save(checkpoint_eigvec, arma::arma_binary);
+    {
+      std::ofstream ofs(checkpoint_info);
+      ofs << "background,mu_background,omega_cluster,omega_background,barrier,effective_radius,rho_vapor_meta,"
+             "rho_liquid_meta,eigenvalue\n";
+      ofs << std::format(
+          "{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e}\n",
+          info.background,
+          info.mu_background,
+          info.omega_cluster,
+          info.omega_background,
+          info.barrier,
+          info.effective_radius,
+          info.rho_vapor_meta,
+          info.rho_liquid_meta,
+          eig.eigenvalue
+      );
+    }
+    std::println(std::cout, "  Saved checkpoint to {}/", data_dir.string());
   }
-
-  auto critical_profile = nucleation::extract_profile_slice(rho_critical, func.model.grid, cfg);
-  auto initial_profile = nucleation::extract_profile_slice(rho_initial, func.model.grid, cfg);
 
 #ifdef DFT_HAS_MATPLOTLIB
   try {
+    auto critical_profile = nucleation::extract_profile_slice(rho_critical, func.model.grid, cfg);
+    auto initial_profile = nucleation::extract_profile_slice(rho_initial, func.model.grid, cfg);
     auto critical_views = plot::detail::density_views(rho_critical, func.model.grid, cfg);
+
     std::println(std::cout, "\nExporting critical-cluster preview...");
     plot::detail::plot_critical_cluster(
         critical_profile,
@@ -184,19 +311,6 @@ int main(int argc, char* argv[]) {
         export_dir.string() + "/critical/sections.pdf",
         cfg
     );
-
-    auto critical_window = plot::detail::packing_window(critical_views, info.rho_vapor_meta, info.rho_liquid_meta);
-    plot::detail::plot_density_views(
-        critical_views,
-        critical_window.vmin,
-        critical_window.vmax,
-        std::format(R"(Critical cluster packing contrast [{}])", cfg.model.functional.name),
-        export_dir.string() + "/critical/sections_packing.pdf",
-        cfg,
-        "turbo",
-        128,
-        "both"
-    );
   } catch (const std::exception& e) {
     std::println(std::cerr, "Critical-cluster preview plot failed: {}", e.what());
   }
@@ -207,223 +321,227 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  // Phase 2: eigenvalue (confirm saddle point)
-
-  arma::uvec eig_bdry = nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
-
-  auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
-    auto result = func.evaluate(rho, info.mu_background, wall_field);
-    return {result.grand_potential, fixed_boundary(result.forces[0], eig_bdry)};
-  };
-
-  auto eig_init = nucleation::radial_gaussian_guess(r, info.effective_radius, eig_bdry);
-  auto deflation = nucleation::translation_modes(rho_critical, func.model.grid);
-
-  auto eig =
-      algorithms::saddle_point::EigenvalueSolver{
-          .tolerance = cfg.eigen.tolerance,
-          .max_iterations = cfg.eigen.max_iterations,
-          .hessian_eps = cfg.eigen.hessian_eps,
-          .log_interval = cfg.eigen.log_interval,
-          .boundary_mask = eig_bdry,
-          .deflation_vectors = deflation,
-      }
-          .solve(eig_force_fn, rho_critical, eig_init);
-
-  std::println(std::cout, "\nEigenvalue: {:.6f}  converged={}", eig.eigenvalue, eig.converged);
-
-  if (!eig.converged) {
-    std::println(std::cout, "Eigenvalue solver did not converge after {} iterations. Aborting.", eig.iterations);
-    return 1;
-  }
-
-  // Phase 2.5: string method (minimum free-energy path)
-  // When the string method is enabled, it replaces the DDFT dynamics phase.
-  // The string method gives the static MEP; DDFT gives time-resolved dynamics.
+  // Step 5: DDFT from perturbed critical cluster (dissolution + growth)
 
   arma::uvec ddft_frozen = nucleation::depletion_mask(rho_critical, info.background, info.boundary_mask);
+  double dv = func.model.grid.cell_volume();
+  double delta_rho = rho_l - rho_v;
+
+  arma::vec rho_vapor = rho_out * arma::ones(arma::size(rho_critical));
+  auto boundary_fn = algorithms::dynamics::frozen_boundary(ddft_frozen, rho_vapor);
 
   auto gc_force_fn = func.grand_potential_callback(info.mu_background, wall_field, ddft_frozen);
-  arma::vec ev = algorithms::saddle_point::orient_eigenvector(eig.eigenvector, func.model.grid.cell_volume());
 
-  if (cfg.string_method.enabled) {
-    std::println(std::cout, "\n--- String method ---");
+  // Perturb along the unstable eigenvector.
+  double perturb_amp = cfg.ddft.perturb_scale * std::abs(eig.eigenvalue);
+  arma::vec perturb = perturb_amp * eig.eigenvector / arma::norm(eig.eigenvector);
 
-    // Endpoints: uniform metastable vapor → grown cluster.
-    std::vector<arma::vec> x_uniform = {rho_out * arma::ones(arma::size(rho_critical))};
-    arma::vec rho_grown =
-        algorithms::saddle_point::eigenvector_perturbation(rho_critical, ev, cfg.ddft.perturb_scale * 2.0, +1.0);
-    std::vector<arma::vec> x_grown = {rho_grown};
+  arma::vec rho_sub = arma::clamp(rho_critical - perturb, 1e-18, arma::datum::inf);
+  arma::vec rho_sup = arma::clamp(rho_critical + perturb, 1e-18, arma::datum::inf);
 
-    // Build DDFT-based relaxation function.
-    auto ddft_boundary = algorithms::dynamics::frozen_boundary(ddft_frozen, rho_critical);
+  double mass_sub = arma::accu(rho_sub) * dv;
+  double mass_sup = arma::accu(rho_sup) * dv;
+  double mass_crit = arma::accu(rho_critical) * dv;
 
-    auto relax_fn = [&](const std::vector<arma::vec>& x) -> std::pair<std::vector<arma::vec>, double> {
-      algorithms::dynamics::Simulation sim{
-          .step = {.dt = cfg.string_method.dt, .dt_max = cfg.string_method.dt_max},
-          .n_steps = cfg.string_method.relax_steps,
-          .snapshot_interval = 0,
-          .log_interval = 0,
-          .boundary = ddft_boundary,
-          .frozen_mask = ddft_frozen,
-      };
-      auto result = sim.run(x, func.model.grid, gc_force_fn);
-      return {std::move(result.densities), result.energies.back()};
-    };
-
-    algorithms::string_method::StringMethod sm{
-        .tolerance = cfg.string_method.tolerance,
-        .max_iterations = cfg.string_method.max_iterations,
-        .reparametrize_passes = cfg.string_method.reparametrize_passes,
-        .log_interval = cfg.string_method.log_interval,
-    };
-
-    auto string_result = sm.find_pathway(x_uniform, x_grown, cfg.string_method.num_images, gc_force_fn, relax_fn);
-
-    std::println(
-        std::cout,
-        "String method: iterations={}  error={:.6e}  converged={}",
-        string_result.iterations,
-        string_result.final_error,
-        string_result.converged
-    );
-
-    // Save pathway data.
-    auto str_data_dir = export_dir / "data";
-    std::filesystem::create_directories(str_data_dir);
-
-    double delta_rho = rho_l - rho_v;
-    double dv = func.model.grid.cell_volume();
-    auto alpha = algorithms::string_method::arc_lengths(string_result.images);
-    auto radial = func.model.grid.radial_distances();
-
-    std::ofstream pathway_file(str_data_dir / "string_pathway.csv");
-    pathway_file << "image,arc_length,energy,mass,effective_radius,cluster_density\n";
-    for (std::size_t j = 0; j < string_result.images.size(); ++j) {
-      const auto& img = string_result.images[j];
-      double mass = arma::accu(img.x[0]) * dv;
-      double r_eff = dft::effective_radius(img.x[0], info.background, delta_rho, dv);
-      double n_cl = dft::cluster_average_density(img.x[0], radial, r_eff, dv);
-      pathway_file
-          << std::format("{},{:.8e},{:.8e},{:.8e},{:.8e},{:.8e}\n", j, alpha[j], img.energy, mass, r_eff, n_cl);
-    }
-    for (std::size_t j = 0; j < string_result.images.size(); ++j) {
-      string_result.images[j].x[0].save(str_data_dir / std::format("string_image_{:03d}.arma", j), arma::arma_binary);
-    }
-    std::println(std::cout, "  Saved pathway ({} images) to {}/", string_result.images.size(), str_data_dir.string());
-
-#ifdef DFT_HAS_MATPLOTLIB
-    auto str_plot_dir = export_dir / "string_frames";
-    std::filesystem::create_directories(str_plot_dir);
-    std::println(std::cout, "  Writing {} contour frames to {}/", string_result.images.size(), str_plot_dir.string());
-    for (std::size_t j = 0; j < string_result.images.size(); ++j) {
-      auto views = plot::detail::density_views(string_result.images[j].x[0], func.model.grid, cfg);
-      auto window = plot::detail::packing_window(views, rho_v, rho_l);
-      auto title = std::format(R"(Image {}: $\Omega = {:.4f}$)", j, string_result.images[j].energy);
-      auto filepath = std::format("{}/string_{:03d}.pdf", str_plot_dir.string(), j);
-      plot::detail::plot_density_views(views, window.vmin, window.vmax, title, filepath, cfg, "turbo", 128, "both");
-    }
-#endif
-  }
-
-  // Phase 3: DDFT dynamics (growth and dissolution)
-  // The 3-arg grand_potential_callback zeros forces at frozen points
-  // so the spectral RHS stays clean; frozen_boundary pins densities.
-
-  algorithms::dynamics::Simulation ddft{
-      .step =
-          {.dt = cfg.ddft.dt,
-           .diffusion_coefficient = cfg.ddft.diffusion_coefficient,
-           .min_density = 1e-18,
-           .dt_max = cfg.ddft.dt_max,
-           .fp_tolerance = cfg.ddft.fp_tolerance,
-           .fp_max_iterations = cfg.ddft.fp_max_iterations},
-      .n_steps = cfg.ddft.n_steps,
-      .snapshot_interval = cfg.ddft.snapshot_interval,
-      .log_interval = cfg.ddft.log_interval,
-      .energy_offset = info.omega_background,
-      .boundary = algorithms::dynamics::frozen_boundary(ddft_frozen, rho_critical),
-      .frozen_mask = ddft_frozen,
-  };
-
-  double dv = func.model.grid.cell_volume();
-  double ev_mass = arma::accu(ev) * dv;
-  double mass_critical = arma::accu(rho_critical) * dv;
-  auto rho_grow_test =
-      algorithms::saddle_point::eigenvector_perturbation(rho_critical, ev, cfg.ddft.perturb_scale, +1.0);
-  double mass_grow = arma::accu(rho_grow_test) * dv;
-  auto [e_grow_test, _] = gc_force_fn({rho_grow_test});
   std::println(
       std::cout,
-      "\nEigenvector: delta_mass={:.4f}  mass_critical={:.4f}  mass_grow={:.4f}  E_grow={:.6f}  (barrier={:.6f})",
-      ev_mass,
-      mass_critical,
-      mass_grow,
-      e_grow_test - info.omega_background,
-      info.barrier
+      "\nStep 5: DDFT dynamics (N_crit={:.2f}, N_sub={:.2f}, N_sup={:.2f})",
+      mass_crit,
+      mass_sub,
+      mass_sup
   );
 
-  std::println(std::cout, "\nGrowth (perturb along +eigenvector):");
-  auto rho_grow = algorithms::saddle_point::eigenvector_perturbation(rho_critical, ev, cfg.ddft.perturb_scale, +1.0);
-  auto sim_grow = ddft.run({rho_grow}, func.model.grid, gc_force_fn);
+  auto make_ddft = [&]() {
+    return algorithms::dynamics::Simulation{
+        .step =
+            {
+                .dt = cfg.ddft.dt,
+                .diffusion_coefficient = cfg.ddft.diffusion_coefficient,
+                .min_density = 1e-18,
+                .dt_max = cfg.ddft.dt_max,
+                .fp_tolerance = cfg.ddft.fp_tolerance,
+                .fp_max_iterations = cfg.ddft.fp_max_iterations,
+            },
+        .n_steps = cfg.ddft.n_steps,
+        .snapshot_interval = cfg.ddft.snapshot_interval,
+        .log_interval = cfg.ddft.log_interval,
+        .boundary = boundary_fn,
+        .frozen_mask = ddft_frozen,
+    };
+  };
 
-  // Save growth result immediately so it survives a plotting crash.
-  auto data_dir = export_dir / "data";
-  std::filesystem::create_directories(data_dir);
-  rho_critical.save(data_dir / "rho_critical.arma", arma::arma_binary);
-  sim_grow.densities[0].save(data_dir / "rho_growth_final.arma", arma::arma_binary);
-  std::println(std::cout, "  Saved critical + growth densities to {}/", data_dir.string());
-
-  std::println(std::cout, "\nDissolution (perturb along -eigenvector):");
-  auto rho_shrink = algorithms::saddle_point::eigenvector_perturbation(rho_critical, ev, cfg.ddft.perturb_scale, -1.0);
-
-  auto ddft_dissolve = ddft;
+  // Dissolution: stop early when energy returns to background.
+  std::println(std::cout, "  Running DDFT (dissolution)...");
+  auto ddft_dissolve = make_ddft();
   ddft_dissolve.stop_condition = [&, count = 0](int, double, double energy) mutable -> bool {
     count = (std::abs(energy - info.omega_background) < 0.01) ? count + 1 : 0;
     return count >= 3;
   };
-  auto sim_shrink = ddft_dissolve.run({rho_shrink}, func.model.grid, gc_force_fn);
+  auto sim_dissolve = ddft_dissolve.run({rho_sub}, func.model.grid, gc_force_fn);
+  auto dissolution = nucleation::extract_dynamics(sim_dissolve, func.model.grid, r, info.background, delta_rho, cfg);
+  std::println(std::cout, "    {} snapshots", dissolution.profiles.size());
 
-  // Save dissolution result immediately.
-  sim_shrink.densities[0].save(data_dir / "rho_dissolution_final.arma", arma::arma_binary);
-  std::println(std::cout, "  Saved dissolution density to {}/", data_dir.string());
+  // Growth.
+  std::println(std::cout, "  Running DDFT (growth)...");
+  auto ddft_growth = make_ddft();
+  auto sim_growth = ddft_growth.run({rho_sup}, func.model.grid, gc_force_fn);
+  auto growth = nucleation::extract_dynamics(sim_growth, func.model.grid, r, info.background, delta_rho, cfg);
+  std::println(std::cout, "    {} snapshots", growth.profiles.size());
 
-  // Post-processing and plots
+  // Critical cluster pathway point.
+  double R_crit = dft::effective_radius(rho_critical, info.background, delta_rho, dv);
+  double n_crit = dft::cluster_average_density(rho_critical, r, R_crit);
+  nucleation::PathwayPoint critical_pt{
+      .radius = R_crit,
+      .energy = info.omega_cluster,
+      .rho_center = nucleation::center_density(rho_critical, func.model.grid, cfg),
+      .n_cluster = n_crit,
+  };
 
-  double delta_rho = rho_l - rho_v;
-  auto dyn_grow = nucleation::extract_dynamics(sim_grow, func.model.grid, r, info.background, delta_rho, cfg);
-  auto dyn_shrink = nucleation::extract_dynamics(sim_shrink, func.model.grid, r, info.background, delta_rho, cfg);
+  // Save pathway CSV.
+  {
+    std::ofstream csv(data_dir / "dynamics_pathway.csv");
+    csv << "branch,step,time,radius,energy,delta_energy,rho_center,n_cluster\n";
+    auto write_branch = [&](const std::string& name, const nucleation::DynamicsResult& dyn) {
+      for (std::size_t i = 0; i < dyn.pathway.size(); ++i) {
+        const auto& p = dyn.pathway[i];
+        csv << std::format(
+            "{},{},{:.8e},{:.8e},{:.8e},{:.8e},{:.8e},{:.8e}\n",
+            name,
+            i,
+            dyn.profiles[i].time,
+            p.radius,
+            p.energy,
+            p.energy - info.omega_background,
+            p.rho_center,
+            p.n_cluster
+        );
+      }
+    };
+    write_branch("dissolution", dissolution);
+    write_branch("growth", growth);
+    std::println(std::cout, "  Saved dynamics pathway to {}", (data_dir / "dynamics_pathway.csv").string());
+  }
 
 #ifdef DFT_HAS_MATPLOTLIB
-  std::println(std::cout, "\nGenerating plots...");
-  try {
-    double rho_center_critical = nucleation::center_density(rho_critical, func.model.grid, cfg);
-    double n_cluster_critical =
-        dft::cluster_average_density(rho_critical, r, info.effective_radius, func.model.grid.cell_volume());
+  std::println(std::cout, "\nExporting dynamics plots...");
 
-    plot::make_plots(
+  std::filesystem::create_directories(export_dir / "dynamics");
+
+  auto critical_profile = nucleation::extract_profile_slice(rho_critical, func.model.grid, cfg);
+
+  try {
+    plot::detail::plot_dynamics(
+        dissolution.profiles,
         critical_profile,
-        initial_profile,
-        rho_critical,
-        dyn_shrink,
-        dyn_grow,
-        sim_shrink,
-        sim_grow,
-        func.model.grid,
-        cfg,
-        {.radius = info.effective_radius,
-         .energy = info.omega_cluster,
-         .rho_center = rho_center_critical,
-         .n_cluster = n_cluster_critical},
+        info.rho_vapor_meta,
+        info.rho_liquid_meta,
+        "Dissolution (subcritical)",
+        0,
+        187,
+        213,
+        0,
+        60,
+        100,
+        export_dir.string() + "/dynamics/dissolution.pdf",
+        cfg.model.functional.name
+    );
+  } catch (const std::exception& e) {
+    std::println(std::cerr, "Dissolution plot failed: {}", e.what());
+  }
+
+  try {
+    plot::detail::plot_dynamics(
+        growth.profiles,
+        critical_profile,
+        info.rho_vapor_meta,
+        info.rho_liquid_meta,
+        "Growth (supercritical)",
+        226,
+        88,
+        34,
+        120,
+        20,
+        0,
+        export_dir.string() + "/dynamics/growth.pdf",
+        cfg.model.functional.name
+    );
+  } catch (const std::exception& e) {
+    std::println(std::cerr, "Growth plot failed: {}", e.what());
+  }
+
+  try {
+    plot::detail::plot_energy_barrier(
+        dissolution.pathway,
+        growth.pathway,
+        critical_pt,
         info.omega_background,
+        cfg.model.functional.name,
+        export_dir.string()
+    );
+  } catch (const std::exception& e) {
+    std::println(std::cerr, "Energy barrier plot failed: {}", e.what());
+  }
+
+  try {
+    plot::detail::plot_n_vs_R(
+        dissolution.pathway,
+        growth.pathway,
+        critical_pt,
         info.rho_vapor_meta,
         info.rho_liquid_meta,
         cfg.model.functional.name,
         export_dir.string()
     );
   } catch (const std::exception& e) {
-    std::println(std::cerr, "Plotting failed: {} — simulation data saved in {}/data/", e.what(), export_dir.string());
+    std::println(std::cerr, "n vs R plot failed: {}", e.what());
   }
+
+  try {
+    plot::detail::plot_rho_center_vs_radius(
+        dissolution.pathway,
+        growth.pathway,
+        critical_pt,
+        info.rho_vapor_meta,
+        info.rho_liquid_meta,
+        cfg.model.functional.name,
+        export_dir.string()
+    );
+  } catch (const std::exception& e) {
+    std::println(std::cerr, "rho_center vs R plot failed: {}", e.what());
+  }
+
+  try {
+    plot::plot_density_frames(
+        sim_dissolve,
+        func.model.grid,
+        cfg,
+        info.rho_vapor_meta,
+        info.rho_liquid_meta,
+        "Dissolution",
+        export_dir.string() + "/frames/dissolution"
+    );
+  } catch (const std::exception& e) {
+    std::println(std::cerr, "Dissolution frames failed: {}", e.what());
+  }
+
+  close_all_figures();
+
+  try {
+    plot::plot_density_frames(
+        sim_growth,
+        func.model.grid,
+        cfg,
+        info.rho_vapor_meta,
+        info.rho_liquid_meta,
+        "Growth",
+        export_dir.string() + "/frames/growth"
+    );
+  } catch (const std::exception& e) {
+    std::println(std::cerr, "Growth frames failed: {}", e.what());
+  }
+
+  close_all_figures();
 #endif
 
   std::println(std::cout, "\nDone.");

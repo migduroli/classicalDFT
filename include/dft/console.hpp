@@ -2,7 +2,7 @@
 #define DFT_CONSOLE_HPP
 
 #include <chrono>
-#include <iomanip>
+#include <format>
 #include <iostream>
 #include <print>
 #include <string>
@@ -73,19 +73,19 @@ namespace dft::console {
   }
 
   inline void info(const std::string& msg) {
-    write_line(color::GREEN + now_str() + " | " + "[i] Info: " + msg + color::RESET);
+    write_line(std::format("{}{}  | [i] Info: {}{}", color::GREEN, now_str(), msg, color::RESET));
   }
 
   inline void warning(const std::string& msg) {
-    write_line(color::YELLOW + now_str() + " | " + "[?] Warning: " + msg + color::RESET);
+    write_line(std::format("{}{}  | [?] Warning: {}{}", color::YELLOW, now_str(), msg, color::RESET));
   }
 
   inline void error(const std::string& msg) {
-    write_line(color::RED + now_str() + " | " + "[!] Error: " + msg + color::RESET);
+    write_line(std::format("{}{}  | [!] Error: {}{}", color::RED, now_str(), msg, color::RESET));
   }
 
   inline void debug(const std::string& msg) {
-    write_line(color::CYAN + now_str() + " | " + "[+] Debug: " + msg + color::RESET);
+    write_line(std::format("{}{}  | [+] Debug: {}{}", color::CYAN, now_str(), msg, color::RESET));
   }
 
 } // namespace dft::console

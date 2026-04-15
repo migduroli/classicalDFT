@@ -40,8 +40,9 @@ namespace plot {
     };
 
     struct DensityViews {
-      nucleation::Slice2D top;
-      nucleation::Slice2D bottom;
+      nucleation::Slice2D top;    // xz slice
+      nucleation::Slice2D bottom; // yz slice
+      nucleation::Slice2D plan;   // xy slice (top-down, shows FCC layers)
     };
 
     [[nodiscard]] inline auto wall_axis_label(const nucleation::NucleationConfig& cfg) -> std::string {
@@ -83,37 +84,24 @@ namespace plot {
       return {};
     }
 
-    [[nodiscard]] inline auto packing_window(const nucleation::Slice2D& slice, double rho_v, double rho_l)
-        -> ColorWindow {
-      std::vector<double> values;
-      values.reserve(static_cast<std::size_t>(slice.nx * slice.ny));
-
-      double threshold = rho_v + 0.60 * (rho_l - rho_v);
-      for (const auto& row : slice.z) {
-        for (double value : row) {
-          if (value > threshold)
-            values.push_back(value);
-        }
+    // Generate logarithmically spaced contour levels between vmin and vmax.
+    // Falls back to linear spacing when the dynamic range is small (< 10x).
+    [[nodiscard]] inline auto log_levels(double vmin, double vmax, int n) -> std::vector<double> {
+      double floor = std::max(vmin, 1e-6);
+      if (vmax / floor < 10.0) {
+        // Small dynamic range: linear is fine.
+        std::vector<double> result(static_cast<std::size_t>(n));
+        for (int i = 0; i < n; ++i)
+          result[static_cast<std::size_t>(i)] = vmin + (vmax - vmin) * static_cast<double>(i) / (n - 1);
+        return result;
       }
-
-      if (values.size() < 16)
-        return {.vmin = rho_v, .vmax = rho_l};
-
-      std::sort(values.begin(), values.end());
-      auto sample = [&](double q) {
-        std::size_t index = static_cast<std::size_t>(q * static_cast<double>(values.size() - 1));
-        return values[index];
-      };
-
-      double lo = sample(0.05);
-      double hi = sample(0.95);
-      double span = std::max(hi - lo, 0.04 * std::max(rho_l, 1.0));
-      double pad = 0.18 * span;
-      double vmin = std::max(threshold, lo - pad);
-      double vmax = hi + pad;
-      if (vmax <= vmin)
-        vmax = vmin + span;
-      return {.vmin = vmin, .vmax = vmax};
+      double log_lo = std::log10(floor);
+      double log_hi = std::log10(vmax);
+      std::vector<double> result(static_cast<std::size_t>(n));
+      for (int i = 0; i < n; ++i)
+        result[static_cast<std::size_t>(i)] =
+            std::pow(10.0, log_lo + (log_hi - log_lo) * static_cast<double>(i) / (n - 1));
+      return result;
     }
 
     [[nodiscard]] inline auto packing_window(const DensityViews& views, double rho_v, double rho_l) -> ColorWindow {
@@ -121,6 +109,7 @@ namespace plot {
       values.reserve(
           static_cast<std::size_t>(views.top.nx * views.top.ny)
           + static_cast<std::size_t>(views.bottom.nx * views.bottom.ny)
+          + static_cast<std::size_t>(views.plan.nx * views.plan.ny)
       );
 
       double threshold = rho_v + 0.60 * (rho_l - rho_v);
@@ -135,6 +124,7 @@ namespace plot {
 
       collect(views.top);
       collect(views.bottom);
+      collect(views.plan);
 
       if (values.size() < 16)
         return {.vmin = rho_v, .vmax = rho_l};
@@ -202,9 +192,11 @@ namespace plot {
       auto seed_origin = nucleation::seed_center(grid, cfg);
       long x_index = std::clamp(static_cast<long>(std::llround(seed_origin[0] / grid.dx)), 0L, grid.shape[0] - 1);
       long y_index = std::clamp(static_cast<long>(std::llround(seed_origin[1] / grid.dx)), 0L, grid.shape[1] - 1);
+      long z_index = std::clamp(static_cast<long>(std::llround(seed_origin[2] / grid.dx)), 0L, grid.shape[2] - 1);
       return {
           .top = nucleation::extract_xz_slice(rho, grid, y_index, wall),
           .bottom = nucleation::extract_yz_slice(rho, grid, x_index, wall),
+          .plan = nucleation::extract_xy_slice(rho, grid, z_index, wall),
       };
     }
 
@@ -216,6 +208,35 @@ namespace plot {
         const nucleation::NucleationConfig& cfg,
         const std::string& cmap,
         int levels,
+        const std::string& extend
+    ) -> dft::plotting::ContourfPanel {
+      return {
+          .field = {.x = slice.x, .y = slice.y, .z = slice.z},
+          .options =
+              {.levels = levels,
+               .cmap = cmap,
+               .vmin = rho_min,
+               .vmax = rho_max,
+               .extend = extend,
+               .xlabel = std::format(R"(${} / \sigma$)", slice.x_label),
+               .ylabel = std::format(R"(${} / \sigma$)", slice.y_label),
+               .title = title,
+               .square_axes = true,
+               .colorbar = true,
+               .shrink = 0.82,
+               .pad = 0.03},
+          .lines = wall_lines_2d(cfg, slice),
+      };
+    }
+
+    [[nodiscard]] inline auto contour_panel(
+        const nucleation::Slice2D& slice,
+        double rho_min,
+        double rho_max,
+        const std::string& title,
+        const nucleation::NucleationConfig& cfg,
+        const std::string& cmap,
+        const std::vector<double>& levels,
         const std::string& extend
     ) -> dft::plotting::ContourfPanel {
       return {
@@ -704,60 +725,43 @@ namespace plot {
         const nucleation::NucleationConfig& cfg,
         const std::string& cmap = "viridis",
         int levels = 64,
-        const std::string& extend = "neither"
+        const std::string& extend = "both"
     ) {
       auto figure_size = density_figure_size(views);
+
+      // Use log-spaced levels when the dynamic range is large (crystalline peaks).
+      auto lvl = log_levels(rho_min, rho_max, levels);
 
       dft::plotting::Figure figure{
           .panels =
               {
-                  contour_panel(views.top, rho_min, rho_max, "rho(x, z)", cfg, cmap, levels, extend),
-                  contour_panel(views.bottom, rho_min, rho_max, "rho(y, z)", cfg, cmap, levels, extend),
+                  contour_panel(views.top, rho_min, rho_max, "rho(x, z)", cfg, cmap, lvl, extend),
+                  contour_panel(views.bottom, rho_min, rho_max, "rho(y, z)", cfg, cmap, lvl, extend),
+                  contour_panel(views.plan, rho_min, rho_max, "rho(x, y)", cfg, cmap, lvl, extend),
               },
           .layout =
               {
                   .width = figure_size.width,
-                  .height = figure_size.height,
+                  .height = static_cast<int>(figure_size.height * 1.5),
                   .columns = 1,
                   .shared_colorbar = true,
                   .colorbar_orientation = "horizontal",
                   .shrink = 0.96,
                   .pad = 0.06,
                   .suptitle = title_prefix,
-                  .suptitle_y = 0.985,
+                  .suptitle_y = 0.99,
                   .left = 0.08,
                   .right = 0.97,
-                  .bottom = 0.16,
-                  .top = 0.95,
+                  .bottom = 0.10,
+                  .top = 0.96,
                   .wspace = 0.12,
-                  .hspace = 0.34,
+                  .hspace = 0.30,
               },
       };
       figure.save(filepath);
-      std::cout << "  " << filepath << "\n";
     }
 
   } // namespace detail
-
-  inline void plot_density_frames(
-      const dft::algorithms::dynamics::SimulationResult& sim,
-      const dft::Grid& grid,
-      const nucleation::NucleationConfig& cfg,
-      double rho_v,
-      double rho_l,
-      const std::string& label,
-      const std::string& frame_dir
-  ) {
-    std::filesystem::create_directories(frame_dir);
-    std::println(std::cout, "  Writing {} frames to {}/", sim.snapshots.size(), frame_dir);
-    for (std::size_t i = 0; i < sim.snapshots.size(); ++i) {
-      auto views = detail::density_views(sim.snapshots[i].densities[0], grid, cfg);
-      auto window = detail::packing_window(views, rho_v, rho_l);
-      auto title = std::format(R"({}: $t = {:.4f}$)", label, sim.snapshots[i].time);
-      auto filepath = std::format("{}/frame_{:05d}.pdf", frame_dir, i);
-      detail::plot_density_views(views, window.vmin, window.vmax, title, filepath, cfg, "turbo", 128, "both");
-    }
-  }
 
   inline void plot_initial_condition(
       const nucleation::SliceSnapshot& initial_profile,
@@ -799,109 +803,24 @@ namespace plot {
     );
   }
 
-  // Single entry point for all nucleation plots.
-
-  inline void make_plots(
-      const nucleation::SliceSnapshot& critical_profile,
-      const nucleation::SliceSnapshot& initial_profile,
-      const arma::vec& critical_density,
-      const nucleation::DynamicsResult& dissolution,
-      const nucleation::DynamicsResult& growth,
-      const dft::algorithms::dynamics::SimulationResult& sim_dissolution,
-      const dft::algorithms::dynamics::SimulationResult& sim_growth,
+  inline void plot_density_frames(
+      const dft::algorithms::dynamics::SimulationResult& sim,
       const dft::Grid& grid,
       const nucleation::NucleationConfig& cfg,
-      nucleation::PathwayPoint critical_point,
-      double omega_background,
       double rho_v,
       double rho_l,
-      const std::string& model_name,
-      const std::string& export_dir
+      const std::string& label,
+      const std::string& frame_dir
   ) {
-    std::filesystem::create_directories(export_dir + "/critical");
-    std::filesystem::create_directories(export_dir + "/dynamics");
-
-    detail::plot_critical_cluster(critical_profile, initial_profile, rho_v, rho_l, model_name, cfg, export_dir);
-
-    auto views = detail::density_views(critical_density, grid, cfg);
-
-    detail::plot_density_views(
-        views,
-        rho_v,
-        rho_l,
-        std::format(R"(Critical cluster [{}])", model_name),
-        export_dir + "/critical/sections.pdf",
-        cfg
-    );
-
-    auto critical_window = detail::packing_window(views, rho_v, rho_l);
-    detail::plot_density_views(
-        views,
-        critical_window.vmin,
-        critical_window.vmax,
-        std::format(R"(Critical cluster packing contrast [{}])", model_name),
-        export_dir + "/critical/sections_packing.pdf",
-        cfg,
-        "turbo",
-        128,
-        "both"
-    );
-
-    detail::plot_dynamics(
-        dissolution.profiles,
-        critical_profile,
-        rho_v,
-        rho_l,
-        R"(Dissolution dynamics ($N < N^*$))",
-        28,
-        220,
-        244,
-        0,
-        50,
-        53,
-        export_dir + "/dynamics/dissolution_profiles.pdf",
-        model_name
-    );
-
-    detail::plot_dynamics(
-        growth.profiles,
-        critical_profile,
-        rho_v,
-        rho_l,
-        R"(Growth dynamics ($N > N^*$))",
-        233,
-        128,
-        78,
-        61,
-        17,
-        13,
-        export_dir + "/dynamics/growth_profiles.pdf",
-        model_name
-    );
-
-    detail::plot_energy_barrier(
-        dissolution.pathway,
-        growth.pathway,
-        critical_point,
-        omega_background,
-        model_name,
-        export_dir
-    );
-
-    detail::plot_rho_center_vs_radius(
-        dissolution.pathway,
-        growth.pathway,
-        critical_point,
-        rho_v,
-        rho_l,
-        model_name,
-        export_dir
-    );
-
-    detail::plot_n_vs_R(dissolution.pathway, growth.pathway, critical_point, rho_v, rho_l, model_name, export_dir);
-
-    plot_density_frames(sim_growth, grid, cfg, rho_v, rho_l, "Growth", export_dir + "/frames/growth");
-    plot_density_frames(sim_dissolution, grid, cfg, rho_v, rho_l, "Dissolution", export_dir + "/frames/dissolution");
+    std::filesystem::create_directories(frame_dir);
+    std::println(std::cout, "  Writing {} frames to {}/", sim.snapshots.size(), frame_dir);
+    for (std::size_t i = 0; i < sim.snapshots.size(); ++i) {
+      auto views = detail::density_views(sim.snapshots[i].densities[0], grid, cfg);
+      auto window = detail::packing_window(views, rho_v, rho_l);
+      auto title = std::format(R"({}: $t = {:.4f}$)", label, sim.snapshots[i].time);
+      auto filepath = std::format("{}/frame_{:05d}.pdf", frame_dir, i);
+      detail::plot_density_views(views, window.vmin, window.vmax, title, filepath, cfg, "turbo", 128, "both");
+    }
   }
 
 } // namespace plot

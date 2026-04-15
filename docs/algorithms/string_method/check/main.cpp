@@ -99,7 +99,7 @@ int main() {
   }
 
   // Reparametrize both.
-  algorithms::string_method::reparametrize(our_images, 4);
+  our_images = algorithms::string_method::reparametrize(std::move(our_images), 4);
   legacy::algorithms::string_interpolate(jim_images, 4);
 
   int step1_ok = 0;

@@ -153,7 +153,7 @@ TEST_CASE("reparametrize preserves endpoints", "[string_method]") {
   auto a_copy = images.front().x;
   auto b_copy = images.back().x;
 
-  reparametrize(images);
+  images = reparametrize(std::move(images));
 
   CHECK(arma::approx_equal(images.front().x[0], a_copy[0], "absdiff", 1e-14));
   CHECK(arma::approx_equal(images.back().x[0], b_copy[0], "absdiff", 1e-14));
@@ -171,7 +171,7 @@ TEST_CASE("reparametrize yields nearly equal arc-length spacing", "[string_metho
   images[4].x = {0.57 * arma::ones(N)};
   images[5].x = {0.68 * arma::ones(N)};
 
-  reparametrize(images, 8);
+  images = reparametrize(std::move(images), 8);
 
   auto alpha = arc_lengths(images);
   double ideal_dl = alpha.back() / 6.0;
@@ -193,7 +193,7 @@ TEST_CASE("reparametrize is a no-op for equally spaced images", "[string_method]
     originals.push_back(img.x);
   }
 
-  reparametrize(images);
+  images = reparametrize(std::move(images));
 
   for (std::size_t j = 0; j < images.size(); ++j) {
     CHECK(arma::approx_equal(images[j].x[0], originals[j][0], "absdiff", 1e-12));
@@ -206,7 +206,7 @@ TEST_CASE("reparametrize handles two images gracefully", "[string_method]") {
 
   auto images = linear_interpolation(a, b, 2);
 
-  reparametrize(images);
+  images = reparametrize(std::move(images));
 
   CHECK(arma::approx_equal(images[0].x[0], a[0], "absdiff", 1e-14));
   CHECK(arma::approx_equal(images[1].x[0], b[0], "absdiff", 1e-14));

@@ -139,7 +139,7 @@ namespace dft::functionals {
 
   } // namespace detail
 
-  namespace _internal {
+  namespace detail {
 
     struct DerivativeArrays {
       arma::vec d_eta;
@@ -263,7 +263,7 @@ namespace dft::functionals {
       return forces;
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   // Evaluate the FMT hard-sphere functional for all species.
 
@@ -312,7 +312,7 @@ namespace dft::functionals {
     }
 
     // Accumulate energy and derivatives at each grid point.
-    auto [free_energy, derivs] = _internal::accumulate_derivatives(model, wd, species, n_points, dv);
+    auto [free_energy, derivs] = detail::accumulate_derivatives(model, wd, species, n_points, dv);
 
     // Back-convolve: pad derivatives, convolve on padded grid, unpad forces.
     std::vector<arma::vec> forces;

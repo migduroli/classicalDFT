@@ -12,6 +12,7 @@
 #include <functional>
 #include <iostream>
 #include <numbers>
+#include <print>
 #include <vector>
 
 namespace dft::algorithms::dynamics {
@@ -61,7 +62,7 @@ namespace dft::algorithms::dynamics {
     double mass_final;
   };
 
-  namespace _internal {
+  namespace detail {
 
     // Precomputed arrays for the integrating-factor DDFT scheme.
     // Lambda_k = sum_d 2 * (cos(2 pi i_d / N_d) - 1) / dx_d^2
@@ -144,16 +145,16 @@ namespace dft::algorithms::dynamics {
 
     // div(rho * grad(x)) via central differences.
 
-    inline void divergence_flux(
+    [[nodiscard]] inline auto divergence_flux(
         const arma::vec& rho,
         const arma::vec& x,
-        arma::vec& gx,
         long nx,
         long ny,
         long nz,
         double dx,
         const std::array<bool, 3>& periodic = {true, true, true}
-    ) {
+    ) -> arma::vec {
+      arma::vec gx(rho.n_elem);
       double D = 0.5 / (dx * dx);
       long nyz = ny * nz;
 
@@ -190,19 +191,20 @@ namespace dft::algorithms::dynamics {
           }
         }
       }
+      return gx;
     }
 
-    // Subtract the ideal-gas Laplacian: rhs -= Laplacian(rho).
+    // Compute the ideal-gas Laplacian of rho.
 
-    inline void subtract_laplacian(
+    [[nodiscard]] inline auto laplacian(
         const arma::vec& rho,
-        arma::vec& rhs,
         long nx,
         long ny,
         long nz,
         double dx,
         const std::array<bool, 3>& periodic = {true, true, true}
-    ) {
+    ) -> arma::vec {
+      arma::vec result(rho.n_elem, arma::fill::zeros);
       double D = 1.0 / (dx * dx);
       long nyz = ny * nz;
 
@@ -232,11 +234,12 @@ namespace dft::algorithms::dynamics {
             auto pz = static_cast<arma::uword>(ix0 + iy0 + izp);
             auto mz = static_cast<arma::uword>(ix0 + iy0 + izm);
 
-            rhs(p) -= D * (rho(px) + rho(mx) - 2.0 * d0) + D * (rho(py) + rho(my) - 2.0 * d0)
+            result(p) = D * (rho(px) + rho(mx) - 2.0 * d0) + D * (rho(py) + rho(my) - 2.0 * d0)
                 + D * (rho(pz) + rho(mz) - 2.0 * d0);
           }
         }
       }
+      return result;
     }
 
     // Compute the excess (nonlinear) RHS and FFT it.
@@ -258,9 +261,8 @@ namespace dft::algorithms::dynamics {
       long nx = grid.shape[0], ny = grid.shape[1], nz = grid.shape[2];
       auto n = static_cast<arma::uword>(nx * ny * nz);
       arma::vec df_drho = forces / dv;
-      arma::vec rhs(n);
-      divergence_flux(rho, df_drho, rhs, nx, ny, nz, grid.dx, grid.periodic);
-      subtract_laplacian(rho, rhs, nx, ny, nz, grid.dx, grid.periodic);
+      arma::vec rhs = divergence_flux(rho, df_drho, nx, ny, nz, grid.dx, grid.periodic);
+      rhs -= laplacian(rho, nx, ny, nz, grid.dx, grid.periodic);
       if (!frozen_mask.is_empty()) {
         rhs.elem(arma::find(frozen_mask)).zeros();
       }
@@ -276,9 +278,8 @@ namespace dft::algorithms::dynamics {
       long nx = grid.shape[0], ny = grid.shape[1], nz = grid.shape[2];
       auto n = static_cast<arma::uword>(nx * ny * nz);
       arma::vec df_drho = forces / dv;
-      arma::vec rhs(n);
-      divergence_flux(rho, df_drho, rhs, nx, ny, nz, grid.dx, grid.periodic);
-      subtract_laplacian(rho, rhs, nx, ny, nz, grid.dx, grid.periodic);
+      arma::vec rhs = divergence_flux(rho, df_drho, nx, ny, nz, grid.dx, grid.periodic);
+      rhs -= laplacian(rho, nx, ny, nz, grid.dx, grid.periodic);
       return rhs;
     }
 
@@ -349,11 +350,11 @@ namespace dft::algorithms::dynamics {
       return max_dev;
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   // Precomputed k^2 values for the half-complex FFT grid.
 
-  [[nodiscard]] inline auto compute_k_squared(const Grid& grid) -> arma::vec {
+  [[nodiscard]] inline auto k_squared(const Grid& grid) -> arma::vec {
     long nz_half = grid.shape[2] / 2 + 1;
     long fourier_total = grid.shape[0] * grid.shape[1] * nz_half;
     arma::vec k2(static_cast<arma::uword>(fourier_total));
@@ -386,7 +387,7 @@ namespace dft::algorithms::dynamics {
   [[nodiscard]] inline auto integrating_factor_step(
       const std::vector<arma::vec>& densities,
       const Grid& grid,
-      _internal::IntegratingFactorState& st,
+      detail::IntegratingFactorState& st,
       const ForceCallback& compute,
       StepConfig& config,
       const BoundaryCondition& boundary = {},
@@ -396,7 +397,7 @@ namespace dft::algorithms::dynamics {
 
     auto [energy, forces] = compute(densities);
 
-    _internal::excess_rhs_fourier(densities[0], forces[0], dv, grid, st.rhs0_ft, frozen_mask);
+    detail::excess_rhs_fourier(densities[0], forces[0], dv, grid, st.rhs0_ft, frozen_mask);
 
     arma::vec rho_ext = mirror_extend(densities[0], grid);
     st.rho0_ft.set_real(rho_ext);
@@ -409,17 +410,17 @@ namespace dft::algorithms::dynamics {
     constexpr int max_restarts = 20;
     do {
       restart = false;
-      _internal::update_timestep(st, config.dt);
+      detail::update_timestep(st, config.dt);
       d1 = densities[0];
 
       double deviation = 1e30;
 
       for (int iter = 0; iter < config.fp_max_iterations; ++iter) {
         auto [e1, f1] = compute({d1});
-        _internal::excess_rhs_fourier(d1, f1[0], dv, grid, st.rhs1_ft, frozen_mask);
+        detail::excess_rhs_fourier(d1, f1[0], dv, grid, st.rhs1_ft, frozen_mask);
 
         double old_deviation = deviation;
-        deviation = _internal::apply_propagator(st, st.rho0_ft, st.rhs0_ft, st.rhs1_ft, d1);
+        deviation = detail::apply_propagator(st, st.rho0_ft, st.rhs0_ft, st.rhs1_ft, d1);
 
         if (boundary) {
           std::vector<arma::vec> tmp{d1};
@@ -449,6 +450,298 @@ namespace dft::algorithms::dynamics {
         }
       }
     } while (restart);
+
+    auto [e_final, f_final] = compute({d1});
+
+    return StepResult{
+        .densities = {d1},
+        .energy = e_final,
+        .dt_used = config.dt,
+    };
+  }
+
+  // ETDRK4: Exponential Time Differencing 4th-order Runge-Kutta
+  // (Cox & Matthews, J. Comput. Phys. 176, 430, 2002; stabilized
+  // coefficients from Kassam & Trefethen, SIAM J. Sci. Comput. 26,
+  // 1214, 2005).
+  //
+  // Solves d rho / dt = L rho + N(rho) where:
+  //   L = D * Laplacian  (linear, diagonal in Fourier space)
+  //   N(rho) = D * [div(rho grad(dF_ex/drho))]  (nonlinear excess)
+  //
+  // The linear part is integrated exactly; the nonlinear part is
+  // treated with a 4th-order explicit RK scheme that uses the matrix
+  // exponential. Fully explicit: no fixed-point iteration, no
+  // adaptive restart. One step costs 4 force evaluations.
+
+  namespace detail {
+
+    struct ETDRK4State {
+      Grid grid;
+      long n_fft;
+      double inv_n;
+      double dt;
+      arma::vec lam_x, lam_y, lam_z;
+
+      // Per-mode ETDRK4 coefficients (stored as flat arrays over the
+      // half-complex Fourier grid).
+      arma::vec E, E2, Q, f1, f2, f3;
+
+      math::FourierTransform ft_work;
+    };
+
+    [[nodiscard]] inline auto make_etdrk4_state(const Grid& grid) -> ETDRK4State {
+      auto cs = grid.convolution_shape();
+      long nx = cs[0], ny = cs[1], nz = cs[2];
+      long nz_half = nz / 2 + 1;
+      long fourier_n = nx * ny * nz_half;
+      double dx = grid.dx;
+      double Dx = 1.0 / (dx * dx);
+
+      arma::vec lx(static_cast<arma::uword>(nx));
+      for (long ix = 0; ix < nx; ++ix) {
+        double kx = 2.0 * std::numbers::pi * static_cast<double>(ix) / static_cast<double>(nx);
+        lx(static_cast<arma::uword>(ix)) = 2.0 * Dx * (std::cos(kx) - 1.0);
+      }
+
+      arma::vec ly(static_cast<arma::uword>(ny));
+      for (long iy = 0; iy < ny; ++iy) {
+        double ky = 2.0 * std::numbers::pi * static_cast<double>(iy) / static_cast<double>(ny);
+        ly(static_cast<arma::uword>(iy)) = 2.0 * Dx * (std::cos(ky) - 1.0);
+      }
+
+      arma::vec lz(static_cast<arma::uword>(nz_half));
+      for (long iz = 0; iz < nz_half; ++iz) {
+        double kz = 2.0 * std::numbers::pi * static_cast<double>(iz) / static_cast<double>(nz);
+        lz(static_cast<arma::uword>(iz)) = 2.0 * Dx * (std::cos(kz) - 1.0);
+      }
+
+      return ETDRK4State{
+          .grid = grid,
+          .n_fft = nx * ny * nz,
+          .inv_n = 1.0 / static_cast<double>(nx * ny * nz),
+          .dt = 0.0,
+          .lam_x = std::move(lx),
+          .lam_y = std::move(ly),
+          .lam_z = std::move(lz),
+          .E = {},
+          .E2 = {},
+          .Q = {},
+          .f1 = {},
+          .f2 = {},
+          .f3 = {},
+          .ft_work = math::FourierTransform({nx, ny, nz}),
+      };
+    }
+
+    // Recompute ETDRK4 coefficients when dt changes.
+    // Uses the Kassam-Trefethen contour integral method for numerical
+    // stability of the phi-functions near z=0.
+
+    inline void update_etdrk4_coefficients(ETDRK4State& st, double D, double dt) {
+      if (std::abs(st.dt - dt) < 1e-30) {
+        return;
+      }
+      st.dt = dt;
+
+      auto cs = st.grid.convolution_shape();
+      long nx = cs[0], ny = cs[1], nz_half = cs[2] / 2 + 1;
+      auto fn = static_cast<arma::uword>(nx * ny * nz_half);
+
+      st.E.set_size(fn);
+      st.E2.set_size(fn);
+      st.Q.set_size(fn);
+      st.f1.set_size(fn);
+      st.f2.set_size(fn);
+      st.f3.set_size(fn);
+
+      // Contour integral over M points on a circle of radius r in the
+      // complex plane around each z = D * Lambda_k * dt.
+      constexpr int M = 32;
+      constexpr double r = 1.0;
+
+      // Precompute contour points: w_m = r * exp(2 pi i m / M).
+      std::vector<std::complex<double>> w(M);
+      for (int m = 0; m < M; ++m) {
+        double theta = 2.0 * std::numbers::pi * (m + 0.5) / M;
+        w[m] = r * std::complex<double>(std::cos(theta), std::sin(theta));
+      }
+
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2)
+#endif
+      for (long ix = 0; ix < nx; ++ix) {
+        for (long iy = 0; iy < ny; ++iy) {
+          for (long iz = 0; iz < nz_half; ++iz) {
+            auto pos = static_cast<arma::uword>(iz + nz_half * (iy + ny * ix));
+            double Lambda = D
+                * (st.lam_x(static_cast<arma::uword>(ix)) + st.lam_y(static_cast<arma::uword>(iy))
+                   + st.lam_z(static_cast<arma::uword>(iz)));
+            double z = Lambda * dt;
+
+            // Sum phi-functions over contour points.
+            std::complex<double> sum_E{0, 0}, sum_E2{0, 0}, sum_Q{0, 0};
+            std::complex<double> sum_f1{0, 0}, sum_f2{0, 0}, sum_f3{0, 0};
+
+            for (int m = 0; m < M; ++m) {
+              std::complex<double> zc = z + w[m];
+              std::complex<double> zc2 = zc / 2.0;
+              std::complex<double> ez = std::exp(zc);
+              std::complex<double> ez2 = std::exp(zc2);
+
+              sum_E += ez;
+              sum_E2 += ez2;
+              sum_Q += dt * (ez2 - 1.0) / zc;
+              sum_f1 += dt * (-4.0 - zc + ez * (4.0 - 3.0 * zc + zc * zc)) / (zc * zc * zc);
+              sum_f2 += dt * (2.0 + zc + ez * (-2.0 + zc)) / (zc * zc * zc);
+              sum_f3 += dt * (-4.0 - 3.0 * zc - zc * zc + ez * (4.0 - zc)) / (zc * zc * zc);
+            }
+
+            st.E(pos) = sum_E.real() / M;
+            st.E2(pos) = sum_E2.real() / M;
+            st.Q(pos) = sum_Q.real() / M;
+            st.f1(pos) = sum_f1.real() / M;
+            st.f2(pos) = sum_f2.real() / M;
+            st.f3(pos) = sum_f3.real() / M;
+          }
+        }
+      }
+    }
+
+    // Transform a real-space field to half-complex Fourier coefficients
+    // (with mirror extension for non-periodic grids).
+
+    inline void to_fourier(const arma::vec& field, const Grid& grid, math::FourierTransform& ft, arma::cx_vec& out) {
+      arma::vec ext = mirror_extend(field, grid);
+      ft.set_real(ext);
+      ft.forward();
+      auto fk = ft.fourier();
+      out.set_size(fk.size());
+      for (arma::uword i = 0; i < out.n_elem; ++i) {
+        out(i) = fk[i];
+      }
+    }
+
+    // Transform half-complex Fourier coefficients back to real space
+    // (with unpadding for non-periodic grids).
+
+    inline void from_fourier(
+        const arma::cx_vec& coeffs,
+        const Grid& grid,
+        math::FourierTransform& ft,
+        double inv_n,
+        arma::vec& out
+    ) {
+      auto fk = ft.fourier();
+      for (arma::uword i = 0; i < coeffs.n_elem; ++i) {
+        fk[i] = coeffs(i);
+      }
+      ft.backward();
+      arma::vec work = ft.real_vec() * inv_n;
+      out = unpad(work, grid);
+    }
+
+  } // namespace detail
+
+  [[nodiscard]] inline auto etdrk4_step(
+      const std::vector<arma::vec>& densities,
+      const Grid& grid,
+      detail::ETDRK4State& st,
+      const ForceCallback& compute,
+      const StepConfig& config,
+      const BoundaryCondition& boundary = {},
+      const arma::uvec& frozen_mask = {}
+  ) -> StepResult {
+    double dv = grid.cell_volume();
+    double D = config.diffusion_coefficient;
+
+    detail::update_etdrk4_coefficients(st, D, config.dt);
+
+    auto fn = static_cast<arma::uword>(st.E.n_elem);
+
+    // N(rho): compute excess nonlinear RHS in real space, then to Fourier.
+    auto compute_N = [&](const arma::vec& rho) -> arma::cx_vec {
+      auto [e, f] = compute({rho});
+      long nx = grid.shape[0], ny = grid.shape[1], nz = grid.shape[2];
+      arma::vec df_drho = f[0] / dv;
+      arma::vec rhs = detail::divergence_flux(rho, df_drho, nx, ny, nz, grid.dx, grid.periodic);
+      rhs -= detail::laplacian(rho, nx, ny, nz, grid.dx, grid.periodic);
+      if (!frozen_mask.is_empty()) {
+        rhs.elem(arma::find(frozen_mask)).zeros();
+      }
+      // Scale by D: N(rho) = D * R(rho).
+      rhs *= D;
+      arma::cx_vec Nk;
+      detail::to_fourier(rhs, grid, st.ft_work, Nk);
+      return Nk;
+    };
+
+    // rho_hat in Fourier space.
+    arma::cx_vec rho_hat;
+    detail::to_fourier(densities[0], grid, st.ft_work, rho_hat);
+
+    // Stage 1: N_n at current density.
+    arma::cx_vec Nn = compute_N(densities[0]);
+
+    // Stage 2: a = E2 * rho_hat + Q * Nn.
+    arma::cx_vec a_hat(fn);
+    for (arma::uword i = 0; i < fn; ++i) {
+      a_hat(i) = st.E2(i) * rho_hat(i) + st.Q(i) * Nn(i);
+    }
+    arma::vec rho_a;
+    detail::from_fourier(a_hat, grid, st.ft_work, st.inv_n, rho_a);
+    rho_a = arma::clamp(rho_a, config.min_density, arma::datum::inf);
+    if (boundary) {
+      std::vector<arma::vec> tmp{rho_a};
+      boundary(tmp);
+      rho_a = std::move(tmp[0]);
+    }
+    arma::cx_vec Na = compute_N(rho_a);
+
+    // Stage 3: b = E2 * rho_hat + Q * Na.
+    arma::cx_vec b_hat(fn);
+    for (arma::uword i = 0; i < fn; ++i) {
+      b_hat(i) = st.E2(i) * rho_hat(i) + st.Q(i) * Na(i);
+    }
+    arma::vec rho_b;
+    detail::from_fourier(b_hat, grid, st.ft_work, st.inv_n, rho_b);
+    rho_b = arma::clamp(rho_b, config.min_density, arma::datum::inf);
+    if (boundary) {
+      std::vector<arma::vec> tmp{rho_b};
+      boundary(tmp);
+      rho_b = std::move(tmp[0]);
+    }
+    arma::cx_vec Nb = compute_N(rho_b);
+
+    // Stage 4: c = E2 * a_hat + Q * (2*Nb - Nn).
+    arma::cx_vec c_hat(fn);
+    for (arma::uword i = 0; i < fn; ++i) {
+      c_hat(i) = st.E2(i) * a_hat(i) + st.Q(i) * (2.0 * Nb(i) - Nn(i));
+    }
+    arma::vec rho_c;
+    detail::from_fourier(c_hat, grid, st.ft_work, st.inv_n, rho_c);
+    rho_c = arma::clamp(rho_c, config.min_density, arma::datum::inf);
+    if (boundary) {
+      std::vector<arma::vec> tmp{rho_c};
+      boundary(tmp);
+      rho_c = std::move(tmp[0]);
+    }
+    arma::cx_vec Nc = compute_N(rho_c);
+
+    // Combine: rho_{n+1} = E * rho_hat + f1*Nn + 2*f2*(Na+Nb) + f3*Nc.
+    arma::cx_vec rho_new_hat(fn);
+    for (arma::uword i = 0; i < fn; ++i) {
+      rho_new_hat(i) = st.E(i) * rho_hat(i) + st.f1(i) * Nn(i) + 2.0 * st.f2(i) * (Na(i) + Nb(i)) + st.f3(i) * Nc(i);
+    }
+
+    arma::vec d1;
+    detail::from_fourier(rho_new_hat, grid, st.ft_work, st.inv_n, d1);
+    d1 = arma::clamp(d1, config.min_density, arma::datum::inf);
+    if (boundary) {
+      std::vector<arma::vec> tmp{d1};
+      boundary(tmp);
+      d1 = std::move(tmp[0]);
+    }
 
     auto [e_final, f_final] = compute({d1});
 
@@ -498,7 +791,7 @@ namespace dft::algorithms::dynamics {
 
     // Full nonlinear step (forward Euler).
     auto [energy, forces] = compute({rho_star});
-    arma::vec rhs = _internal::excess_rhs_real(rho_star, forces[0], dv, grid);
+    arma::vec rhs = detail::excess_rhs_real(rho_star, forces[0], dv, grid);
     arma::vec rho_dstar = rho_star + config.dt * rhs;
     rho_dstar = arma::clamp(rho_dstar, config.min_density, arma::datum::inf);
 
@@ -552,7 +845,7 @@ namespace dft::algorithms::dynamics {
     rho0_ft.forward();
 
     auto [energy0, forces0] = compute(densities);
-    arma::vec rhs0 = _internal::excess_rhs_real(densities[0], forces0[0], dv, grid);
+    arma::vec rhs0 = detail::excess_rhs_real(densities[0], forces0[0], dv, grid);
     math::FourierTransform r0_ft(shape);
     r0_ft.set_real(rhs0);
     r0_ft.forward();
@@ -562,7 +855,7 @@ namespace dft::algorithms::dynamics {
 
     for (int iter = 0; iter < config.fp_max_iterations; ++iter) {
       auto [e1, f1] = compute({d1});
-      arma::vec rhs1 = _internal::excess_rhs_real(d1, f1[0], dv, grid);
+      arma::vec rhs1 = detail::excess_rhs_real(d1, f1[0], dv, grid);
       math::FourierTransform r1_ft(shape);
       r1_ft.set_real(rhs1);
       r1_ft.forward();
@@ -663,7 +956,7 @@ namespace dft::algorithms::dynamics {
       mass_initial += arma::accu(rho) * dv;
     }
 
-    auto st = _internal::make_if_state(grid);
+    auto st = detail::make_if_state(grid);
     StepConfig step_cfg = step;
 
     auto [e0, f0] = force_fn(densities);
@@ -679,11 +972,11 @@ namespace dft::algorithms::dynamics {
     });
 
     if (log_interval > 0) {
-      std::cout
-          << std::format("  {:>8s}  {:>14s}  {:>12s}  {:>18s}  {:>14s}\n", "step", "time", "dt", "Delta_E", "mass");
-      std::cout << "  " << std::string(74, '-') << "\n";
-      std::cout << std::format(
-          "  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
+      std::println(std::cout, "  {:>8s}  {:>14s}  {:>12s}  {:>18s}  {:>14s}", "step", "time", "dt", "Delta_E", "mass");
+      std::println(std::cout, "  {}", std::string(74, '-'));
+      std::println(
+          std::cout,
+          "  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}",
           0,
           0.0,
           step_cfg.dt,
@@ -724,8 +1017,9 @@ namespace dft::algorithms::dynamics {
         }
         result.times.push_back(time);
         result.energies.push_back(e_step);
-        std::cout << std::format(
-            "  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}\n",
+        std::println(
+            std::cout,
+            "  {:>8d}  {:>14.6f}  {:>12.6e}  {:>18.6f}  {:>14.6f}",
             step,
             time,
             step_cfg.dt,
@@ -745,7 +1039,7 @@ namespace dft::algorithms::dynamics {
 
       if (stop_condition && stop_condition(step, time, e_step)) {
         if (log_interval > 0) {
-          std::cout << std::format("  Early stop at step {} (t={:.6f})\n", step, time);
+          std::println(std::cout, "  Early stop at step {} (t={:.6f})", step, time);
         }
         break;
       }

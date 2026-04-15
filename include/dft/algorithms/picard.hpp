@@ -6,6 +6,7 @@
 #include <format>
 #include <functional>
 #include <iostream>
+#include <print>
 #include <vector>
 
 namespace dft::algorithms::picard {
@@ -72,8 +73,8 @@ namespace dft::algorithms::picard {
     int iter = 0;
 
     if (log_interval > 0) {
-      std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}\n", "iter", "Omega", "||force||");
-      std::cout << "  " << std::string(38, '-') << "\n";
+      std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}", "iter", "Omega", "||force||");
+      std::println(std::cout, "  {}", std::string(38, '-'));
     }
 
     for (iter = 0; iter < max_iterations; ++iter) {
@@ -89,7 +90,7 @@ namespace dft::algorithms::picard {
       residual = std::sqrt(sum_f2 / total_dof);
 
       if (log_interval > 0 && (iter % log_interval == 0)) {
-        std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}\n", iter, omega, residual);
+        std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}", iter, omega, residual);
       }
 
       // Converged when forces vanish (unconstrained) or when Omega
@@ -98,7 +99,7 @@ namespace dft::algorithms::picard {
       bool omega_converged = (iter > 0) && std::abs(omega - omega_prev) < tolerance;
       if (force_converged || omega_converged) {
         if (log_interval > 0) {
-          std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}\n", iter, omega, residual);
+          std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}", iter, omega, residual);
         }
         break;
       }

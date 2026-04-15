@@ -12,6 +12,7 @@
 #include <format>
 #include <functional>
 #include <iostream>
+#include <print>
 #include <stdexcept>
 #include <variant>
 #include <vector>
@@ -39,7 +40,7 @@ namespace dft::algorithms::minimization {
 
   using Parametrization = std::variant<Unbounded, Bounded>;
 
-  namespace _internal {
+  namespace detail {
 
     // Convert parameters to density: rho(x).
 
@@ -120,7 +121,7 @@ namespace dft::algorithms::minimization {
       return arma::clamp(density * (target_mass / mass), min_density, arma::datum::inf);
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   struct Result {
     std::vector<arma::vec> densities;
@@ -265,13 +266,13 @@ namespace dft::algorithms::minimization {
     };
 
     auto compute = [&](const std::vector<arma::vec>& x_param) -> std::pair<double, std::vector<arma::vec>> {
-      arma::vec rho = _internal::to_density(x_param[0], param);
+      arma::vec rho = detail::to_density(x_param[0], param);
       if (!rho.is_finite()) {
         throw std::runtime_error("Minimizer::fixed_mass: non-finite density encountered");
       }
 
       // Rescale to target mass.
-      rho = _internal::rescale_to_target_mass(rho, target_mass, dv);
+      rho = detail::rescale_to_target_mass(rho, target_mass, dv);
 
       // Evaluate Helmholtz free energy and gradient.
       // Chemical potential is set to zero so that forces are dF/drho * dV.
@@ -298,18 +299,18 @@ namespace dft::algorithms::minimization {
       grad -= lambda * dv;
 
       // Convert to parameter space and negate for FIRE.
-      arma::vec f = _internal::transform_force(grad, x_param[0], param);
+      arma::vec f = detail::transform_force(grad, x_param[0], param);
       if (!f.is_finite()) {
         throw std::runtime_error("Minimizer::fixed_mass: non-finite transformed force encountered");
       }
       return {result.grand_potential, {-f}};
     };
 
-    arma::vec x0 = _internal::from_density(initial_density, param);
+    arma::vec x0 = detail::from_density(initial_density, param);
 
     if (log_interval > 0) {
-      std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}  {:>10s}\n", "iter", "F", "monitor", "dt");
-      std::cout << "  " << std::string(50, '-') << "\n";
+      std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}  {:>10s}", "iter", "F", "monitor", "dt");
+      std::println(std::cout, "  {}", std::string(50, '-'));
     }
 
     double volume = static_cast<double>(initial_density.n_elem) * dv;
@@ -317,8 +318,7 @@ namespace dft::algorithms::minimization {
     auto [e0, forces] = compute(state.x);
 
     if (log_interval > 0) {
-      std::cout
-          << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n", 0, state.energy, state.rms_force, state.dt);
+      std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}", 0, state.energy, state.rms_force, state.dt);
     }
 
     double vv = 1.0;
@@ -334,7 +334,7 @@ namespace dft::algorithms::minimization {
         throw std::runtime_error("Minimizer::fixed_mass: non-finite FIRE state encountered");
       }
 
-      auto [new_vv, monitor] = _internal::convergence_monitor(vv, old_energy, state.energy, state.dt, volume);
+      auto [new_vv, monitor] = detail::convergence_monitor(vv, old_energy, state.energy, state.dt, volume);
       if (!std::isfinite(new_vv) || !std::isfinite(monitor)) {
         throw std::runtime_error("Minimizer::fixed_mass: non-finite convergence monitor encountered");
       }
@@ -343,13 +343,13 @@ namespace dft::algorithms::minimization {
       state.converged = converged;
 
       if (log_interval > 0 && ((i + 1) % log_interval == 0 || converged)) {
-        std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n", i + 1, state.energy, monitor, state.dt);
+        std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}", i + 1, state.energy, monitor, state.dt);
       }
     }
 
     // Extract final density.
-    arma::vec rho_final = _internal::to_density(state.x[0], param);
-    rho_final = _internal::rescale_to_target_mass(rho_final, target_mass, dv);
+    arma::vec rho_final = detail::to_density(state.x[0], param);
+    rho_final = detail::rescale_to_target_mass(rho_final, target_mass, dv);
 
     auto s_final = make_state(rho_final);
     s_final.species[0].chemical_potential = chemical_potential;
@@ -416,12 +416,12 @@ namespace dft::algorithms::minimization {
     };
 
     auto compute = [&](const std::vector<arma::vec>& x_param) -> std::pair<double, std::vector<arma::vec>> {
-      arma::vec excess = _internal::to_density(x_param[0], param);
+      arma::vec excess = detail::to_density(x_param[0], param);
       if (!excess.is_finite()) {
         throw std::runtime_error("Minimizer::fixed_excess_mass: non-finite excess density encountered");
       }
 
-      excess = _internal::rescale_to_target_mass(excess, target_excess_mass, dv);
+      excess = detail::rescale_to_target_mass(excess, target_excess_mass, dv);
       double excess_mass = arma::accu(excess) * dv;
       if (!(excess_mass > 0.0)) {
         throw std::runtime_error("Minimizer::fixed_excess_mass: non-positive excess mass encountered");
@@ -450,7 +450,7 @@ namespace dft::algorithms::minimization {
       double lambda = arma::dot(grad, excess) / target_excess_mass;
       grad -= lambda * dv;
 
-      arma::vec f = _internal::transform_force(grad, x_param[0], param);
+      arma::vec f = detail::transform_force(grad, x_param[0], param);
       if (!f.is_finite()) {
         throw std::runtime_error("Minimizer::fixed_excess_mass: non-finite transformed force encountered");
       }
@@ -458,12 +458,12 @@ namespace dft::algorithms::minimization {
     };
 
     arma::vec excess0 = arma::clamp(initial_density - background_density, 0.0, arma::datum::inf);
-    excess0 = _internal::rescale_to_target_mass(excess0, target_excess_mass, dv);
-    arma::vec x0 = _internal::from_density(excess0, param);
+    excess0 = detail::rescale_to_target_mass(excess0, target_excess_mass, dv);
+    arma::vec x0 = detail::from_density(excess0, param);
 
     if (log_interval > 0) {
-      std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}  {:>10s}\n", "iter", "F", "monitor", "dt");
-      std::cout << "  " << std::string(50, '-') << "\n";
+      std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}  {:>10s}", "iter", "F", "monitor", "dt");
+      std::println(std::cout, "  {}", std::string(50, '-'));
     }
 
     double volume = static_cast<double>(initial_density.n_elem) * dv;
@@ -471,8 +471,7 @@ namespace dft::algorithms::minimization {
     auto [e0, forces] = compute(state.x);
 
     if (log_interval > 0) {
-      std::cout
-          << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n", 0, state.energy, state.rms_force, state.dt);
+      std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}", 0, state.energy, state.rms_force, state.dt);
     }
 
     double vv = 1.0;
@@ -488,7 +487,7 @@ namespace dft::algorithms::minimization {
         throw std::runtime_error("Minimizer::fixed_excess_mass: non-finite FIRE state encountered");
       }
 
-      auto [new_vv, monitor] = _internal::convergence_monitor(vv, old_energy, state.energy, state.dt, volume);
+      auto [new_vv, monitor] = detail::convergence_monitor(vv, old_energy, state.energy, state.dt, volume);
       if (!std::isfinite(new_vv) || !std::isfinite(monitor)) {
         throw std::runtime_error("Minimizer::fixed_excess_mass: non-finite convergence monitor encountered");
       }
@@ -497,12 +496,12 @@ namespace dft::algorithms::minimization {
       state.converged = converged;
 
       if (log_interval > 0 && ((i + 1) % log_interval == 0 || converged)) {
-        std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n", i + 1, state.energy, monitor, state.dt);
+        std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}", i + 1, state.energy, monitor, state.dt);
       }
     }
 
-    arma::vec excess_final = _internal::to_density(state.x[0], param);
-    excess_final = _internal::rescale_to_target_mass(excess_final, target_excess_mass, dv);
+    arma::vec excess_final = detail::to_density(state.x[0], param);
+    excess_final = detail::rescale_to_target_mass(excess_final, target_excess_mass, dv);
     arma::vec rho_final = background_density + excess_final;
 
     auto s_final = make_state(rho_final);
@@ -550,7 +549,7 @@ namespace dft::algorithms::minimization {
     };
 
     auto compute = [&](const std::vector<arma::vec>& x_param) -> std::pair<double, std::vector<arma::vec>> {
-      arma::vec rho = _internal::to_density(x_param[0], param);
+      arma::vec rho = detail::to_density(x_param[0], param);
       if (!rho.is_finite()) {
         throw std::runtime_error("Minimizer::grand_potential: non-finite density encountered");
       }
@@ -570,18 +569,18 @@ namespace dft::algorithms::minimization {
         grad = homogeneous_boundary(grad, bdry);
       }
 
-      arma::vec f = _internal::transform_force(grad, x_param[0], param);
+      arma::vec f = detail::transform_force(grad, x_param[0], param);
       if (!f.is_finite()) {
         throw std::runtime_error("Minimizer::grand_potential: non-finite transformed force encountered");
       }
       return {result.grand_potential, {-f}};
     };
 
-    arma::vec x0 = _internal::from_density(initial_density, param);
+    arma::vec x0 = detail::from_density(initial_density, param);
 
     if (log_interval > 0) {
-      std::cout << std::format("  {:>6s}  {:>14s}  {:>14s}  {:>10s}\n", "iter", "Omega", "monitor", "dt");
-      std::cout << "  " << std::string(50, '-') << "\n";
+      std::println(std::cout, "  {:>6s}  {:>14s}  {:>14s}  {:>10s}", "iter", "Omega", "monitor", "dt");
+      std::println(std::cout, "  {}", std::string(50, '-'));
     }
 
     double volume = static_cast<double>(initial_density.n_elem) * model.grid.cell_volume();
@@ -589,8 +588,7 @@ namespace dft::algorithms::minimization {
     auto [e0, forces] = compute(state.x);
 
     if (log_interval > 0) {
-      std::cout
-          << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n", 0, state.energy, state.rms_force, state.dt);
+      std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}", 0, state.energy, state.rms_force, state.dt);
     }
 
     double vv = 1.0;
@@ -606,7 +604,7 @@ namespace dft::algorithms::minimization {
         throw std::runtime_error("Minimizer::grand_potential: non-finite FIRE state encountered");
       }
 
-      auto [new_vv, monitor] = _internal::convergence_monitor(vv, old_energy, state.energy, state.dt, volume);
+      auto [new_vv, monitor] = detail::convergence_monitor(vv, old_energy, state.energy, state.dt, volume);
       if (!std::isfinite(new_vv) || !std::isfinite(monitor)) {
         throw std::runtime_error("Minimizer::grand_potential: non-finite convergence monitor encountered");
       }
@@ -615,11 +613,11 @@ namespace dft::algorithms::minimization {
       state.converged = converged;
 
       if (log_interval > 0 && ((i + 1) % log_interval == 0 || converged)) {
-        std::cout << std::format("  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}\n", i + 1, state.energy, monitor, state.dt);
+        std::println(std::cout, "  {:>6d}  {:>14.6f}  {:>14.6e}  {:>10.2e}", i + 1, state.energy, monitor, state.dt);
       }
     }
 
-    arma::vec rho_final = _internal::to_density(state.x[0], param);
+    arma::vec rho_final = detail::to_density(state.x[0], param);
 
     auto s_final = make_state(rho_final);
     s_final.species[0].chemical_potential = chemical_potential;

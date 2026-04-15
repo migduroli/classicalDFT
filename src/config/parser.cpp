@@ -1,5 +1,6 @@
 #include "dft/config/parser.hpp"
 
+#include <format>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -12,7 +13,7 @@ namespace dft::config {
     auto parse_ini(const std::string& path) -> nlohmann::json {
       std::ifstream file(path);
       if (!file.is_open()) {
-        throw std::runtime_error("Cannot open INI file: " + path);
+        throw std::runtime_error(std::format("Cannot open INI file: {}", path));
       }
 
       nlohmann::json result;
@@ -31,7 +32,7 @@ namespace dft::config {
         if (line[0] == '[') {
           auto end = line.find(']');
           if (end == std::string::npos) {
-            throw std::runtime_error("Malformed section in INI file: " + line);
+            throw std::runtime_error(std::format("Malformed section in INI file: {}", line));
           }
           current_section = line.substr(1, end - 1);
           continue;
@@ -107,7 +108,7 @@ namespace dft::config {
         auto tbl = toml::parse_file(path);
         return toml_to_json(tbl);
       } catch (const toml::parse_error& err) {
-        throw std::runtime_error("TOML parse error in " + path + ": " + std::string(err.description()));
+        throw std::runtime_error(std::format("TOML parse error in {}: {}", path, std::string(err.description())));
       }
     }
 
@@ -120,7 +121,7 @@ namespace dft::config {
       case FileType::JSON: {
         std::ifstream f(path);
         if (!f.is_open()) {
-          throw std::runtime_error("Cannot open JSON file: " + path);
+          throw std::runtime_error(std::format("Cannot open JSON file: {}", path));
         }
         return nlohmann::json::parse(f);
       }

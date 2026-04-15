@@ -55,10 +55,10 @@ namespace dft::math {
     [[nodiscard]] auto total() const -> long;
     [[nodiscard]] auto fourier_total() const -> long;
 
-    auto real() -> std::span<double>;
+    [[nodiscard]] auto real() -> std::span<double>;
     [[nodiscard]] auto real() const -> std::span<const double>;
 
-    auto fourier() -> std::span<std::complex<double>>;
+    [[nodiscard]] auto fourier() -> std::span<std::complex<double>>;
     [[nodiscard]] auto fourier() const -> std::span<const std::complex<double>>;
 
     void forward();
@@ -94,8 +94,8 @@ namespace dft::math {
     FourierConvolution() = default;
     explicit FourierConvolution(std::vector<long> shape);
 
-    auto input_a() -> std::span<double>;
-    auto input_b() -> std::span<double>;
+    [[nodiscard]] auto input_a() -> std::span<double>;
+    [[nodiscard]] auto input_b() -> std::span<double>;
     [[nodiscard]] auto result() const -> std::span<const double>;
 
     void execute();

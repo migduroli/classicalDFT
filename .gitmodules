@@ -1,0 +1,3 @@
+[submodule "apps/nucleation"]
+	path = apps/nucleation
+	url = /Users/migduroli/dev/personal/cdft-nucleation

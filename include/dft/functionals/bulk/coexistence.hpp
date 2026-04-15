@@ -50,7 +50,7 @@ namespace dft::functionals::bulk {
     return result.solution(0);
   }
 
-  namespace _internal {
+  namespace detail {
 
     [[nodiscard]] inline auto dp_drho(double rho, const BulkThermodynamics& eos, double h = 1e-7) -> double {
       double p_plus = eos.pressure(arma::vec{rho + h});
@@ -73,13 +73,13 @@ namespace dft::functionals::bulk {
       return 0.5 * (lo + hi);
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   [[nodiscard]] inline auto PhaseSearch::find_spinodal(const BulkThermodynamics& eos) const -> std::optional<Spinodal> {
     double step_size = rho_scan_step;
     double max_rho = rho_max;
 
-    double prev_dp = _internal::dp_drho(step_size, eos);
+    double prev_dp = detail::dp_drho(step_size, eos);
     double low_lo = 0.0, low_hi = 0.0;
     double high_lo = 0.0, high_hi = 0.0;
     bool found_low = false;
@@ -87,7 +87,7 @@ namespace dft::functionals::bulk {
 
     double prev_rho = step_size;
     for (double rho = 2.0 * step_size; rho < max_rho; rho += step_size) {
-      double curr_dp = _internal::dp_drho(rho, eos);
+      double curr_dp = detail::dp_drho(rho, eos);
       if (prev_dp > 0.0 && curr_dp <= 0.0 && !found_low) {
         low_lo = prev_rho;
         low_hi = rho;
@@ -107,8 +107,8 @@ namespace dft::functionals::bulk {
     }
 
     return Spinodal{
-        .rho_low = _internal::bisect_dp_drho(low_lo, low_hi, eos),
-        .rho_high = _internal::bisect_dp_drho(high_lo, high_hi, eos),
+        .rho_low = detail::bisect_dp_drho(low_lo, low_hi, eos),
+        .rho_high = detail::bisect_dp_drho(high_lo, high_hi, eos),
     };
   }
 

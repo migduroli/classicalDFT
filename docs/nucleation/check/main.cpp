@@ -297,7 +297,7 @@ int main() {
   std::cout << "  Difference = " << (weights.mean_field.interactions[0].a_vdw - jim_wt.a_vdw_over_kT) << "\n\n";
 
   auto r = model.grid.radial_distances();
-  arma::vec rho0 = dft::StepProfile{.radius = R0, .rho_in = rho_l, .rho_out = rho_out}.apply(r);
+  arma::vec rho0 = dft::StepProfile{.radius = R0, .rho_in = rho_l, .rho_out = rho_out}(r);
   double target_mass = arma::accu(rho0) * model.grid.cell_volume();
 
   std::cout << "  Initial: rho_in=" << rho_l << " rho_out=" << rho_out << " R=" << R0 << "\n";
@@ -736,7 +736,7 @@ int main() {
   std::cout << "  perturb_scale=" << perturb_scale << "  dt=" << ddft_dt << "  n_steps=" << comparison_steps << "\n\n";
 
   // Our DDFT state.
-  auto our_ddft_st = algorithms::dynamics::_internal::make_if_state(model.grid);
+  auto our_ddft_st = algorithms::dynamics::detail::make_if_state(model.grid);
   algorithms::dynamics::StepConfig our_ddft_cfg{
       .dt = ddft_dt,
       .diffusion_coefficient = 1.0,
