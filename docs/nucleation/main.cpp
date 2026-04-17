@@ -235,14 +235,14 @@ int main(int argc, char* argv[]) {
 
     // Step 4: Eigenvalue (saddle point verification)
 
-    arma::uvec eig_bdry = nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
+    arma::uvec eig_boundary = nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
 
     auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
       auto result = func.evaluate(rho, info.mu_background, wall_field);
-      return {result.grand_potential, fixed_boundary(result.forces[0], eig_bdry)};
+      return {result.grand_potential, fixed_boundary(result.forces[0], eig_boundary)};
     };
 
-    auto eig_init = nucleation::radial_gaussian_guess(r, info.effective_radius, eig_bdry);
+    auto eig_init = nucleation::radial_gaussian_guess(r, info.effective_radius, eig_boundary);
     auto deflation = nucleation::translation_modes(rho_critical, func.model.grid);
 
     eig =
@@ -251,7 +251,7 @@ int main(int argc, char* argv[]) {
             .max_iterations = cfg.eigen.max_iterations,
             .hessian_eps = cfg.eigen.hessian_eps,
             .log_interval = cfg.eigen.log_interval,
-            .boundary_mask = eig_bdry,
+            .boundary_mask = eig_boundary,
             .deflation_vectors = deflation,
         }
             .solve(eig_force_fn, rho_critical, eig_init);
@@ -323,18 +323,19 @@ int main(int argc, char* argv[]) {
 
   // Step 5: DDFT from perturbed critical cluster (dissolution + growth)
 
-  arma::uvec ddft_frozen = nucleation::depletion_mask(rho_critical, info.background, info.boundary_mask);
   double dv = func.model.grid.cell_volume();
   double delta_rho = rho_l - rho_v;
 
-  arma::vec rho_vapor = rho_out * arma::ones(arma::size(rho_critical));
-  auto boundary_fn = algorithms::dynamics::frozen_boundary(ddft_frozen, rho_vapor);
-
-  auto gc_force_fn = func.grand_potential_callback(info.mu_background, wall_field, ddft_frozen);
+  arma::uvec bdry = func.model.grid.boundary_mask();
+  auto boundary_fn = algorithms::dynamics::reservoir_boundary(bdry, info.background);
+  auto gc_force_fn = func.grand_potential_callback(info.mu_background);
 
   // Perturb along the unstable eigenvector.
-  double perturb_amp = cfg.ddft.perturb_scale * std::abs(eig.eigenvalue);
-  arma::vec perturb = perturb_amp * eig.eigenvector / arma::norm(eig.eigenvector);
+  // Orient so +ev increases mass (growth direction).
+  arma::vec ev = eig.eigenvector;
+  if (arma::accu(ev) * dv < 0.0)
+    ev = -ev;
+  arma::vec perturb = cfg.ddft.perturb_scale * ev;
 
   arma::vec rho_sub = arma::clamp(rho_critical - perturb, 1e-18, arma::datum::inf);
   arma::vec rho_sup = arma::clamp(rho_critical + perturb, 1e-18, arma::datum::inf);
@@ -365,8 +366,8 @@ int main(int argc, char* argv[]) {
         .n_steps = cfg.ddft.n_steps,
         .snapshot_interval = cfg.ddft.snapshot_interval,
         .log_interval = cfg.ddft.log_interval,
+        .energy_offset = info.omega_background,
         .boundary = boundary_fn,
-        .frozen_mask = ddft_frozen,
     };
   };
 

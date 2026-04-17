@@ -7,9 +7,10 @@ and (3) simulating the post-critical dynamics in both the dissolution and growth
 directions. Each phase is described in full below, with the theoretical
 motivation, the algorithmic strategy, and the corresponding library calls.
 
-The program supports both **homogeneous nucleation** (HON, periodic box) and
-**heterogeneous nucleation** (HEN, wall-attached droplets) from a single
-executable; the scenario is selected by the TOML configuration file.
+The example demonstrates **homogeneous nucleation** (HON) for a
+Lennard-Jones fluid in a periodic box. For heterogeneous nucleation
+(wall-attached clusters) and the string method, see the
+[apps/nucleation](../../apps/nucleation/) directory.
 
 <p align="center">
   <img src="exports/WhiteBearII/lj_hon.gif" alt="LJ homogeneous nucleation dynamics" width="700"/>
@@ -154,23 +155,14 @@ sets the thermodynamic driving force for nucleation.
 
 ### Configuration
 
-All model, solver, and dynamics parameters are specified in TOML configuration
-files under `config/`. The scenario is selected at the command line:
+All model, solver, and dynamics parameters are specified in a TOML
+configuration file. The file is passed at the command line:
 
 ```bash
-doc_nucleation --config config/lj_hon.toml   # homogeneous nucleation
-doc_nucleation --config config/lj_hen.toml   # heterogeneous (wall) nucleation
+doc_nucleation --config config/lj_hon.toml
 ```
 
-Three configurations are provided:
-
-| File | Scenario | Notes |
-|------|----------|-------|
-| `config/lj_hon.toml` | LJ homogeneous nucleation | Periodic box, droplet seed |
-| `config/lj_hen.toml` | LJ heterogeneous nucleation | LJ 9-3 wall, crystalline seed |
-| `config/tWF_hon.toml` | Ten Wolde-Frenkel HON | Alternative potential |
-
-The HON reference values used in this document are:
+The reference values used in this document are:
 
 | Parameter | Symbol | Value |
 |-----------|--------|-------|
@@ -312,41 +304,6 @@ minimization modes are available: `.fixed_mass(...)` for HON,
 `.fixed_excess_mass(...)` for HEN, and `.grand_potential(...)` for
 unconstrained minimization (e.g. computing the wall background profile).
 
-### Wall-attached clusters
-
-With an external wall potential the background is not uniform, so constraining
-the total mass is the wrong problem: the wall layering and the droplet excess
-get mixed by every mass rescaling step. The wall workflow therefore separates
-the two pieces:
-
-1. Minimize the grand potential once at the final wall field to obtain the
-   equilibrium wall background $
-ho_{\mathrm{bg}}(\mathbf{r})$.
-2. Build an attached seed on top of that background.
-3. Minimize the Helmholtz free energy at fixed excess mass
-   $N_{\mathrm{ex}} = \int (\rho - \rho_{\mathrm{bg}}) \, d\mathbf{r}$.
-
-In code this uses `.fixed_excess_mass(...)` rather than `.fixed_mass(...)`:
-
-```cpp
-auto rho_background = background_solver.grand_potential(
-    func.model, func.weights, background_guess, mu_out, wall_field
-).densities[0];
-
-auto cluster = algorithms::minimization::Minimizer{/* ... */}.fixed_excess_mass(
-    func.model,
-    func.weights,
-    rho0,
-    mu_out,
-    rho_background,
-    target_excess_mass,
-    wall_field
-);
-```
-
-This keeps the wall adsorption profile fixed in the constraint and removes the
-need for the old multi-stage wall continuation.
-
 ### Effective radius and barrier height
 
 After convergence, the effective droplet radius is computed from the excess
@@ -369,10 +326,6 @@ background density measured from the boundary sites of the converged profile.
 
 ### Output
 
-#### RSLT critical cluster
-![Critical cluster](exports/RSLT/critical_cluster.png)
-
-#### White Bear II critical cluster
 ![Critical cluster](exports/WhiteBearII/critical_cluster.png)
 
 Cross-sectional density profile ($x$-slice through the box center). The dashed
@@ -510,20 +463,24 @@ derivation).
 
 ### Running the simulations
 
-For homogeneous nucleation (periodic box), boundary cells are pinned to the
-background density via `reservoir_boundary`. For heterogeneous nucleation (wall),
-the depletion zone near the wall contains extremely small densities where
-$1/\rho \sim 10^{18}$. Three mechanisms keep the spectral DDFT scheme stable:
-
-1. `grand_potential_callback(mu, wall_field, frozen_mask)` zeros forces at
-   frozen grid points before they enter the Fourier RHS.
-2. `frozen_boundary(mask, reference)` pins densities at masked points to their
-   critical-cluster values after each fixed-point iteration.
-3. `frozen_mask` in the `Simulation` struct zeros the finite-difference RHS at
-   frozen points before the FFT, preventing spectral leakage.
+Boundary cells are pinned to the background density (the face-averaged
+density of the converged critical cluster) via `reservoir_boundary`, modelling
+an open system connected to a particle reservoir. The grand potential callback
+uses the self-consistent chemical potential $\mu_{\mathrm{bg}}$ derived from
+that background density.
 
 ```cpp
-auto gc_force_fn = func.grand_potential_callback(mu_bg, wall_field, frozen_mask);
+arma::uvec bdry = func.model.grid.boundary_mask();
+auto boundary_fn = algorithms::dynamics::reservoir_boundary(bdry, info.background);
+auto gc_force_fn = func.grand_potential_callback(info.mu_background);
+
+arma::vec ev = eig.eigenvector;
+if (arma::accu(ev) * dv < 0.0)
+    ev = -ev;
+arma::vec perturb = cfg.ddft.perturb_scale * ev;
+
+arma::vec rho_sub = arma::clamp(rho_critical - perturb, 1e-18, arma::datum::inf);
+arma::vec rho_sup = arma::clamp(rho_critical + perturb, 1e-18, arma::datum::inf);
 
 algorithms::dynamics::Simulation ddft{
     .step =
@@ -536,39 +493,25 @@ algorithms::dynamics::Simulation ddft{
     .n_steps = cfg.ddft.n_steps,
     .snapshot_interval = cfg.ddft.snapshot_interval,
     .log_interval = cfg.ddft.log_interval,
-    .energy_offset = omega_bg,
-    .boundary = algorithms::dynamics::frozen_boundary(frozen_mask, rho_critical),
-    .frozen_mask = frozen_mask,
+    .energy_offset = info.omega_background,
+    .boundary = boundary_fn,
 };
 
-arma::vec ev = algorithms::saddle_point::orient_eigenvector(
-    eig.eigenvector, func.model.grid.cell_volume()
-);
-
-auto rho_grow = algorithms::saddle_point::eigenvector_perturbation(
-    rho_critical, ev, perturb_scale, +1.0
-);
-auto sim_grow = ddft.run({rho_grow}, func.model.grid, gc_force_fn);
-
-auto rho_shrink = algorithms::saddle_point::eigenvector_perturbation(
-    rho_critical, ev, perturb_scale, -1.0
-);
-auto sim_shrink = ddft.run({rho_shrink}, func.model.grid, gc_force_fn);
+auto sim_dissolve = ddft.run({rho_sub}, func.model.grid, gc_force_fn);
+auto sim_grow = ddft.run({rho_sup}, func.model.grid, gc_force_fn);
 ```
 
 The `Functional::grand_potential_callback` method returns a `ForceCallback`
 (a callable `(vector<vec>) -> pair<double, vector<vec>>`) that internally
-builds a `State`, evaluates the full functional, zeros forces at masked
-points, and returns `{Omega, forces}`. The three-argument overload
-`(mu, external_field, boundary_mask)` is essential for wall simulations
-where force values at depletion-zone points would otherwise overflow.
+builds a `State`, evaluates the full functional, and returns
+`{Omega, forces}`.
 
 The `Simulation` struct configures the integrating-factor time stepper.
 `StepConfig` controls the adaptive timestep (`dt`, `dt_max`), fixed-point
 iteration (`fp_tolerance`, `fp_max_iterations`), and density floor
-(`min_density`). Two boundary factories are provided:
-- `reservoir_boundary(mask, rho_bg)` pins boundary cells to a uniform density
-- `frozen_boundary(mask, reference)` pins cells to per-point reference values
+(`min_density`). `reservoir_boundary(mask, rho_bg)` pins boundary cells to a
+uniform density after each step, allowing mass to flow in and out as in
+Lutsko's open-system scheme.
 
 `.run(initial_densities, grid, force_callback)` returns a
 `SimulationResult{densities, snapshots, energies, times}`.
@@ -593,9 +536,6 @@ The density profile shrinks and flattens as the subcritical droplet
 evaporates. The intermediate profiles (faded curves) show the progressive
 relaxation toward the uniform vapor.
 
-##### RSLT
-![Dissolution](exports/RSLT/dissolution.png)
-##### White Bear II
 ![Dissolution](exports/WhiteBearII/dissolution.png)
 
 #### Growth dynamics
@@ -604,9 +544,6 @@ The density profile expands and steepens as the supercritical droplet grows
 toward the stable liquid. The central density rises and the interface
 sharpens.
 
-##### RSLT
-![Growth](exports/RSLT/growth.png)
-##### White Bear II
 ![Growth](exports/WhiteBearII/growth.png)
 
 #### Nucleation energy barrier
@@ -616,18 +553,12 @@ cluster (star) sits at the top of the barrier. Dissolution (blue) and growth
 (red) both descend from the saddle point, confirming that the critical cluster
 is the transition state.
 
-##### RSLT
-![Energy barrier](exports/RSLT/energy_barrier.png)
-##### White Bear II
 ![Energy barrier](exports/WhiteBearII/energy_barrier.png)
 
 #### Central density vs effective radius
 
 An alternative view of the nucleation pathway.
 
-##### RSLT
-![Central density vs radius](exports/RSLT/rho_center.png)
-##### White Bear II
 ![Central density vs radius](exports/WhiteBearII/rho_center.png)
 
 ---
@@ -655,9 +586,6 @@ original classicalDFT library (the `legacy/` adapter).
 # Homogeneous nucleation (default: config/lj_hon.toml)
 make run-local
 
-# Heterogeneous nucleation (wall-attached droplet)
-make run-local CONFIG=config/lj_hen.toml
-
 # Stop after critical-cluster preview (skip DDFT)
 make run-preview-local
 
@@ -665,7 +593,7 @@ make run-preview-local
 make run-checks
 ```
 
-Override the config file with `CONFIG=path/to/file.toml`. Results are saved to
+Results are saved to
 `exports/<config_name>/` with subdirectories:
 
 ```
