@@ -235,7 +235,8 @@ int main(int argc, char* argv[]) {
 
     // Step 4: Eigenvalue (saddle point verification)
 
-    arma::uvec eig_boundary = nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
+    arma::uvec eig_boundary =
+        nucleation::depletion_mask(rho_critical, info.background, func.model.grid.boundary_mask());
 
     auto eig_force_fn = [&](const arma::vec& rho) -> std::pair<double, arma::vec> {
       auto result = func.evaluate(rho, info.mu_background, wall_field);
