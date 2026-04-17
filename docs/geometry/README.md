@@ -52,6 +52,16 @@ manipulations.
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `Vertex` | `dft/geometry/vertex.hpp` | Coordinate vector with element-wise arithmetic |
+| `Mesh` | `dft/geometry/mesh.hpp` | `std::variant<UniformMesh2D, UniformMesh3D>` with uniform spacing |
+| `Element` | `dft/geometry/element.hpp` | `std::variant<SquareBox2D, SquareBox3D>` for grid cells |
+
+---
+
 ## Step-by-step code walkthrough
 
 ### 1. Vertex arithmetic

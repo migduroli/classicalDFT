@@ -75,6 +75,22 @@ $e^{\Lambda_1 D\Delta t}$ per step.
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `algorithms::fire::Fire` | `dft/algorithms/fire.hpp` | FIRE2 minimiser configuration (timestep, mixing, tolerance) |
+| `Grid` | `dft/grid.hpp` | Spatial discretisation and FFT plans |
+| `physics::Model` | `dft/physics/model.hpp` | Aggregate of `Grid` + species + interactions + temperature |
+| `algorithms::dynamics::Simulation` | `dft/algorithms/dynamics.hpp` | Split-operator DDFT integrator with adaptive timestep |
+| `algorithms::dynamics::StepConfig` | `dft/algorithms/dynamics.hpp` | Per-step settings: `dt`, `diffusion_coefficient`, `min_density`, `dt_max` |
+
+`Fire` is configured via designated initializers and called with `.run(f, x0)`
+where `f` returns `(energy, gradient)`. `Simulation` wraps the DDFT
+integrating-factor scheme and is called with `.run(rho0, grid, force_fn)`.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Part A: FIRE2 minimisation of a 2D quadratic

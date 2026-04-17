@@ -1,0 +1,56 @@
+# Parameters from Jim's Droplet/LJ/M103/T0.8/input.dat
+# Jim uses dx=0.10, L=12.8 (128^3 grid). We use dx=0.2 for speed (64^3).
+
+[model.grid]
+box_length = 12.8
+dx = 0.2
+
+[model.potential]
+cutoff = 3.0
+epsilon = 1.0
+name = "LennardJones"
+sigma = 1.0
+
+[model.functional]
+name = "WhiteBearII"
+temperature = 0.7
+
+[model.split]
+hard_sphere_diameter = "WeeksChandlerAndersen"
+interaction = "WeeksChandlerAndersen"
+
+[droplet]
+radius = 3.0
+supersaturation = 1.08
+
+[seed]
+kind = "Droplet"
+
+[wall]
+kind = "None"
+
+[fire]
+alpha_fac = 0.99
+alpha_start = 0.01
+dt = 0.1
+dt_max = 1.0
+force_tolerance = 1e-8
+log_interval = 1000
+max_steps = 500_000
+
+[eigen]
+hessian_eps = 1e-6
+log_interval = 20
+max_iterations = 300
+tolerance = 1e-4
+
+[ddft]
+diffusion_coefficient = 1.0
+dt = 1e-2
+dt_max = 1.0
+fp_max_iterations = 100
+fp_tolerance = 1e-4
+log_interval = 100
+n_steps = 25_000
+perturb_scale = 1.0
+snapshot_interval = 10

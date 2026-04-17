@@ -162,6 +162,22 @@ constants from Mecke et al., Int. J. Thermophys. 17, 391 (1996).
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `hard_spheres::CarnahanStarling` | `dft/physics/hard_spheres.hpp` | CS EOS: `free_energy(eta)`, `chemical_potential(eta)`, `pressure(eta)` |
+| `hard_spheres::PercusYevickPressure` | `dft/physics/hard_spheres.hpp` | PY virial-route EOS |
+| `hard_spheres::PercusYevickCompressibility` | `dft/physics/hard_spheres.hpp` | PY compressibility-route EOS |
+| `eos::IdealGas` | `dft/physics/eos.hpp` | Ideal gas: $f = kT(\ln\rho - 1)$ |
+| `eos::MeckeEOS` | `dft/physics/eos.hpp` | Reference LJ EOS (Mecke et al.) for cross-validation |
+
+All EOS types implement `free_energy(eta_or_rho)`, `chemical_potential(...)`,
+and `pressure(...)`. They serve as reference data sources for validating the
+FMT bulk thermodynamics built by `Functional::bulk()`.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Instantiate hard-sphere EOS models

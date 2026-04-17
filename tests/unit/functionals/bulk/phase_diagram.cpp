@@ -194,7 +194,7 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
       .newton = {.max_iterations = 100, .tolerance = 1e-8},
   };
 
-  auto curve = _internal::trace_coexistence(
+  auto curve = detail::trace_coexistence(
       *coex,
       0.75,
       factory,

@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source scripts/str_lib.sh
+
+BUILD_DIR="build-docs"
+CHECK_TIMEOUT=300
+
+# All doc targets (compilation check)
+DOC_TARGETS=(
+  doc_console
+  doc_config
+  doc_crystal
+  doc_geometry
+  doc_arithmetic
+  doc_convolution
+  doc_fourier
+  doc_autodiff
+  doc_integration
+  doc_spline
+  doc_potentials
+  doc_thermodynamics
+  doc_fmt
+  doc_interaction
+  doc_solver
+  doc_picard
+  doc_dynamics
+  doc_density
+  doc_nucleation
+)
+
+# Check targets (cross-validation against legacy code)
+CHECK_TARGETS=(
+  check_potentials
+  check_thermodynamics
+  check_fmt
+  check_interaction
+  check_solver
+  check_crystal
+  check_density
+  check_dynamics
+  check_nucleation
+)
+
+RESULTS_FILE="${1:-doc-results.md}"
+
+run_inside_docker() {
+  # Configure
+  message "info" "Configuring doc examples build" >&2
+  cmake -B "$BUILD_DIR" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DDFT_BUILD_TESTS=OFF \
+    -DDFT_BUILD_DOCS=ON \
+    -DDFT_USE_MATPLOTLIB=OFF >&2
+
+  # Phase 1: build all doc targets (compilation check)
+  message "info" "Phase 1: compiling all doc examples" >&2
+
+  local compile_fail=false
+  declare -A build_status
+  declare -A build_log
+  for target in "${DOC_TARGETS[@]}"; do
+    local logfile="/tmp/${target}.log"
+    if cmake --build "$BUILD_DIR" --parallel --target "$target" >"$logfile" 2>&1; then
+      build_status[$target]="pass"
+    else
+      build_status[$target]="fail"
+      compile_fail=true
+    fi
+    build_log[$target]="$logfile"
+  done
+
+  # Phase 2: build and run all check targets (cross-validation)
+  message "info" "Phase 2: building and running cross-validation checks" >&2
+
+  declare -A check_build_status
+  declare -A check_run_status
+  for target in "${CHECK_TARGETS[@]}"; do
+    local logfile="/tmp/${target}.log"
+    if cmake --build "$BUILD_DIR" --parallel --target "$target" >"$logfile" 2>&1; then
+      check_build_status[$target]="pass"
+      if timeout "$CHECK_TIMEOUT" "$BUILD_DIR/docs/$target" >>"$logfile" 2>&1; then
+        check_run_status[$target]="pass"
+      else
+        check_run_status[$target]="fail"
+      fi
+    else
+      check_build_status[$target]="fail"
+      check_run_status[$target]="skip"
+      compile_fail=true
+    fi
+  done
+
+  # Generate markdown report
+  {
+    echo "## Documentation tests"
+    echo ""
+    echo "| Target | Build | Check |"
+    echo "|--------|-------|-------|"
+
+    for target in "${DOC_TARGETS[@]}"; do
+      local name="${target#doc_}"
+      local b_icon=":x:"
+      [[ "${build_status[$target]}" == "pass" ]] && b_icon=":white_check_mark:"
+
+      local check_target="check_${name}"
+      local c_icon=":heavy_minus_sign:"
+      if [[ -n "${check_build_status[$check_target]:-}" ]]; then
+        if [[ "${check_build_status[$check_target]}" != "pass" ]]; then
+          c_icon=":x:"
+        elif [[ "${check_run_status[$check_target]}" == "pass" ]]; then
+          c_icon=":white_check_mark:"
+        elif [[ "${check_run_status[$check_target]}" == "skip" ]]; then
+          c_icon=":construction:"
+        else
+          c_icon=":x:"
+        fi
+      fi
+
+      echo "| \`$name\` | $b_icon | $c_icon |"
+    done
+
+    # Show build errors inline for failed targets
+    local has_errors=false
+    for target in "${DOC_TARGETS[@]}" "${CHECK_TARGETS[@]}"; do
+      local status="${build_status[$target]:-${check_build_status[$target]:-}}"
+      if [[ "$status" == "fail" ]]; then
+        if [[ "$has_errors" == "false" ]]; then
+          echo ""
+          echo "### Build errors"
+          has_errors=true
+        fi
+        echo ""
+        echo "<details><summary><code>$target</code></summary>"
+        echo ""
+        echo '```'
+        tail -40 "/tmp/${target}.log" 2>/dev/null || echo "(no log)"
+        echo '```'
+        echo "</details>"
+      fi
+    done
+
+    echo ""
+    if [[ "$compile_fail" == "true" ]]; then
+      echo "> :x: **Some targets failed to compile.** See build errors above."
+    else
+      echo "> :white_check_mark: **All targets compiled successfully.**"
+    fi
+  } > "$RESULTS_FILE"
+
+  cat "$RESULTS_FILE"
+
+  # Hard-fail only on compilation errors, not on check run failures
+  if [[ "$compile_fail" == "true" ]]; then
+    exit 1
+  fi
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  if [[ -f /.dockerenv ]]; then
+    run_inside_docker
+  else
+    # Inner script sends log messages to stderr and the markdown table to stdout.
+    # Capture stdout into the results file; stderr passes through to the console.
+    local_rc=0
+    docker compose run --rm -T app scripts/docs > "${RESULTS_FILE}" || local_rc=$?
+    cat "${RESULTS_FILE}"
+    exit "$local_rc"
+  fi
+fi

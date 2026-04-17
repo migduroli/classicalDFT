@@ -41,12 +41,13 @@ int main() {
 
   arma::vec v_lj_a(N), v_twf_a(N), v_wrdf_a(N);
   arma::vec att_lj_a(N), rep_lj_a(N);
+  constexpr double V_PLOT_MAX = 15.0;
   for (arma::uword i = 0; i < r_arma.n_elem; ++i) {
-    v_lj_a(i) = pot::energy(plj, r_arma(i));
-    v_twf_a(i) = pot::energy(ptwf, r_arma(i));
-    v_wrdf_a(i) = pot::energy(pwrdf, r_arma(i));
-    att_lj_a(i) = pot::attractive(plj, r_arma(i), pot::SplitScheme::WeeksChandlerAndersen);
-    rep_lj_a(i) = pot::repulsive(plj, r_arma(i), pot::SplitScheme::WeeksChandlerAndersen);
+    v_lj_a(i) = std::min(plj.energy(r_arma(i)), V_PLOT_MAX);
+    v_twf_a(i) = std::min(ptwf.energy(r_arma(i)), V_PLOT_MAX);
+    v_wrdf_a(i) = std::min(pwrdf.energy(r_arma(i)), V_PLOT_MAX);
+    att_lj_a(i) = std::min(plj.attractive(r_arma(i), pot::SplitScheme::WeeksChandlerAndersen), V_PLOT_MAX);
+    rep_lj_a(i) = std::min(plj.repulsive(r_arma(i), pot::SplitScheme::WeeksChandlerAndersen), V_PLOT_MAX);
   }
   auto v_lj = arma::conv_to<std::vector<double>>::from(v_lj_a);
   auto v_twf = arma::conv_to<std::vector<double>>::from(v_twf_a);
@@ -72,6 +73,6 @@ int main() {
   std::println(std::cout, "  a_vdw = {:.6f}", a_lj);
 
 #ifdef DFT_HAS_MATPLOTLIB
-  plot::make_plots(r, v_lj, v_twf, v_wrdf, att_lj, rep_lj, lj.r_min, lj.v_min, d_lj);
+  plot::make_plots(r, v_lj, v_twf, v_wrdf, att_lj, rep_lj, lj.r_min, lj.v_min, d_lj, d_twf, d_wrdf);
 #endif
 }

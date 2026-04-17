@@ -173,7 +173,7 @@ int main() {
 
   section("Step 4: Analytical a_vdw reference");
 
-  double a_vdw_analytical = pot::vdw_integral(plj, kT, pot::SplitScheme::WeeksChandlerAndersen);
+  double a_vdw_analytical = plj.vdw_integral(kT, pot::SplitScheme::WeeksChandlerAndersen);
   std::cout << "  Analytical a_vdw = " << a_vdw_analytical << "\n";
 
   // Summary

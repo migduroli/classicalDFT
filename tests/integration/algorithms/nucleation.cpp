@@ -97,7 +97,7 @@ namespace {
     int ddft_comparison_steps;
   };
 
-  auto get_fixture() -> const Fixture& {
+  auto fixture() -> const Fixture& {
     static auto f = []() -> Fixture {
       Fixture fx;
 
@@ -251,7 +251,8 @@ namespace {
               .tolerance = 1e-4,
               .max_iterations = 300,
               .hessian_eps = 1e-6,
-              .log_interval = 0
+              .log_interval = 0,
+              .boundary_mask = fx.boundary,
           }
               .solve(eig_force_fn, fx.our_cluster);
 
@@ -301,7 +302,7 @@ namespace {
       rho_init = arma::clamp(rho_init, 1e-18, arma::datum::inf);
 
       // Our DDFT state.
-      auto our_ddft_st = algorithms::dynamics::_internal::make_if_state(fx.model.grid);
+      auto our_ddft_st = algorithms::dynamics::detail::make_if_state(fx.model.grid);
       algorithms::dynamics::StepConfig our_ddft_cfg{
           .dt = ddft_dt,
           .diffusion_coefficient = 1.0,
@@ -376,14 +377,14 @@ namespace {
 } // anonymous namespace
 
 TEST_CASE("FIRE minimization matches legacy", "[integration][algorithms]") {
-  auto& fx = get_fixture();
+  auto& fx = fixture();
   REQUIRE(fx.our_fire_converged);
   REQUIRE(fx.ref_fire_converged);
   CHECK(fx.fire_max_diff < 1e-12);
 }
 
 TEST_CASE("Eigenvalue matches legacy", "[integration][algorithms]") {
-  auto& fx = get_fixture();
+  auto& fx = fixture();
   REQUIRE(fx.our_eigen_converged);
   REQUIRE(fx.ref_eigen_converged);
 
@@ -395,7 +396,7 @@ TEST_CASE("Eigenvalue matches legacy", "[integration][algorithms]") {
 }
 
 TEST_CASE("DDFT dynamics match legacy step-by-step", "[integration][algorithms]") {
-  auto& fx = get_fixture();
+  auto& fx = fixture();
   INFO("max |ours - ref| across " << fx.ddft_comparison_steps << " steps = " << fx.ddft_max_ever_diff);
   CHECK(fx.ddft_max_ever_diff < 1e-3);
 }

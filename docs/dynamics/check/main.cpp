@@ -68,8 +68,8 @@ int main() {
 
   section("Step 1: Propagator coefficients");
 
-  auto ddft_st = algorithms::dynamics::_internal::make_if_state(grid);
-  algorithms::dynamics::_internal::update_timestep(ddft_st, D * dt);
+  auto ddft_st = algorithms::dynamics::detail::make_if_state(grid);
+  algorithms::dynamics::detail::update_timestep(ddft_st, D * dt);
 
   // Lambda at ix=0: cos(0)-1 = 0 → exp(0) = 1
   check("fx[0]", ddft_st.fx(0), 1.0);
@@ -243,7 +243,7 @@ int main() {
 
     auto [omega_0, forces_0] = force_fn({rho_slab});
 
-    auto st = algorithms::dynamics::_internal::make_if_state(model.grid);
+    auto st = algorithms::dynamics::detail::make_if_state(model.grid);
     algorithms::dynamics::StepConfig cfg{
         .dt = 1e-4,
         .diffusion_coefficient = 1.0,

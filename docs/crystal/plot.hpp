@@ -1,10 +1,10 @@
 #pragma once
 
 #include <algorithm>
+#include <dftlib>
 #include <string>
 #include <vector>
 
-// Requires dft.hpp to be included before this header (for dft::Lattice).
 #ifdef DFT_HAS_MATPLOTLIB
 #include "matplotlibcpp.h"
 

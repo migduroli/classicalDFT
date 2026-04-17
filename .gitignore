@@ -30,3 +30,9 @@ compile_commands.json
 
 # Test/example plot output
 Testing/
+
+# Export files
+**/export/*.pdf
+
+# Virtual envs
+**/.venv/

@@ -129,7 +129,7 @@ namespace dft::functionals::bulk {
     [[nodiscard]] auto spinodal_curve(const EoSFactory& eos_factory) const -> std::optional<SpinodalCurve>;
   };
 
-  namespace _internal {
+  namespace detail {
 
     // Trace the coexistence curve as a function of temperature using
     // pseudo-arclength continuation. The weight factory produces the
@@ -165,7 +165,7 @@ namespace dft::functionals::bulk {
       return continuation.trace(start_point, residual, std::move(stop));
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   // Trace the full binodal (coexistence) curve from a starting temperature
   // up to the critical point using pseudo-arclength continuation.
@@ -181,7 +181,7 @@ namespace dft::functionals::bulk {
     }
 
     double T_max_seen = start_temperature;
-    auto curve = _internal::trace_coexistence(
+    auto curve = detail::trace_coexistence(
         *seed,
         start_temperature,
         eos_factory,
@@ -235,14 +235,14 @@ namespace dft::functionals::bulk {
 
     // Bisection on dp_drho: guaranteed convergence within a bracket.
     auto bisect_root = [&](double a, double b, const BulkThermodynamics& eos) -> std::optional<double> {
-      double fa = _internal::dp_drho(a, eos);
-      double fb = _internal::dp_drho(b, eos);
+      double fa = detail::dp_drho(a, eos);
+      double fb = detail::dp_drho(b, eos);
       if (fa * fb > 0.0) {
         return std::nullopt;
       }
       for (int i = 0; i < 60; ++i) {
         double mid = 0.5 * (a + b);
-        double fm = _internal::dp_drho(mid, eos);
+        double fm = detail::dp_drho(mid, eos);
         if (fa * fm <= 0.0) {
           b = mid;
         } else {
@@ -259,8 +259,8 @@ namespace dft::functionals::bulk {
       for (double delta = step; delta < 0.3; delta += step) {
         double a = std::max(guess - delta, 1e-6);
         double b = guess + delta;
-        double fa = _internal::dp_drho(a, eos);
-        double fb = _internal::dp_drho(b, eos);
+        double fa = detail::dp_drho(a, eos);
+        double fb = detail::dp_drho(b, eos);
         if (fa * fb < 0.0) {
           return std::pair{a, b};
         }

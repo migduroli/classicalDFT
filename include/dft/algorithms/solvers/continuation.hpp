@@ -39,7 +39,7 @@ namespace dft::algorithms::continuation {
         const -> std::vector<CurvePoint>;
   };
 
-  namespace _internal {
+  namespace detail {
 
     // Compute the tangent vector (dx/ds, dlambda/ds) at a point on the curve
     // using the null space of the extended Jacobian [dR/dx | dR/dlambda].
@@ -131,7 +131,7 @@ namespace dft::algorithms::continuation {
       return {std::move(dx_ds), dlambda_ds};
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   [[nodiscard]] inline auto Continuation::step(const CurvePoint& current, const Residual& R, double ds) const
       -> std::optional<CurvePoint> {
@@ -175,7 +175,7 @@ namespace dft::algorithms::continuation {
     double lambda_new = result.solution(n);
 
     // Compute tangent at the new point
-    auto [dx_ds_new, dlambda_ds_new] = _internal::tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds);
+    auto [dx_ds_new, dlambda_ds_new] = detail::tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds);
 
     return CurvePoint{
         .x = std::move(x_new),
@@ -277,7 +277,7 @@ namespace dft::algorithms::continuation {
 
       // Tangent via bordering: solve J * dx_ds = -dR/dlambda, then normalise.
       auto [dx_ds_new, dlambda_ds_new] =
-          _internal::matrix_free_tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds, newton.gmres, eps);
+          detail::matrix_free_tangent(R, x_new, lambda_new, current.dx_ds, current.dlambda_ds, newton.gmres, eps);
 
       return CurvePoint{
           .x = std::move(x_new),
