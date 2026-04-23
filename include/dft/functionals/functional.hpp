@@ -4,7 +4,7 @@
 #include "dft/algorithms/dynamics.hpp"
 #include "dft/functionals/bulk/phase_diagram.hpp"
 #include "dft/functionals/bulk/thermodynamics.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/init.hpp"
 
 namespace dft::functionals {

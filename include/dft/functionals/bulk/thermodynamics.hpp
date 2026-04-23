@@ -2,7 +2,7 @@
 #define DFT_FUNCTIONALS_BULK_THERMODYNAMICS_HPP
 
 #include "dft/functionals/fmt/models.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/physics/model.hpp"
 #include "dft/types.hpp"
 

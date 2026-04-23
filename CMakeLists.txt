@@ -194,6 +194,7 @@ target_include_directories(classicaldft
 target_compile_options(classicaldft
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>
+    PUBLIC
         $<$<CXX_COMPILER_ID:GNU>:-Wno-psabi>
 )
 

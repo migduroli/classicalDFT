@@ -7,7 +7,7 @@
 #include "dft/fields.hpp"
 #include "dft/functionals/bulk/coexistence.hpp"
 #include "dft/functionals/functional.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/grid.hpp"
 #include "dft/init.hpp"
 #include "dft/math/spline.hpp"

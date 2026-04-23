@@ -1,4 +1,4 @@
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 
 #include "dft/functionals/external_field.hpp"
 #include "dft/functionals/hard_sphere.hpp"

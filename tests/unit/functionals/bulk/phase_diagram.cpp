@@ -2,7 +2,7 @@
 
 #include "dft/functionals/bulk/thermodynamics.hpp"
 #include "dft/functionals/fmt/models.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/physics/interactions.hpp"
 #include "dft/physics/potentials.hpp"
 

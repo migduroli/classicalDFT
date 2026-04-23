@@ -3,7 +3,7 @@
 
 #include "dft/algorithms/solvers/newton.hpp"
 #include "dft/functionals/bulk/thermodynamics.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/types.hpp"
 
 #include <armadillo>

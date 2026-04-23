@@ -2,7 +2,7 @@
 #define DFT_ALGORITHMS_MINIMIZATION_HPP
 
 #include "dft/algorithms/fire.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/grid.hpp"
 #include "dft/init.hpp"
 #include "dft/types.hpp"

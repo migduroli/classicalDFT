@@ -34,7 +34,7 @@
 #include "dft/functionals/fmt/measures.hpp"
 #include "dft/functionals/fmt/models.hpp"
 #include "dft/functionals/functional.hpp"
-#include "dft/functionals/functionals.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/functionals/hard_sphere.hpp"
 #include "dft/functionals/ideal_gas.hpp"
 #include "dft/functionals/mean_field.hpp"

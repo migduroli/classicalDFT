@@ -1,5 +1,5 @@
-#ifndef DFT_FUNCTIONALS_FUNCTIONALS_HPP
-#define DFT_FUNCTIONALS_FUNCTIONALS_HPP
+#ifndef DFT_FUNCTIONALS_EVALUATOR_HPP
+#define DFT_FUNCTIONALS_EVALUATOR_HPP
 
 #include "dft/functionals/external_field.hpp"
 #include "dft/functionals/hard_sphere.hpp"
@@ -96,4 +96,4 @@ namespace dft::functionals {
 
 } // namespace dft::functionals
 
-#endif // DFT_FUNCTIONALS_FUNCTIONALS_HPP
+#endif // DFT_FUNCTIONALS_EVALUATOR_HPP
