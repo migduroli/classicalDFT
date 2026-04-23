@@ -110,6 +110,33 @@ TEST_CASE("fire at minimum reports converged", "[fire]") {
   CHECK(state.converged);
 }
 
+TEST_CASE("fire step backs off after transient compute failure", "[fire]") {
+  int eval_count = 0;
+  auto transient_failure = [&](const std::vector<arma::vec>& x) -> std::pair<double, std::vector<arma::vec>> {
+    eval_count++;
+    if (eval_count == 2) {
+      throw std::runtime_error("transient failure");
+    }
+    return quadratic_force(x);
+  };
+
+  std::vector<arma::vec> x0 = {arma::vec{1.0}};
+  Fire config{.dt = 0.1, .force_tolerance = 1e-6};
+  auto state = config.initialize(x0, transient_failure);
+  auto [_, forces] = quadratic_force(state.x);
+
+  auto [backed_off_state, backed_off_forces] = config.step(state, forces, transient_failure);
+
+  CHECK(backed_off_state.energy == Catch::Approx(state.energy));
+  CHECK(backed_off_state.dt == Catch::Approx(0.05));
+  CHECK(arma::approx_equal(backed_off_state.x[0], state.x[0], "absdiff", 0.0));
+  CHECK(arma::approx_equal(backed_off_forces[0], forces[0], "absdiff", 0.0));
+
+  auto [recovered_state, recovered_forces] = config.step(backed_off_state, backed_off_forces, transient_failure);
+  CHECK(recovered_state.energy < state.energy);
+  CHECK(recovered_state.iteration == 1);
+}
+
 // Uphill function: force that changes sign rapidly to cause persistent negative power
 
 TEST_CASE("fire throws when max uphill steps exceeded", "[fire]") {

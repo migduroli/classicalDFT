@@ -74,6 +74,24 @@ $\rho_v \to \rho_l$.
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `physics::Model` | `dft/physics/model.hpp` | Aggregate of `Grid` + species + interactions + temperature |
+| `BulkThermodynamics` | `dft/functionals/bulk/thermodynamics.hpp` | Bulk EOS: `pressure(rho)`, `chemical_potential(rho, species)` |
+| `functionals::bulk::PhaseSearch` | `dft/functionals/bulk/phase_search.hpp` | Single-temperature coexistence and spinodal finder (scan + Newton) |
+| `functionals::bulk::PhaseDiagramBuilder` | `dft/functionals/bulk/phase_diagram.hpp` | Pseudo-arclength continuation for binodal/spinodal curves |
+| `functionals::bulk::PhaseDiagram` | `dft/functionals/bulk/phase_diagram.hpp` | Holds binodal + spinodal data with cubic spline interpolation |
+| `functionals::fmt::FMTModel` | `dft/functionals/fmt/models.hpp` | Variant wrapper over FMT models (Rosenfeld, RSLT, WBI, WBII) |
+
+`PhaseSearch` finds coexistence at a single temperature.
+`PhaseDiagramBuilder` traces the full binodal and spinodal curves via
+continuation. `PhaseDiagram` stores the result and provides `interpolate(T)`
+for lookup at arbitrary temperatures.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Define the Lennard-Jones system

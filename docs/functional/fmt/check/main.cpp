@@ -112,7 +112,7 @@ int main() {
 
   section("Step 5: esFMT f1, f2, f3 (= Rosenfeld)");
 
-  fmt::EsFMT esfmt{1.0, 0.0};
+  fmt::EsFMT esfmt{{}, 1.0, 0.0};
   for (double eta : etas) {
     check("esFMT f1(" + std::to_string(eta) + ")", esfmt.f1(eta), legacy::fmt::esFMT_model::f1(eta));
     check("esFMT f2(" + std::to_string(eta) + ")", esfmt.f2(eta), legacy::fmt::esFMT_model::f2(eta));
@@ -233,7 +233,7 @@ int main() {
 
     // A=1, B=0
     {
-      fmt::EsFMT es{1.0, 0.0};
+      fmt::EsFMT es{{}, 1.0, 0.0};
       double our_phi3 = es.phi3(m);
       double jim_phi3 = legacy::fmt::esFMT_model::Phi3(1.0, 0.0, fm);
       check("esFMT(1,0) Phi3", our_phi3, jim_phi3);
@@ -259,7 +259,7 @@ int main() {
 
     // A=1, B=-1 (WhiteBear)
     {
-      fmt::EsFMT es{1.0, -1.0};
+      fmt::EsFMT es{{}, 1.0, -1.0};
       double our_phi3 = es.phi3(m);
       double jim_phi3 = legacy::fmt::esFMT_model::Phi3(1.0, -1.0, fm);
       check("esFMT(1,-1) Phi3", our_phi3, jim_phi3);

@@ -1,7 +1,7 @@
 #include "dft/math/spline.hpp"
 
+#include <format>
 #include <stdexcept>
-#include <string>
 
 namespace dft::math {
 
@@ -10,7 +10,7 @@ namespace dft::math {
       throw std::invalid_argument("CubicSpline: x and y must have the same size");
     }
     if (x.size() < 3) {
-      throw std::invalid_argument("CubicSpline: need at least 3 points (got " + std::to_string(x.size()) + ")");
+      throw std::invalid_argument(std::format("CubicSpline: need at least 3 points (got {})", x.size()));
     }
 
     size_ = x.size();
@@ -60,8 +60,7 @@ namespace dft::math {
     }
     if (z.size() != x.size() * y.size()) {
       throw std::invalid_argument(
-          "BivariateSpline: z size (" + std::to_string(z.size()) + ") must equal nx*ny ("
-          + std::to_string(x.size() * y.size()) + ")"
+          std::format("BivariateSpline: z size ({}) must equal nx*ny ({})", z.size(), x.size() * y.size())
       );
     }
 

@@ -11,14 +11,14 @@ namespace dft {
 
     using Pos3 = std::array<double, 3>;
 
-    auto regular_bcc() -> std::vector<Pos3> {
+    [[nodiscard]] auto regular_bcc() -> std::vector<Pos3> {
       return {
           {0.0, 0.0, 0.0},
           {0.5, 0.5, 0.5},
       };
     }
 
-    auto regular_fcc() -> std::vector<Pos3> {
+    [[nodiscard]] auto regular_fcc() -> std::vector<Pos3> {
       return {
           {0.0, 0.0, 0.0},
           {0.5, 0.5, 0.0},
@@ -27,7 +27,7 @@ namespace dft {
       };
     }
 
-    auto hcp_001() -> std::vector<Pos3> {
+    [[nodiscard]] auto hcp_001() -> std::vector<Pos3> {
       return {
           {0.0, 0.0, 0.0},
           {0.5, 0.5, 0.0},
@@ -36,31 +36,34 @@ namespace dft {
       };
     }
 
-    void scale_positions(std::vector<Pos3>& atoms, const Pos3& L) {
+    [[nodiscard]] auto scale_positions(std::vector<Pos3> atoms, const Pos3& L) -> std::vector<Pos3> {
       for (auto& atom : atoms) {
         atom[0] *= L[0];
         atom[1] *= L[1];
         atom[2] *= L[2];
       }
+      return atoms;
     }
 
-    void rotate_y_to_z(std::vector<Pos3>& atoms) {
+    [[nodiscard]] auto rotate_y_to_z(std::vector<Pos3> atoms) -> std::vector<Pos3> {
       for (auto& a : atoms) {
         double temp = a[2];
         a[2] = a[1];
         a[1] = -temp;
       }
+      return atoms;
     }
 
-    void rotate_x_to_z(std::vector<Pos3>& atoms) {
+    [[nodiscard]] auto rotate_x_to_z(std::vector<Pos3> atoms) -> std::vector<Pos3> {
       for (auto& a : atoms) {
         double temp = a[2];
         a[2] = a[0];
         a[0] = -temp;
       }
+      return atoms;
     }
 
-    void wrap_to_box(std::vector<Pos3>& atoms, const Pos3& L) {
+    [[nodiscard]] auto wrap_to_box(std::vector<Pos3> atoms, const Pos3& L) -> std::vector<Pos3> {
       for (auto& a : atoms) {
         for (int d = 0; d < 3; ++d) {
           a[d] = std::fmod(a[d], L[d]);
@@ -68,6 +71,7 @@ namespace dft {
             a[d] += L[d];
         }
       }
+      return atoms;
     }
 
     struct UnitCell {
@@ -75,7 +79,7 @@ namespace dft {
       Pos3 dims{};
     };
 
-    auto make_unit_cell(Structure structure, Orientation orientation) -> UnitCell {
+    [[nodiscard]] auto make_unit_cell(Structure structure, Orientation orientation) -> UnitCell {
       using enum Orientation;
       double a_bcc = 2.0 / std::numbers::sqrt3;
       double a_fcc = std::numbers::sqrt2;
@@ -89,7 +93,7 @@ namespace dft {
             case _100: {
               uc.atoms = regular_bcc();
               uc.dims = {a_bcc, a_bcc, a_bcc};
-              scale_positions(uc.atoms, uc.dims);
+              uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
               break;
             }
             case _110:
@@ -109,7 +113,7 @@ namespace dft {
                 uc.dims[1] *= std::numbers::sqrt2;
                 uc.dims[2] *= std::numbers::sqrt2;
               }
-              scale_positions(uc.atoms, uc.dims);
+              uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
               break;
             }
             case _111: {
@@ -128,7 +132,7 @@ namespace dft {
                   {2.0 / 3, 0.0, 0.5},
               };
               uc.dims = {2.0 * std::numbers::sqrt2, 2.0 * std::sqrt(2.0 / 3.0), 2.0};
-              scale_positions(uc.atoms, uc.dims);
+              uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
               break;
             }
           }
@@ -141,7 +145,7 @@ namespace dft {
             case _100: {
               uc.atoms = regular_fcc();
               uc.dims = {a_fcc, a_fcc, a_fcc};
-              scale_positions(uc.atoms, uc.dims);
+              uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
               break;
             }
             case _110:
@@ -158,7 +162,7 @@ namespace dft {
               if (orientation == _011) {
                 uc.dims[0] *= std::numbers::sqrt2;
               }
-              scale_positions(uc.atoms, uc.dims);
+              uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
               break;
             }
             case _111: {
@@ -171,7 +175,7 @@ namespace dft {
                   {0.5, 5.0 / 6, 2.0 / 3},
               };
               uc.dims = {1.0, std::numbers::sqrt3, std::sqrt(6.0)};
-              scale_positions(uc.atoms, uc.dims);
+              uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
               break;
             }
           }
@@ -183,15 +187,15 @@ namespace dft {
           }
           uc.atoms = hcp_001();
           uc.dims = {1.0, std::numbers::sqrt3, std::sqrt(8.0 / 3.0)};
-          scale_positions(uc.atoms, uc.dims);
+          uc.atoms = scale_positions(std::move(uc.atoms), uc.dims);
 
           if (orientation == _010) {
-            rotate_y_to_z(uc.atoms);
-            wrap_to_box(uc.atoms, {uc.dims[0], uc.dims[2], uc.dims[1]});
+            uc.atoms = rotate_y_to_z(std::move(uc.atoms));
+            uc.atoms = wrap_to_box(std::move(uc.atoms), {uc.dims[0], uc.dims[2], uc.dims[1]});
             std::swap(uc.dims[1], uc.dims[2]);
           } else if (orientation == _100) {
-            rotate_x_to_z(uc.atoms);
-            wrap_to_box(uc.atoms, {uc.dims[2], uc.dims[1], uc.dims[0]});
+            uc.atoms = rotate_x_to_z(std::move(uc.atoms));
+            uc.atoms = wrap_to_box(std::move(uc.atoms), {uc.dims[2], uc.dims[1], uc.dims[0]});
             std::swap(uc.dims[0], uc.dims[2]);
           }
           break;

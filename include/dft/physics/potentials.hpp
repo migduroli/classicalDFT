@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <variant>
 
@@ -19,6 +21,14 @@ namespace dft::physics::potentials {
     WeeksChandlerAndersen, // split at r_min (WCA)
     BarkerHenderson,       // split at r_zero (BH)
   };
+
+  // Parse a split scheme name (case-insensitive).
+
+  [[nodiscard]] inline auto parse_split_scheme(const std::string& name) -> SplitScheme {
+    if (name == "WeeksChandlerAndersen" || name == "WCA")
+      return SplitScheme::WeeksChandlerAndersen;
+    return SplitScheme::BarkerHenderson;
+  }
 
   // CRTP base providing shared computed properties for all potential types.
   // Derived must provide: hard_core_diameter(), split_point(), repulsive(),
@@ -341,7 +351,9 @@ namespace dft::physics::potentials {
     twf.epsilon_shift = (r_cutoff > 0.0) ? vr(r_cutoff) : 0.0;
     twf.r_min = sigma * std::sqrt(1.0 + std::pow(2.0 / alpha, 1.0 / 3.0));
     twf.v_min = vr(twf.r_min) - twf.epsilon_shift;
-    twf.r_zero = sigma * std::sqrt(1.0 + std::pow(25.0 * std::sqrt(1.0 + twf.epsilon_shift) + 25.0, -1.0 / 3.0));
+    double half_alpha = 0.5 * alpha;
+    twf.r_zero = sigma
+        * std::sqrt(1.0 + std::pow(half_alpha * (std::sqrt(1.0 + twf.epsilon_shift / epsilon) + 1.0), -1.0 / 3.0));
     return twf;
   }
 

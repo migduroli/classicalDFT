@@ -1,0 +1,17 @@
+# Test TOML configuration file
+
+[section]
+key = "value"
+number = 42
+pi = 3.14159
+
+[database]
+host = "localhost"
+port = 5432
+
+[model.grid]
+box_size = [16.0, 16.0, 8.0]
+
+[seed]
+offset = [0.1, -0.2, 0.3]
+unit_cells = [4, 5, 6]

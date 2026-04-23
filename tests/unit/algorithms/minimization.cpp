@@ -7,7 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dft::algorithms::minimization;
-using namespace dft::algorithms::minimization::_internal;
+using namespace dft::algorithms::minimization::detail;
 
 // Unbounded parametrization: rho = rho_min + x^2
 
@@ -96,6 +96,29 @@ TEST_CASE("variant dispatches from_density correctly", "[parametrization]") {
   auto x = from_density(rho, p);
   auto rho_back = to_density(x, p);
   CHECK(rho_back(0) == Catch::Approx(0.5).epsilon(1e-12));
+}
+
+TEST_CASE("rescale_to_target_mass preserves the requested mass", "[mass]") {
+  arma::vec rho = {1.0, 2.0, 3.0};
+  auto scaled = rescale_to_target_mass(rho, 12.0, 0.5);
+
+  CHECK(arma::accu(scaled) * 0.5 == Catch::Approx(12.0).epsilon(1e-12));
+  CHECK(scaled(1) / scaled(0) == Catch::Approx(2.0).epsilon(1e-12));
+  CHECK(scaled(2) / scaled(1) == Catch::Approx(1.5).epsilon(1e-12));
+}
+
+TEST_CASE("fixed_mass_constraint rescales excess relative to the background", "[mass]") {
+  arma::vec background = {2.0, 3.0, 4.0};
+  arma::vec excess = {1.0, 2.0, 1.0};
+  std::vector<arma::vec> rho = {background + excess};
+
+  auto constraint = fixed_mass_constraint({8.0}, {background}, 0.5);
+  auto constrained = constraint(rho);
+  arma::vec constrained_excess = constrained[0] - background;
+
+  CHECK(arma::accu(constrained_excess) * 0.5 == Catch::Approx(8.0).epsilon(1e-12));
+  CHECK(constrained_excess(0) / excess(0) == Catch::Approx(4.0).epsilon(1e-12));
+  CHECK(constrained_excess(1) / excess(1) == Catch::Approx(4.0).epsilon(1e-12));
 }
 
 TEST_CASE("bounded transform_force applies chain rule correctly", "[parametrization]") {

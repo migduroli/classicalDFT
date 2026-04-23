@@ -203,6 +203,21 @@ This discrete sum converges to the continuum value as $\Delta x \to 0$.
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `physics::potentials::Potential` | `dft/physics/potentials.hpp` | Type-erased pair potential with `evaluate(r)`, `hard_sphere_diameter(kT, split)`, `name()` |
+| `SplitScheme` | `dft/physics/potentials.hpp` | Enum: `WeeksChandlerAndersen`, `BarkerHenderson` |
+
+Factory functions `make_lennard_jones(sigma, epsilon, rcut)`,
+`make_ten_wolde_frenkel(...)`, and `make_wang_ramirez_dobnikar_frenkel(...)`
+return `Potential` objects. The `Potential` interface provides `evaluate(r)`,
+`attractive_weight(r, kT, split)`, and `hard_sphere_diameter(kT, split)` via
+the Barker-Henderson integral.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Create potentials via factory functions

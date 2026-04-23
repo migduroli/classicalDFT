@@ -121,6 +121,10 @@ namespace dft::algorithms::fire {
     }
 
     // Semi-implicit Euler: update velocity, then mix, then position.
+    // Save the pre-step state so we can restore it if evaluation fails.
+    auto x_old = state.x;
+    auto v_old = state.v;
+
     for (std::size_t s = 0; s < state.x.size(); ++s) {
       state.v[s] += state.dt * forces[s];
     }
@@ -142,13 +146,35 @@ namespace dft::algorithms::fire {
       }
     }
 
-    // Update positions
     for (std::size_t s = 0; s < state.x.size(); ++s) {
       state.x[s] += state.dt * state.v[s];
     }
 
-    // Recompute forces at new position
-    auto [energy, new_forces] = compute(state.x);
+    // Follow Jim Lutsko's FIRE path: if the new point cannot be evaluated,
+    // restore the pre-step state, reduce dt, damp the velocity, and try again
+    // on the next outer iteration.
+    std::pair<double, std::vector<arma::vec>> result{0.0, {}};
+    bool step_ok = true;
+    try {
+      result = compute(state.x);
+      if (!std::isfinite(result.first)) {
+        step_ok = false;
+      }
+    } catch (const std::runtime_error&) {
+      step_ok = false;
+    }
+
+    if (!step_ok) {
+      state.x = std::move(x_old);
+      state.v = std::move(v_old);
+      for (auto& vs : state.v) {
+        vs *= 0.5;
+      }
+      state.dt = std::max(state.dt * 0.5, dt_min);
+      return {std::move(state), forces};
+    }
+
+    auto& [energy, new_forces] = result;
     state.energy = energy;
 
     double total_dof = 0.0;

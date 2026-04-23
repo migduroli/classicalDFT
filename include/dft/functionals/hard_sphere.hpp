@@ -27,10 +27,11 @@ namespace dft::functionals {
   // on the given grid.
 
   [[nodiscard]] inline auto make_fmt_weights(const Grid& grid, const std::vector<Species>& species) -> FMTWeights {
+    auto conv_grid = grid.convolution_grid();
     FMTWeights w;
     w.per_species.reserve(species.size());
     for (const auto& sp : species) {
-      w.per_species.push_back(fmt::generate_weights(sp.hard_sphere_diameter, grid));
+      w.per_species.push_back(fmt::generate_weights(sp.hard_sphere_diameter, conv_grid));
     }
     return w;
   }
@@ -50,17 +51,17 @@ namespace dft::functionals {
     [[nodiscard]] inline auto convolve_weights(
         const fmt::WeightSet& ws,
         std::span<const std::complex<double>> rho_k,
-        const std::vector<long>& shape
+        math::ConvolutionWorkspace& workspace
     ) -> WeightedDensityArrays {
       WeightedDensityArrays wd;
-      wd.eta = math::convolve(ws.w3.fourier(), rho_k, shape);
-      wd.n2 = math::convolve(ws.w2.fourier(), rho_k, shape);
+      wd.eta = math::convolve(ws.w3.fourier(), rho_k, workspace);
+      wd.n2 = math::convolve(ws.w2.fourier(), rho_k, workspace);
       for (int a = 0; a < 3; ++a) {
-        wd.nv2[a] = math::convolve(ws.wv2[a].fourier(), rho_k, shape);
+        wd.nv2[a] = math::convolve(ws.wv2[a].fourier(), rho_k, workspace);
       }
       for (int i = 0; i < 3; ++i) {
         for (int j = i; j < 3; ++j) {
-          wd.nT[i][j] = math::convolve(ws.tensor(i, j).fourier(), rho_k, shape);
+          wd.nT[i][j] = math::convolve(ws.tensor(i, j).fourier(), rho_k, workspace);
         }
       }
       return wd;
@@ -110,26 +111,26 @@ namespace dft::functionals {
         const std::array<arma::vec, 3>& d_nv2,
         const std::array<arma::vec, 3>& d_nv0,
         const std::array<std::array<arma::vec, 3>, 3>& d_nT,
-        const std::vector<long>& shape
+        math::ConvolutionWorkspace& workspace
     ) -> arma::cx_vec {
       double four_pi_R = 4.0 * std::numbers::pi * R;
 
       // w3 channel: dPhi/deta
-      arma::cx_vec force_k = math::back_convolve(ws.w3.fourier(), d_eta, shape);
+      arma::cx_vec force_k = math::back_convolve(ws.w3.fourier(), d_eta, workspace);
 
       // w2 channel: dPhi/dn2 + dPhi/dn1 / (4piR) + dPhi/dn0 / (4piR^2)
-      force_k += math::back_convolve(ws.w2.fourier(), d_n2 + d_n1 / four_pi_R + d_n0 / (four_pi_R * R), shape);
+      force_k += math::back_convolve(ws.w2.fourier(), d_n2 + d_n1 / four_pi_R + d_n0 / (four_pi_R * R), workspace);
 
       // wv2 channels (parity-odd, conjugate = true)
       for (int a = 0; a < 3; ++a) {
-        force_k += math::back_convolve(ws.wv2[a].fourier(), d_nv2[a] + d_nv0[a] / four_pi_R, shape, true);
+        force_k += math::back_convolve(ws.wv2[a].fourier(), d_nv2[a] + d_nv0[a] / four_pi_R, workspace, true);
       }
 
       // wT channels
       for (int i = 0; i < 3; ++i) {
         for (int j = i; j < 3; ++j) {
           double sym = (i == j) ? 1.0 : 2.0;
-          force_k += math::back_convolve(ws.tensor(i, j).fourier(), sym * d_nT[i][j], shape);
+          force_k += math::back_convolve(ws.tensor(i, j).fourier(), sym * d_nT[i][j], workspace);
         }
       }
 
@@ -138,7 +139,7 @@ namespace dft::functionals {
 
   } // namespace detail
 
-  namespace _internal {
+  namespace detail {
 
     struct DerivativeArrays {
       arma::vec d_eta;
@@ -182,7 +183,12 @@ namespace dft::functionals {
       auto derivs = make_derivative_arrays(n_species, n_points);
       double free_energy = 0.0;
 
-      for (arma::uword idx = 0; idx < n_points; ++idx) {
+      long n_points_long = static_cast<long>(n_points);
+#ifdef _OPENMP
+#pragma omp parallel for reduction(+ : free_energy)
+#endif
+      for (long idx_long = 0; idx_long < n_points_long; ++idx_long) {
+        auto idx = static_cast<arma::uword>(idx_long);
         fmt::Measures total;
         for (std::size_t s = 0; s < n_species; ++s) {
           double R = 0.5 * species[s].hard_sphere_diameter;
@@ -228,7 +234,8 @@ namespace dft::functionals {
         const FMTWeights& weights,
         const std::vector<Species>& species,
         const std::vector<long>& shape,
-        double dv
+        double dv,
+        math::ConvolutionWorkspace& workspace
     ) -> std::vector<arma::vec> {
       std::vector<arma::vec> forces;
       forces.reserve(species.size());
@@ -245,7 +252,7 @@ namespace dft::functionals {
             derivs[s].d_nv2,
             derivs[s].d_nv0,
             derivs[s].d_nT,
-            shape
+            workspace
         );
         math::FourierTransform force_ft(shape);
         force_ft.set_fourier(force_k);
@@ -256,7 +263,7 @@ namespace dft::functionals {
       return forces;
     }
 
-  } // namespace _internal
+  } // namespace detail
 
   // Evaluate the FMT hard-sphere functional for all species.
 
@@ -270,29 +277,80 @@ namespace dft::functionals {
     auto n_species = species.size();
     auto n_points = static_cast<arma::uword>(grid.total_points());
     double dv = grid.cell_volume();
-    std::vector<long> shape(grid.shape.begin(), grid.shape.end());
 
-    // FFT all density profiles.
+    // Use convolution shape for all FFT operations.
+    auto cs = grid.convolution_shape();
+    std::vector<long> conv_shape(cs.begin(), cs.end());
+
+    // FFT all density profiles (padded for non-periodic axes).
     std::vector<math::FourierTransform> rho_ft;
     rho_ft.reserve(n_species);
     for (std::size_t s = 0; s < n_species; ++s) {
-      rho_ft.emplace_back(shape);
-      rho_ft.back().set_real(state.species[s].density.values);
+      rho_ft.emplace_back(conv_shape);
+      rho_ft.back().set_real(pad(state.species[s].density.values, grid));
       rho_ft.back().forward();
     }
 
     // Convolve each species density with its weights.
     std::vector<detail::WeightedDensityArrays> wd;
     wd.reserve(n_species);
+    math::ConvolutionWorkspace workspace(conv_shape);
     for (std::size_t s = 0; s < n_species; ++s) {
-      wd.push_back(detail::convolve_weights(weights.per_species[s], rho_ft[s].fourier(), shape));
+      auto w = detail::convolve_weights(weights.per_species[s], rho_ft[s].fourier(), workspace);
+      // Unpad weighted densities to physical grid.
+      w.eta = unpad(w.eta, grid);
+      w.n2 = unpad(w.n2, grid);
+      for (int a = 0; a < 3; ++a) {
+        w.nv2[a] = unpad(w.nv2[a], grid);
+      }
+      for (int i = 0; i < 3; ++i) {
+        for (int j = i; j < 3; ++j) {
+          w.nT[i][j] = unpad(w.nT[i][j], grid);
+        }
+      }
+      wd.push_back(std::move(w));
     }
 
     // Accumulate energy and derivatives at each grid point.
-    auto [free_energy, derivs] = _internal::accumulate_derivatives(model, wd, species, n_points, dv);
+    auto [free_energy, derivs] = detail::accumulate_derivatives(model, wd, species, n_points, dv);
 
-    // Back-convolve derivatives with weights to get forces.
-    auto forces = _internal::back_convolve_forces(derivs, weights, species, shape, dv);
+    // Back-convolve: pad derivatives, convolve on padded grid, unpad forces.
+    std::vector<arma::vec> forces;
+    forces.reserve(species.size());
+    for (std::size_t s = 0; s < species.size(); ++s) {
+      double R = 0.5 * species[s].hard_sphere_diameter;
+      auto& da = derivs[s];
+
+      std::array<arma::vec, 3> d_nv2_p, d_nv0_p;
+      std::array<std::array<arma::vec, 3>, 3> d_nT_p;
+      for (int a = 0; a < 3; ++a) {
+        d_nv2_p[a] = pad(da.d_nv2[a], grid);
+        d_nv0_p[a] = pad(da.d_nv0[a], grid);
+      }
+      for (int i = 0; i < 3; ++i) {
+        for (int j = i; j < 3; ++j) {
+          d_nT_p[i][j] = pad(da.d_nT[i][j], grid);
+        }
+      }
+
+      auto force_k = detail::compute_force_k(
+          weights.per_species[s],
+          R,
+          pad(da.d_eta, grid),
+          pad(da.d_n2, grid),
+          pad(da.d_n1, grid),
+          pad(da.d_n0, grid),
+          d_nv2_p,
+          d_nv0_p,
+          d_nT_p,
+          workspace
+      );
+
+      math::FourierTransform force_ft(conv_shape);
+      force_ft.set_fourier(force_k);
+      force_ft.backward();
+      forces.push_back(unpad(force_ft.real_vec() * dv, grid));
+    }
 
     return Contribution{.free_energy = free_energy, .forces = std::move(forces)};
   }

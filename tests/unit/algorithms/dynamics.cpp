@@ -28,32 +28,32 @@ static auto ideal_gas_forces(const std::vector<arma::vec>& densities) -> std::pa
 
 // k^2
 
-TEST_CASE("compute_k_squared has correct size", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+TEST_CASE("k_squared has correct size", "[ddft]") {
+  auto k2 = k_squared(GRID);
   long expected = GRID.shape[0] * GRID.shape[1] * (GRID.shape[2] / 2 + 1);
   CHECK(k2.n_elem == static_cast<arma::uword>(expected));
 }
 
-TEST_CASE("compute_k_squared has zero at k=0", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+TEST_CASE("k_squared has zero at k=0", "[ddft]") {
+  auto k2 = k_squared(GRID);
   CHECK(k2(0) == Catch::Approx(0.0).margin(1e-14));
 }
 
-TEST_CASE("compute_k_squared values are non-negative", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+TEST_CASE("k_squared values are non-negative", "[ddft]") {
+  auto k2 = k_squared(GRID);
   CHECK(arma::all(k2 >= 0.0));
 }
 
 // Diffusion propagator
 
 TEST_CASE("diffusion propagator is 1 at k=0", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   auto prop = diffusion_propagator(k2, 1.0, 0.01);
   CHECK(prop(0) == Catch::Approx(1.0));
 }
 
 TEST_CASE("diffusion propagator decays for k>0", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   auto prop = diffusion_propagator(k2, 1.0, 0.01);
   // All values should be in (0, 1]
   CHECK(arma::all(prop > 0.0));
@@ -63,7 +63,7 @@ TEST_CASE("diffusion propagator decays for k>0", "[ddft]") {
 // Split-operator step
 
 TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
@@ -91,7 +91,7 @@ TEST_CASE("split-operator step conserves total mass approximately", "[ddft]") {
 }
 
 TEST_CASE("split-operator step keeps density positive", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   StepConfig config{.dt = 1e-5, .diffusion_coefficient = 1.0, .min_density = 1e-18};
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
@@ -104,7 +104,7 @@ TEST_CASE("split-operator step keeps density positive", "[ddft]") {
 }
 
 TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   StepConfig config{.dt = 1e-3, .diffusion_coefficient = 1.0};
   auto prop = diffusion_propagator(k2, config.diffusion_coefficient, config.dt);
 
@@ -140,7 +140,7 @@ TEST_CASE("split-operator diffuses a Gaussian towards uniform", "[ddft]") {
 // Crank-Nicholson step
 
 TEST_CASE("crank-nicholson step keeps density positive", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0, .min_density = 1e-18};
 
   long n = GRID.total_points();
@@ -152,7 +152,7 @@ TEST_CASE("crank-nicholson step keeps density positive", "[ddft]") {
 }
 
 TEST_CASE("crank-nicholson conserves mass approximately", "[ddft]") {
-  auto k2 = compute_k_squared(GRID);
+  auto k2 = k_squared(GRID);
   StepConfig config{.dt = 1e-4, .diffusion_coefficient = 1.0};
 
   long n = GRID.total_points();

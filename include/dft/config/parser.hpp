@@ -11,10 +11,14 @@ namespace dft::config {
 
   enum class FileType : std::uint8_t {
     INI,
-    JSON
+    JSON,
+    TOML
   };
 
-  [[nodiscard]] auto parse_config(const std::string& path, FileType type = FileType::INI) -> nlohmann::json;
+  [[nodiscard]] auto parse_config(const std::string& path, FileType type) -> nlohmann::json;
+
+  /// Auto-detect file type from extension (.toml, .json, or INI fallback).
+  [[nodiscard]] auto parse_config(const std::string& path) -> nlohmann::json;
 
   template <typename T> [[nodiscard]] auto get(const nlohmann::json& data, const std::string& dotted_path) -> T {
     const nlohmann::json* node = &data;

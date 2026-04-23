@@ -1,8 +1,8 @@
 #include "dft/functionals/bulk/phase_diagram.hpp"
 
 #include "dft/functionals/bulk/thermodynamics.hpp"
+#include "dft/functionals/evaluator.hpp"
 #include "dft/functionals/fmt/models.hpp"
-#include "dft/functionals/functionals.hpp"
 #include "dft/physics/interactions.hpp"
 #include "dft/physics/potentials.hpp"
 
@@ -194,7 +194,7 @@ TEST_CASE("trace_coexistence follows the coexistence curve", "[phase_diagram]") 
       .newton = {.max_iterations = 100, .tolerance = 1e-8},
   };
 
-  auto curve = _internal::trace_coexistence(
+  auto curve = detail::trace_coexistence(
       *coex,
       0.75,
       factory,

@@ -2,6 +2,10 @@
 
 A modern C++23 library for classical density functional theory.
 
+<p align="center">
+  <img src="docs/nucleation/exports/WhiteBearII/lj_hon.gif" alt="LJ nucleation dynamics" width="700"/>
+</p>
+
 ## Requirements
 
 - C++23 compiler (GCC 13+, Clang 17+)

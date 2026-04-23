@@ -74,6 +74,20 @@ potential into a constrained stationary point.
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `physics::Model` | `dft/physics/model.hpp` | Aggregate of `Grid` + species + interactions + temperature |
+| `functionals::Functional` | `dft/functionals/functional.hpp` | Owns `Model` + convolution weights; `evaluate()` and `grand_potential_callback()` |
+| `algorithms::picard::Picard` | `dft/algorithms/picard.hpp` | Log-space Picard iteration configuration (mixing, tolerance, max iterations) |
+
+`Picard` is configured via designated initializers and called with
+`.solve(force_fn, rho0)`. The `force_fn` is typically obtained from
+`Functional::grand_potential_callback(mu)`.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Define the hard-sphere system

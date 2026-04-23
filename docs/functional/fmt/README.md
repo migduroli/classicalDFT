@@ -166,6 +166,22 @@ $$
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `functionals::fmt::FMTModel` | `dft/functionals/fmt/models.hpp` | Variant wrapper over FMT models (Rosenfeld, RSLT, WBI, WBII) |
+| `WeightedDensities` | `dft/functionals/fmt/weighted_densities.hpp` | The six fundamental-measure weighted densities $\{n_\alpha\}$ |
+| `BulkThermodynamics` | `dft/functionals/bulk/thermodynamics.hpp` | Bulk EOS: free energy density, chemical potential, pressure |
+| `hard_spheres::CarnahanStarling` | `dft/physics/hard_spheres.hpp` | Reference Carnahan-Starling EOS for validation |
+
+Each `FMTModel` variant implements `excess_free_energy(n_alpha)` and
+`chemical_potential(eta)` for its specific $\Phi$ functional. The
+`BulkThermodynamics` object wraps these to provide `pressure(rho)` and
+`free_energy_density(rho)` for comparison against reference equations of state.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Instantiate FMT models and reference EOS

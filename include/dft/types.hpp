@@ -2,8 +2,10 @@
 #define DFT_TYPES_HPP
 
 #include <armadillo>
+#include <cctype>
 #include <cstdint>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -84,6 +86,50 @@ namespace dft {
 
   [[nodiscard]] auto
   build_lattice(Structure structure, Orientation orientation, const std::vector<long>& shape = {1, 1, 1}) -> Lattice;
+
+  // Parse a crystal structure name (case-insensitive): "FCC", "BCC", "HCP".
+
+  [[nodiscard]] inline auto parse_structure(const std::string& name) -> Structure {
+    std::string upper;
+    upper.reserve(name.size());
+    for (unsigned char ch : name) {
+      if (std::isalnum(ch))
+        upper.push_back(static_cast<char>(std::toupper(ch)));
+    }
+    if (upper == "FCC")
+      return Structure::FCC;
+    if (upper == "BCC")
+      return Structure::BCC;
+    if (upper == "HCP")
+      return Structure::HCP;
+    throw std::runtime_error("Unknown crystal structure: " + name);
+  }
+
+  // Parse a crystal orientation name (case-insensitive): "001", "010", etc.
+
+  [[nodiscard]] inline auto parse_orientation(const std::string& name) -> Orientation {
+    std::string upper;
+    upper.reserve(name.size());
+    for (unsigned char ch : name) {
+      if (std::isalnum(ch))
+        upper.push_back(static_cast<char>(std::toupper(ch)));
+    }
+    if (upper == "001")
+      return Orientation::_001;
+    if (upper == "010")
+      return Orientation::_010;
+    if (upper == "100")
+      return Orientation::_100;
+    if (upper == "110")
+      return Orientation::_110;
+    if (upper == "101")
+      return Orientation::_101;
+    if (upper == "011")
+      return Orientation::_011;
+    if (upper == "111")
+      return Orientation::_111;
+    throw std::runtime_error("Unknown crystal orientation: " + name);
+  }
 
 } // namespace dft
 

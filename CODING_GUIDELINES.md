@@ -59,7 +59,7 @@ include/
       hard_sphere.hpp                      # FMT hard sphere contribution
       mean_field.hpp                       # mean-field interaction contribution
       external_field.hpp                   # external field contribution
-      functionals.hpp                      # orchestrator + Result struct
+      evaluator.hpp                        # orchestrator + Result struct
       fmt/
         models.hpp                         # FMT model structs + free fns
         measures.hpp                       # fundamental measures struct

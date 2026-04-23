@@ -676,6 +676,172 @@ namespace legacy::algorithms {
     return {d1, e_final, dt};
   }
 
+  // String method for finding minimum free-energy paths.
+  // From dftApps/String/String_Master.cpp, String_Slave.cpp, String.h.
+  //
+  // Sequential translation of Lutsko's MPI master-slave implementation.
+  // The algorithm (simplified string method, E, Ren, Vanden-Eijnden 2007):
+  //   1. Linear interpolation of images between two endpoints
+  //   2. Loop:
+  //      a. Relax each interior image via DDFT for time Tmax
+  //      b. Reparametrize images to equal arc-length spacing (4 passes)
+  //      c. Convergence: RMS change in free energies
+
+  // Arc-length reparametrization.
+  // From String_Master.cpp: interpolate().
+
+  inline void string_interpolate(std::vector<arma::vec>& images, int passes = 4) {
+    int n_images = static_cast<int>(images.size());
+    if (n_images < 3) {
+      return;
+    }
+
+    for (int pass = 0; pass < passes; ++pass) {
+      // Arc-length parameter.
+      std::vector<double> alpha(n_images, 0.0);
+      double d1 = arma::dot(images[0], images[0]);
+      for (int j = 1; j < n_images; ++j) {
+        double d2 = arma::dot(images[j], images[j]);
+        double d21 = arma::dot(images[j], images[j - 1]);
+        alpha[j] = alpha[j - 1] + std::sqrt(d2 + d1 - 2.0 * d21);
+        d1 = d2;
+      }
+
+      if (alpha.back() <= 0.0) {
+        return;
+      }
+
+      double dl = alpha.back() / static_cast<double>(n_images - 1);
+
+      // Find bracketing intervals.
+      std::vector<int> intervals(n_images, 0);
+      for (int j = 1; j < n_images - 1; ++j) {
+        double target = j * dl;
+        for (int k = 0; k < n_images - 1; ++k) {
+          if (target >= alpha[k] && target < alpha[k + 1]) {
+            intervals[j] = k;
+            break;
+          }
+        }
+      }
+
+      // Pointwise interpolation (Jim's per-position loop).
+      long n_points = static_cast<long>(images[0].n_elem);
+      for (long pos = 0; pos < n_points; ++pos) {
+        std::vector<double> y(n_images);
+        for (int j = 0; j < n_images; ++j) {
+          y[j] = images[j](static_cast<arma::uword>(pos));
+        }
+
+        for (int j = 1; j < n_images - 1; ++j) {
+          double target = j * dl;
+          int k = intervals[j];
+          double h = alpha[k + 1] - alpha[k];
+          double x = (target - alpha[k]) / h;
+          images[j](static_cast<arma::uword>(pos)) = x * y[k + 1] + (1.0 - x) * y[k];
+        }
+      }
+    }
+  }
+
+  // String method configuration.
+
+  struct StringConfig {
+    double tol{1e-4};
+    int max_iterations{20};
+    double time_step{0.1};
+    double max_time_step{0.1};
+    double relax_time{0.2};
+    int interpolation_passes{4};
+  };
+
+  // String method result.
+
+  struct StringResult {
+    std::vector<arma::vec> images;
+    std::vector<double> energies;
+    int iterations{0};
+    double final_error{0.0};
+    bool converged{false};
+  };
+
+  // Run the simplified string method.
+  // From String_Master.cpp: run().
+  //
+  // force_fn: evaluates (energy, forces) for a single density.
+  // relax_fn: relaxes a density for a given time, returns (relaxed_density, energy).
+
+  using StringForceCallback = std::function<std::pair<double, arma::vec>(const arma::vec&)>;
+  using StringRelaxCallback = std::function<std::pair<arma::vec, double>(const arma::vec&)>;
+
+  [[nodiscard]] inline auto string_method(
+      const arma::vec& first_image,
+      const arma::vec& last_image,
+      int num_interior_images,
+      const StringForceCallback& force_fn,
+      const StringRelaxCallback& relax_fn,
+      const StringConfig& config
+  ) -> StringResult {
+    int n_images = num_interior_images + 2;
+    std::vector<arma::vec> images(n_images);
+
+    // Linear interpolation (String_Master.cpp: init_images_with_linear_interpolation).
+    images.front() = first_image;
+    images.back() = last_image;
+    for (int j = 1; j < n_images - 1; ++j) {
+      double f = static_cast<double>(j) / static_cast<double>(n_images - 1);
+      images[j] = (1.0 - f) * first_image + f * last_image;
+    }
+
+    // Evaluate initial energies.
+    std::vector<double> F(n_images, 0.0);
+    std::vector<double> F_old(n_images, 0.0);
+    for (int j = 0; j < n_images; ++j) {
+      auto [energy, forces] = force_fn(images[j]);
+      F[j] = energy;
+      F_old[j] = energy;
+    }
+
+    double err = 1.0 + config.tol;
+    int iteration = 0;
+
+    for (; iteration < config.max_iterations && err > config.tol; ++iteration) {
+      // Relax interior images (String_Master.cpp: relax_densities).
+      for (int j = 1; j < n_images - 1; ++j) {
+        auto [relaxed, energy] = relax_fn(images[j]);
+        images[j] = std::move(relaxed);
+        F[j] = energy;
+      }
+
+      // Reparametrize (String_Master.cpp calls interpolate).
+      string_interpolate(images, config.interpolation_passes);
+
+      // Recompute energies after reparametrization.
+      for (int j = 0; j < n_images; ++j) {
+        auto [energy, forces] = force_fn(images[j]);
+        F[j] = energy;
+      }
+
+      // Convergence: RMS change in free energies (String_Master.cpp: get_stats).
+      err = 0.0;
+      for (int j = 0; j < n_images; ++j) {
+        double df = F[j] - F_old[j];
+        err += df * df;
+      }
+      err = std::sqrt(err / static_cast<double>(n_images - 2));
+
+      F_old = F;
+    }
+
+    return StringResult{
+        .images = std::move(images),
+        .energies = std::move(F),
+        .iterations = iteration,
+        .final_error = err,
+        .converged = err <= config.tol,
+    };
+  }
+
 }  // namespace legacy::algorithms
 
 #endif  // DFT_LEGACY_ALGORITHMS_HPP

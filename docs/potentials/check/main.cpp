@@ -74,18 +74,18 @@ int main() {
   check("LJ rmin", our_lj.r_min, jim_lj.rmin);
   check("LJ Vmin", our_lj.v_min, jim_lj.Vmin);
   check("LJ r0", our_lj.r_zero, jim_lj.r0);
-  check("LJ hard_core", pot::hard_core_diameter(plj), jim_lj.getHardCore());
+  check("LJ hard_core", plj.hard_core_diameter(), jim_lj.getHardCore());
 
   check("tWF shift", our_twf.epsilon_shift, jim_twf.shift);
   check("tWF rmin", our_twf.r_min, jim_twf.rmin);
   check("tWF Vmin", our_twf.v_min, jim_twf.Vmin);
   check("tWF r0", our_twf.r_zero, jim_twf.r0);
-  check("tWF hard_core", pot::hard_core_diameter(ptwf), jim_twf.getHardCore());
+  check("tWF hard_core", ptwf.hard_core_diameter(), jim_twf.getHardCore());
 
   check("WHDF eps_eff", our_whdf.epsilon_effective, jim_whdf.eps_rescaled);
   check("WHDF rmin", our_whdf.r_min, jim_whdf.rmin);
   check("WHDF Vmin", our_whdf.v_min, jim_whdf.Vmin);
-  check("WHDF hard_core", pot::hard_core_diameter(pwhdf), jim_whdf.getHardCore());
+  check("WHDF hard_core", pwhdf.hard_core_diameter(), jim_whdf.getHardCore());
 
   std::cout << "  LJ:   shift=" << our_lj.epsilon_shift << " rmin=" << our_lj.r_min << " Vmin=" << our_lj.v_min
             << " r0=" << our_lj.r_zero << "\n";
@@ -142,18 +142,18 @@ int main() {
 
   for (double r : r_points) {
     double r2 = r * r;
-    double our_v = pot::potential_r2(our_lj, r2);
+    double our_v = our_lj.from_r2(r2);
     double jim_v = legacy::potentials::LJ::vr2(sigma, eps, r2);
     max_diff_lj_vr2 = std::max(max_diff_lj_vr2, std::abs(our_v - jim_v));
 
     if (r > sigma + 1e-6) {
-      double our_v2 = pot::potential_r2(our_twf, r2);
+      double our_v2 = our_twf.from_r2(r2);
       double jim_v2 = legacy::potentials::tWF::vr2(sigma, eps, twf_alpha, r2);
       max_diff_twf_vr2 = std::max(max_diff_twf_vr2, std::abs(our_v2 - jim_v2));
     }
 
     if (r < whdf_rcut) {
-      double our_v3 = pot::potential_r2(our_whdf, r2);
+      double our_v3 = our_whdf.from_r2(r2);
       double jim_v3 = legacy::potentials::WHDF::vr2(jim_whdf.eps_rescaled, sigma, whdf_rcut, r2);
       max_diff_whdf_vr2 = std::max(max_diff_whdf_vr2, std::abs(our_v3 - jim_v3));
     }
@@ -175,18 +175,18 @@ int main() {
   double max_diff_whdf_V = 0.0;
 
   for (double r : r_points) {
-    double our_v = pot::energy(plj, r);
+    double our_v = plj.energy(r);
     double jim_v = legacy::potentials::V(jim_lj, r);
     max_diff_lj_V = std::max(max_diff_lj_V, std::abs(our_v - jim_v));
 
     if (r > sigma + 1e-6) {
-      double our_v2 = pot::energy(ptwf, r);
+      double our_v2 = ptwf.energy(r);
       double jim_v2 = legacy::potentials::V(jim_twf, r);
       max_diff_twf_V = std::max(max_diff_twf_V, std::abs(our_v2 - jim_v2));
     }
 
     if (r < whdf_rcut) {
-      double our_v3 = pot::energy(pwhdf, r);
+      double our_v3 = pwhdf.energy(r);
       double jim_v3 = legacy::potentials::V(jim_whdf, r);
       max_diff_whdf_V = std::max(max_diff_whdf_V, std::abs(our_v3 - jim_v3));
     }
@@ -208,17 +208,17 @@ int main() {
   double max_diff_whdf_V0 = 0.0;
 
   for (double r : r_points) {
-    double our_v0 = pot::repulsive(plj, r, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_v0 = plj.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_v0 = legacy::potentials::V0(jim_lj, r);
     max_diff_lj_V0 = std::max(max_diff_lj_V0, std::abs(our_v0 - jim_v0));
 
     if (r > sigma + 1e-6) {
-      double our_v02 = pot::repulsive(ptwf, r, pot::SplitScheme::WeeksChandlerAndersen);
+      double our_v02 = ptwf.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen);
       double jim_v02 = legacy::potentials::V0(jim_twf, r);
       max_diff_twf_V0 = std::max(max_diff_twf_V0, std::abs(our_v02 - jim_v02));
     }
 
-    double our_v03 = pot::repulsive(pwhdf, r, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_v03 = pwhdf.repulsive(r, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_v03 = legacy::potentials::V0(jim_whdf, r);
     max_diff_whdf_V0 = std::max(max_diff_whdf_V0, std::abs(our_v03 - jim_v03));
   }
@@ -239,17 +239,17 @@ int main() {
   double max_diff_whdf_W = 0.0;
 
   for (double r : r_points) {
-    double our_w = pot::attractive(plj, r, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_w = plj.attractive(r, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_w = legacy::potentials::Watt(jim_lj, r);
     max_diff_lj_W = std::max(max_diff_lj_W, std::abs(our_w - jim_w));
 
     if (r > sigma + 1e-6) {
-      double our_w2 = pot::attractive(ptwf, r, pot::SplitScheme::WeeksChandlerAndersen);
+      double our_w2 = ptwf.attractive(r, pot::SplitScheme::WeeksChandlerAndersen);
       double jim_w2 = legacy::potentials::Watt(jim_twf, r);
       max_diff_twf_W = std::max(max_diff_twf_W, std::abs(our_w2 - jim_w2));
     }
 
-    double our_w3 = pot::attractive(pwhdf, r, pot::SplitScheme::WeeksChandlerAndersen);
+    double our_w3 = pwhdf.attractive(r, pot::SplitScheme::WeeksChandlerAndersen);
     double jim_w3 = legacy::potentials::Watt(jim_whdf, r);
     max_diff_whdf_W = std::max(max_diff_whdf_W, std::abs(our_w3 - jim_w3));
   }

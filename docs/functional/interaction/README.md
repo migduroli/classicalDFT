@@ -111,6 +111,22 @@ $\Delta x = 0.1\sigma$ it is below $10^{-4}$.
 
 ---
 
+## Key library types
+
+| Type | Header | Role |
+|------|--------|------|
+| `physics::Model` | `dft/physics/model.hpp` | Aggregate of `Grid` + species + interactions + temperature |
+| `Interaction` | `dft/physics/interactions.hpp` | Pair potential + splitting scheme + weight quadrature |
+| `Weights` | `dft/functionals/weights.hpp` | Pre-computed FFT convolution weights for the inhomogeneous functional |
+| `functionals::Functional` | `dft/functionals/functional.hpp` | Owns `Model` + `Weights`; `evaluate()` computes free energy and forces |
+
+The `Interaction` struct specifies a pair potential, the splitting scheme
+(WCA or BH), and the convolution quadrature rule (`WeightScheme`). The
+`Weights` object is built by `make_functional` and stores the Fourier-space
+interaction kernel for FFT convolution.
+
+---
+
 ## Step-by-step code walkthrough
 
 ### Step 1: Define the LJ system

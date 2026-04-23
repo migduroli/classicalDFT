@@ -64,3 +64,39 @@ TEST_CASE("parse_config throws for missing file", "[config]") {
 TEST_CASE("parse_config INI throws for malformed section header", "[config]") {
   REQUIRE_THROWS_AS(parse_config(TEST_DIR + "malformed.ini", FileType::INI), std::runtime_error);
 }
+
+TEST_CASE("parse_config reads TOML file", "[config]") {
+  auto data = parse_config(TEST_DIR + "config.toml", FileType::TOML);
+  CHECK(data.contains("section"));
+  CHECK(data["section"]["key"] == "value");
+}
+
+TEST_CASE("parse_config TOML parses numeric values", "[config]") {
+  auto data = parse_config(TEST_DIR + "config.toml", FileType::TOML);
+  CHECK(data["section"]["number"] == 42);
+  CHECK(data["section"]["pi"].get<double>() == Catch::Approx(3.14159));
+}
+
+TEST_CASE("parse_config TOML parses nested tables", "[config]") {
+  auto data = parse_config(TEST_DIR + "config.toml", FileType::TOML);
+  CHECK(get<std::string>(data, "database.host") == "localhost");
+  CHECK(get<int>(data, "database.port") == 5432);
+}
+
+TEST_CASE("parse_config TOML parses arrays", "[config]") {
+  auto data = parse_config(TEST_DIR + "config.toml", FileType::TOML);
+  CHECK(get<std::array<double, 3>>(data, "model.grid.box_size") == std::array<double, 3>{16.0, 16.0, 8.0});
+  CHECK(get<std::array<double, 3>>(data, "seed.offset") == std::array<double, 3>{0.1, -0.2, 0.3});
+  CHECK(get<std::array<long, 3>>(data, "seed.unit_cells") == std::array<long, 3>{4, 5, 6});
+}
+
+TEST_CASE("parse_config auto-detects file type from extension", "[config]") {
+  auto ini = parse_config(TEST_DIR + "config.ini");
+  CHECK(ini["section"]["key"] == "value");
+
+  auto json = parse_config(TEST_DIR + "config.json");
+  CHECK(json["section"]["key"] == "value");
+
+  auto toml = parse_config(TEST_DIR + "config.toml");
+  CHECK(toml["section"]["key"] == "value");
+}
