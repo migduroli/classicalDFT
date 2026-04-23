@@ -93,13 +93,13 @@ namespace dft::config {
         return jarr;
       }
       if (auto* v = node.as_string())
-        return nlohmann::json(v->get());
+        return {v->get()};
       if (auto* v = node.as_integer())
-        return nlohmann::json(v->get());
+        return {v->get()};
       if (auto* v = node.as_floating_point())
-        return nlohmann::json(v->get());
+        return {v->get()};
       if (auto* v = node.as_boolean())
-        return nlohmann::json(v->get());
+        return {v->get()};
       return nlohmann::json{};
     }
 

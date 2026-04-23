@@ -1,8 +1,8 @@
 #include "dft/functionals/bulk/phase_diagram.hpp"
 
 #include "dft/functionals/bulk/thermodynamics.hpp"
-#include "dft/functionals/fmt/models.hpp"
 #include "dft/functionals/evaluator.hpp"
+#include "dft/functionals/fmt/models.hpp"
 #include "dft/physics/interactions.hpp"
 #include "dft/physics/potentials.hpp"
 

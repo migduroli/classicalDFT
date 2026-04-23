@@ -1,8 +1,8 @@
 #ifndef DFT_FUNCTIONALS_BULK_THERMODYNAMICS_HPP
 #define DFT_FUNCTIONALS_BULK_THERMODYNAMICS_HPP
 
-#include "dft/functionals/fmt/models.hpp"
 #include "dft/functionals/evaluator.hpp"
+#include "dft/functionals/fmt/models.hpp"
 #include "dft/physics/model.hpp"
 #include "dft/types.hpp"
 
