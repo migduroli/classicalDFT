@@ -48,7 +48,7 @@ int main() {
 
   const utils::Problem problem{.length = 20.0, .kappa = 1.0, .nodes = 201};
 
-  const algorithms::continuation::Continuation cont{
+  const algorithms::continuation::Continuation continuation{
       .initial_step = 0.05,
       .max_step = 0.3,
       .min_step = 1e-6,
@@ -64,13 +64,13 @@ int main() {
       problem.spacing()
   );
 
-  auto results = utils::run(problem, cont, 3);
+  auto results = utils::run(problem, continuation, 3);
   const auto& uniform = results.uniform;
 
   // Verification against the closed forms.
 
   console::info("Verification");
-  auto rows = utils::verification(problem, cont, results);
+  auto rows = utils::verification(problem, continuation, results);
   utils::print_rows(rows);
   const auto failed = std::ranges::count_if(rows, [](const auto& r) { return !r.passed(); });
   std::println(std::cout, "\n  {} / {} checks passed", rows.size() - static_cast<std::size_t>(failed), rows.size());

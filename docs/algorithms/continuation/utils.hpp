@@ -64,13 +64,9 @@ namespace utils {
       const arma::uword k = nodes;
       const double c = kappa / (spacing() * spacing());
       arma::mat J(k, k, arma::fill::zeros);
-      for (arma::uword i = 0; i < k; ++i) {
-        J(i, i) = 2.0 * c + 3.0 * y(i) * y(i) - 1.0;
-        if (i > 0)
-          J(i, i - 1) = -c;
-        if (i + 1 < k)
-          J(i, i + 1) = -c;
-      }
+      J.diag() = 2.0 * c + 3.0 * arma::square(y) - 1.0;
+      J.diag(1).fill(-c);
+      J.diag(-1).fill(-c);
       J(0, 1) = -2.0 * c;
       J(k - 1, k - 2) = -2.0 * c;
       return J;
@@ -141,8 +137,8 @@ namespace utils {
       arma::mat S = symmetric_hessian(y);
       arma::mat A = P * S * P;
       A = 0.5 * (A + A.t());
-      arma::vec ev = arma::eig_sym(A);
-      return static_cast<int>(arma::accu(ev < -1e-10));
+      arma::vec eigenvalues = arma::eig_sym(A);
+      return static_cast<int>(arma::accu(eigenvalues < -1e-10));
     }
 
     // Eigenvalues of -D2 with mirrored end nodes: (4 / h^2) sin^2(n pi h / 2L).
@@ -150,6 +146,22 @@ namespace utils {
       const double h = spacing();
       const double s = std::sin(n * std::numbers::pi * h / (2.0 * length));
       return 4.0 * s * s / (h * h);
+    }
+
+    // Stationary state at fixed mu by Newton with the analytic Jacobian.
+    [[nodiscard]] auto stationary_state(arma::vec y, double mu) const -> arma::vec {
+      dft::algorithms::solvers::Newton newton{.max_iterations = 50, .tolerance = 1e-11};
+      auto result = newton.solve(
+          std::move(y),
+          [&](const arma::vec& v) { return residual(v, mu); },
+          [&](const arma::vec& v) { return jacobian(v); }
+      );
+      return result.solution;
+    }
+
+    // Centred interface at mu = 0, by Newton from tanh((x - L/2) / sqrt(2 kappa)).
+    [[nodiscard]] auto interface_state() const -> arma::vec {
+      return stationary_state(arma::tanh((positions() - 0.5 * length) / std::sqrt(2.0 * kappa)), 0.0);
     }
 
     [[nodiscard]] auto grand_canonical() const -> Residual {
@@ -231,42 +243,36 @@ namespace utils {
   };
 
   // Record the observables along a mu-parametrised curve.
-  inline auto measure(const Problem& p, std::string name, std::vector<CurvePoint> curve, int mode = 0, int sign = 0)
+  inline auto
+  measure(const Problem& problem, std::string name, std::vector<CurvePoint> curve, int mode = 0, int sign = 0)
       -> Branch {
     Branch b{.name = std::move(name), .mode = mode, .sign = sign, .curve = std::move(curve)};
     for (const auto& pt : b.curve) {
       b.mu.push_back(pt.lambda);
-      b.mass.push_back(p.mass(pt.x));
-      b.omega.push_back(p.grand_potential(pt.x, pt.lambda));
-      b.amplitude.push_back(p.amplitude(pt.x));
-      b.modal.push_back(mode > 0 ? p.modal_amplitude(pt.x, mode) : 0.0);
-      b.index.push_back(p.index(pt.x));
+      b.mass.push_back(problem.mass(pt.x));
+      b.omega.push_back(problem.grand_potential(pt.x, pt.lambda));
+      b.amplitude.push_back(problem.amplitude(pt.x));
+      b.modal.push_back(mode > 0 ? problem.modal_amplitude(pt.x, mode) : 0.0);
+      b.index.push_back(problem.index(pt.x));
     }
     return b;
   }
 
   // Number of sign changes of a vector, ignoring entries near zero.
   inline auto nodal_count(const arma::vec& v) -> int {
-    const double floor = 1e-6 * arma::abs(v).max();
-    int count = 0;
-    double last = 0.0;
-    for (double e : v) {
-      if (std::abs(e) < floor)
-        continue;
-      if (last != 0.0 && (e > 0.0) != (last > 0.0))
-        ++count;
-      last = e;
-    }
-    return count;
+    const arma::vec resolved = v.elem(arma::find(arma::abs(v) >= 1e-6 * arma::abs(v).max()));
+    if (resolved.n_elem < 2)
+      return 0;
+    return static_cast<int>(arma::accu(arma::diff(arma::sign(resolved)) != 0.0));
   }
 
   // Critical eigenvector j of the symmetrised Hessian, mapped back to y-space
   // (the right null vector of dF/dy at a crossing) with unit Euclidean norm.
-  inline auto critical_vector(const Problem& p, const arma::vec& y, arma::uword j) -> arma::vec {
-    arma::vec ev;
+  inline auto critical_vector(const Problem& problem, const arma::vec& y, arma::uword j) -> arma::vec {
+    arma::vec eigenvalues;
     arma::mat U;
-    arma::eig_sym(ev, U, p.symmetric_hessian(y));
-    arma::vec v = U.col(j) / arma::sqrt(p.weights());
+    arma::eig_sym(eigenvalues, U, problem.symmetric_hessian(y));
+    arma::vec v = U.col(j) / arma::sqrt(problem.weights());
     return v / arma::norm(v);
   }
 
@@ -275,40 +281,51 @@ namespace utils {
   // crossings with a uniform eigenvector (n = 0) are those same folds and are
   // dropped, and the others are bifurcation points labelled by the number of
   // sign changes of the critical eigenvector.
-  inline void detect_events(const Problem& p, const Continuation& cont, Branch& b) {
-    const Residual R = p.grand_canonical();
-    for (auto& f : cont.folds(b.curve, R)) {
-      const double rho_bar = p.mass(f.x) / p.length;
+  struct Events {
+    std::vector<Event> folds;
+    std::vector<Event> bifurcations;
+  };
+
+  inline auto
+  detect_events(const Problem& problem, const Continuation& continuation, const std::vector<CurvePoint>& curve)
+      -> Events {
+    Events events;
+    const Residual R = problem.grand_canonical();
+    for (auto& f : continuation.folds(curve, R)) {
+      const double rho_bar = problem.mass(f.x) / problem.length;
       const double mu = f.lambda;
-      b.folds.push_back(Event{.point = std::move(f), .rho_bar = rho_bar, .mu = mu, .mode = 0, .eigenvector = {}});
+      events.folds.push_back(Event{.point = std::move(f), .rho_bar = rho_bar, .mu = mu, .mode = 0, .eigenvector = {}});
     }
-    auto spectrum = [&p](const CurvePoint& q) {
-      return p.spectrum(q.x);
+    auto spectrum = [&problem](const CurvePoint& q) {
+      return problem.spectrum(q.x);
     };
-    for (auto& c : cont.crossings(b.curve, R, spectrum)) {
-      arma::vec v = critical_vector(p, c.point.x, c.eigenvalue);
+    for (auto& c : continuation.crossings(curve, R, spectrum)) {
+      arma::vec v = critical_vector(problem, c.point.x, c.eigenvalue);
       const int n = nodal_count(v);
       if (n == 0)
         continue;
-      const double rho_bar = p.mass(c.point.x) / p.length;
+      const double rho_bar = problem.mass(c.point.x) / problem.length;
       const double mu = c.point.lambda;
-      b.bifurcations.push_back(
+      events.bifurcations.push_back(
           Event{.point = std::move(c.point), .rho_bar = rho_bar, .mu = mu, .mode = n, .eigenvector = std::move(v)}
       );
     }
+    return events;
   }
 
   // Uniform branch rho^3 - rho = mu, from rho = -rho_max to rho = +rho_max.
-  inline auto trace_uniform(const Problem& p, const Continuation& cont, double rho_max) -> Branch {
-    const Residual R = p.grand_canonical();
+  inline auto trace_uniform(const Problem& problem, const Continuation& continuation, double rho_max) -> Branch {
+    const Residual R = problem.grand_canonical();
     const double rho0 = -rho_max;
-    arma::vec y0(p.nodes, arma::fill::value(rho0));
-    arma::vec up(p.nodes, arma::fill::ones);
+    arma::vec y0(problem.nodes, arma::fill::value(rho0));
+    arma::vec up(problem.nodes, arma::fill::ones);
     auto [dx, dl] = dft::algorithms::continuation::detail::tangent(R, y0, rho0 * rho0 * rho0 - rho0, up, 1.0);
     CurvePoint start{.x = y0, .lambda = rho0 * rho0 * rho0 - rho0, .dx_ds = dx, .dlambda_ds = dl};
-    auto curve = cont.trace(start, R, [&](const CurvePoint& q) { return arma::mean(q.x) > rho_max; });
-    Branch b = measure(p, "uniform", std::move(curve));
-    detect_events(p, cont, b);
+    auto curve = continuation.trace(start, R, [&](const CurvePoint& q) { return arma::mean(q.x) > rho_max; });
+    Branch b = measure(problem, "uniform", std::move(curve));
+    auto events = detect_events(problem, continuation, b.curve);
+    b.folds = std::move(events.folds);
+    b.bifurcations = std::move(events.bifurcations);
     return b;
   }
 
@@ -320,49 +337,40 @@ namespace utils {
   // towards the uniform branch; both bifurcation points are then added as the
   // end points of the curve.
   inline auto trace_bifurcating(
-      const Problem& p,
-      const Continuation& cont,
-      const Event& bif,
+      const Problem& problem,
+      const Continuation& continuation,
+      const Event& bifurcation,
       const Event& end,
       int sign,
       double kick,
       double mu_max,
       std::size_t max_points
   ) -> Branch {
-    const Residual R = p.grand_canonical();
-    const std::string name = std::format("n = {}, {}", bif.mode, sign > 0 ? "+" : "-");
-    arma::vec v = bif.eigenvector;
-    if ((p.modal_amplitude(bif.point.x + v, bif.mode) > 0.0) != (sign > 0))
+    const Residual R = problem.grand_canonical();
+    const std::string name = std::format("n = {}, {}", bifurcation.mode, sign > 0 ? "+" : "-");
+    arma::vec v = bifurcation.eigenvector;
+    if ((problem.modal_amplitude(bifurcation.point.x + v, bifurcation.mode) > 0.0) != (sign > 0))
       v = -v;
-    auto first = cont.switch_branch(bif.point, R, v, kick);
+    auto first = continuation.switch_branch(bifurcation.point, R, v, kick);
     if (!first)
-      return Branch{.name = name, .mode = bif.mode, .sign = sign};
-    const double a0 = p.amplitude(first->x);
+      return Branch{.name = name, .mode = bifurcation.mode, .sign = sign};
+    const double a0 = problem.amplitude(first->x);
     std::size_t count = 0;
-    auto curve = cont.trace(*first, R, [&](const CurvePoint& q) {
+    auto curve = continuation.trace(*first, R, [&](const CurvePoint& q) {
       ++count;
-      return std::abs(q.lambda) > mu_max || (count > 5 && p.amplitude(q.x) < 0.5 * a0) || count >= max_points;
+      return std::abs(q.lambda) > mu_max || (count > 5 && problem.amplitude(q.x) < 0.5 * a0) || count >= max_points;
     });
-    curve.insert(curve.begin(), bif.point);
+    curve.insert(curve.begin(), bifurcation.point);
     curve.push_back(end.point);
-    Branch b = measure(p, name, std::move(curve), bif.mode, sign);
+    Branch b = measure(problem, name, std::move(curve), bifurcation.mode, sign);
     // At the bifurcation points the critical eigenvalue vanishes, so the
     // count there is decided by rounding: take the index of the neighbour.
     b.index.front() = b.index[1];
     b.index.back() = b.index[b.index.size() - 2];
-    detect_events(p, cont, b);
+    auto events = detect_events(problem, continuation, b.curve);
+    b.folds = std::move(events.folds);
+    b.bifurcations = std::move(events.bifurcations);
     return b;
-  }
-
-  // Stationary state at fixed mu by Newton with the analytic Jacobian.
-  inline auto solve_fixed_mu(const Problem& p, arma::vec y, double mu) -> arma::vec {
-    dft::algorithms::solvers::Newton newton{.max_iterations = 50, .tolerance = 1e-11};
-    auto res = newton.solve(
-        std::move(y),
-        [&](const arma::vec& v) { return p.residual(v, mu); },
-        [&](const arma::vec& v) { return p.jacobian(v); }
-    );
-    return res.solution;
   }
 
   // States on the pitchfork of mode n at prescribed amplitude a_n = a,
@@ -375,20 +383,20 @@ namespace utils {
     double dmu; // mu - mu_n
   };
 
-  inline auto pitchfork_samples(const Problem& p, const Event& bifurcation, const std::vector<double>& amplitudes)
+  inline auto pitchfork_samples(const Problem& problem, const Event& bifurcation, const std::vector<double>& amplitudes)
       -> std::vector<PitchforkSample> {
-    const arma::uword k = p.nodes;
+    const arma::uword k = problem.nodes;
     // a_n is linear in y, with gradient (2 / L) h w_i (c_i - c_bar), where
     // c_i = cos(n pi x_i / L) and c_bar is its trapezoid mean.
-    const arma::vec w = p.weights();
-    const arma::vec c = arma::cos(bifurcation.mode * std::numbers::pi * p.positions() / p.length);
-    const double c_bar = p.spacing() * arma::dot(w, c) / p.length;
-    const arma::vec grad = 2.0 / p.length * p.spacing() * (w % (c - c_bar));
+    const arma::vec w = problem.weights();
+    const arma::vec c = arma::cos(bifurcation.mode * std::numbers::pi * problem.positions() / problem.length);
+    const double c_bar = problem.spacing() * arma::dot(w, c) / problem.length;
+    const arma::vec grad = 2.0 / problem.length * problem.spacing() * (w % (c - c_bar));
     const double a_v = arma::dot(grad, bifurcation.eigenvector);
     dft::algorithms::solvers::Newton newton{.max_iterations = 50, .tolerance = 1e-12};
     auto jacobian = [&](const arma::vec& v) {
       arma::mat J(k + 1, k + 1, arma::fill::zeros);
-      J.submat(0, 0, k - 1, k - 1) = p.jacobian(v.head(k));
+      J.submat(0, 0, k - 1, k - 1) = problem.jacobian(v.head(k));
       J.col(k).head(k).fill(-1.0);
       J.row(k).head(k) = grad.t();
       return J;
@@ -416,7 +424,7 @@ namespace utils {
         }
         auto residual = [&](const arma::vec& v) {
           arma::vec r(k + 1);
-          r.head(k) = p.residual(v.head(k), v(k));
+          r.head(k) = problem.residual(v.head(k), v(k));
           r(k) = arma::dot(grad, v.head(k)) - a;
           return r;
         };
@@ -479,10 +487,14 @@ namespace utils {
     double drift;
   };
 
-  inline auto
-  arm_mismatch(const Problem& p, const Continuation& cont, const Branch& plus, const Branch& minus, std::size_t samples)
-      -> ArmMismatch {
-    const Residual R = p.grand_canonical();
+  inline auto arm_mismatch(
+      const Problem& problem,
+      const Continuation& continuation,
+      const Branch& plus,
+      const Branch& minus,
+      std::size_t samples
+  ) -> ArmMismatch {
+    const Residual R = problem.grand_canonical();
     ArmMismatch m{.observables = 0.0, .profiles = 0.0, .drift = 0.0};
     // Samples from the second to the second-to-last traced point, so that the
     // foot point is bracketed away from the appended end points.
@@ -493,9 +505,9 @@ namespace utils {
       arma::vec y = minus.curve[k].x;
       if (plus.mode % 2 == 0) {
         m.drift = std::max(m.drift, arma::abs(y - arma::reverse(y)).max());
-        y = solve_fixed_mu(p, 0.5 * (y + arma::reverse(y)), minus.mu[k]);
+        y = problem.stationary_state(0.5 * (y + arma::reverse(y)), minus.mu[k]);
       }
-      const arma::vec target = p.arm_image(y, plus.mode);
+      const arma::vec target = problem.arm_image(y, plus.mode);
       const double target_mu = minus.mu[k];
       auto g = [&](const CurvePoint& q) {
         return arma::dot(q.x - target, q.dx_ds) + (q.lambda - target_mu) * q.dlambda_ds;
@@ -520,7 +532,7 @@ namespace utils {
         if (a < 1 || a + 2 > plus.curve.size() - 1)
           continue;
         if ((g(plus.curve[a]) > 0.0) != (g(plus.curve[a + 1]) > 0.0)) {
-          foot = cont.locate(plus.curve[a], plus.curve[a + 1], R, g);
+          foot = continuation.locate(plus.curve[a], plus.curve[a + 1], R, g);
           break;
         }
       }
@@ -528,13 +540,15 @@ namespace utils {
         m.observables = m.profiles = arma::datum::inf;
         continue;
       }
-      if (plus.mode % 2 == 0)
-        foot->x = solve_fixed_mu(p, 0.5 * (foot->x + arma::reverse(foot->x)), foot->lambda = target_mu);
+      if (plus.mode % 2 == 0) {
+        foot->x = problem.stationary_state(0.5 * (foot->x + arma::reverse(foot->x)), target_mu);
+        foot->lambda = target_mu;
+      }
       m.observables = std::max(
           {m.observables,
            std::abs(foot->lambda - target_mu),
-           std::abs(p.mass(foot->x) - p.mass(y)),
-           std::abs(p.grand_potential(foot->x, foot->lambda) - p.grand_potential(y, target_mu))}
+           std::abs(problem.mass(foot->x) - problem.mass(y)),
+           std::abs(problem.grand_potential(foot->x, foot->lambda) - problem.grand_potential(y, target_mu))}
       );
       m.profiles = std::max(m.profiles, arma::abs(foot->x - target).max());
     }
@@ -550,30 +564,30 @@ namespace utils {
   };
 
   inline auto trace_canonical(
-      const Problem& p,
-      const Continuation& cont,
+      const Problem& problem,
+      const Continuation& continuation,
       const arma::vec& y0,
       double mu0,
       double direction,
       double n_max
   ) -> CanonicalBranch {
-    const Residual R = p.canonical();
-    const double n0 = p.mass(y0);
-    arma::vec x0(p.nodes + 1);
-    x0.head(p.nodes) = y0;
-    x0(p.nodes) = mu0;
-    arma::vec prev(p.nodes + 1, arma::fill::zeros);
+    const Residual R = problem.canonical();
+    const double n0 = problem.mass(y0);
+    arma::vec x0(problem.nodes + 1);
+    x0.head(problem.nodes) = y0;
+    x0(problem.nodes) = mu0;
+    arma::vec prev(problem.nodes + 1, arma::fill::zeros);
     auto [dx, dl] = dft::algorithms::continuation::detail::tangent(R, x0, n0, prev, direction);
     CurvePoint start{.x = x0, .lambda = n0, .dx_ds = dx, .dlambda_ds = dl};
-    auto curve = cont.trace(start, R, [&](const CurvePoint& q) {
-      return std::abs(q.lambda) > n_max || p.amplitude(q.x.head(p.nodes)) < 0.05;
+    auto curve = continuation.trace(start, R, [&](const CurvePoint& q) {
+      return std::abs(q.lambda) > n_max || problem.amplitude(q.x.head(problem.nodes)) < 0.05;
     });
     CanonicalBranch out;
     for (const auto& q : curve) {
-      arma::vec y = q.x.head(p.nodes);
+      arma::vec y = q.x.head(problem.nodes);
       out.mass.push_back(q.lambda);
-      out.mu.push_back(q.x(p.nodes));
-      out.index.push_back(p.constrained_index(y));
+      out.mu.push_back(q.x(problem.nodes));
+      out.index.push_back(problem.constrained_index(y));
       out.profiles.push_back(y);
     }
     return out;
@@ -618,12 +632,6 @@ namespace utils {
     return rho;
   }
 
-  // Centred interface at mu = 0 by Newton from the tanh guess.
-  inline auto interface_state(const Problem& p) -> arma::vec {
-    arma::vec x = p.positions();
-    return solve_fixed_mu(p, exact::interface(x, 0.5 * p.length, p.kappa), 0.0);
-  }
-
   // Everything the example traces, shared by main.cpp and check/main.cpp.
   struct Results {
     Branch uniform;
@@ -637,11 +645,11 @@ namespace utils {
     }
   };
 
-  inline auto run(const Problem& p, const Continuation& cont, int n_max) -> Results {
+  inline auto run(const Problem& problem, const Continuation& continuation, int n_max) -> Results {
     Results r;
 
     dft::console::info("Tracing the uniform branch");
-    r.uniform = trace_uniform(p, cont, 1.35);
+    r.uniform = trace_uniform(problem, continuation, 1.35);
     std::println(
         std::cout,
         "  {} points, {} folds, {} bifurcation points",
@@ -664,7 +672,7 @@ namespace utils {
           (e.rho_bar < 0.0 ? start : end) = &e;
       }
       for (int sign : {+1, -1}) {
-        auto b = trace_bifurcating(p, cont, *start, *end, sign, 0.3, 1.0, 2000);
+        auto b = trace_bifurcating(problem, continuation, *start, *end, sign, 0.3, 1.0, 2000);
         dft::console::info(std::format("Traced the branch {}", b.name));
         auto [lo, hi] = std::ranges::minmax_element(b.index);
         auto [a_lo, a_hi] = std::ranges::minmax_element(b.modal);
@@ -691,16 +699,16 @@ namespace utils {
     for (const auto& e : r.uniform.bifurcations) {
       if (e.rho_bar < 0.0 && e.mode <= 2) {
         r.pitchfork_points.push_back(e);
-        r.pitchfork.push_back(pitchfork_samples(p, e, amplitudes));
+        r.pitchfork.push_back(pitchfork_samples(problem, e, amplitudes));
       }
     }
 
     // The n = 1 branch traced again with N as the parameter, from the centred
     // interface at mu = 0 towards both walls.
     dft::console::info("Tracing the n = 1 branch at fixed N");
-    arma::vec kink = interface_state(p);
+    arma::vec kink = problem.interface_state();
     for (double direction : {+1.0, -1.0})
-      r.canonical.push_back(trace_canonical(p, cont, kink, 0.0, direction, 1.5 * p.length));
+      r.canonical.push_back(trace_canonical(problem, continuation, kink, 0.0, direction, 1.5 * problem.length));
     for (const auto& c : r.canonical) {
       auto [lo, hi] = std::ranges::minmax_element(c.index);
       std::println(
@@ -717,9 +725,10 @@ namespace utils {
     return r;
   }
 
-  inline auto verification(const Problem& p, const Continuation& cont, const Results& res) -> std::vector<Row> {
-    const Branch& uniform = res.uniform;
-    const Branch& kink = res.arm(1, +1);
+  inline auto verification(const Problem& problem, const Continuation& continuation, const Results& results)
+      -> std::vector<Row> {
+    const Branch& uniform = results.uniform;
+    const Branch& kink = results.arm(1, +1);
     std::vector<Row> rows;
     const double rho_f = exact::fold_density();
     const double mu_f = exact::fold_chemical_potential();
@@ -742,43 +751,46 @@ namespace utils {
 
     // Interface at mu = 0, and the gap to the stable states at two box sizes.
     for (double scale : {1.0, 2.0}) {
-      Problem
-          q{.length = scale * p.length, .kappa = p.kappa, .nodes = static_cast<arma::uword>(scale * (p.nodes - 1)) + 1};
-      arma::vec y = interface_state(q);
-      arma::vec ones(q.nodes, arma::fill::ones);
-      std::string tag = std::format("L = {:g}", q.length);
+      Problem scaled{
+          .length = scale * problem.length,
+          .kappa = problem.kappa,
+          .nodes = static_cast<arma::uword>(scale * (problem.nodes - 1)) + 1
+      };
+      arma::vec y = scaled.interface_state();
+      arma::vec ones(scaled.nodes, arma::fill::ones);
+      std::string tag = std::format("L = {:g}", scaled.length);
       if (scale == 1.0) {
-        double err = arma::abs(y - exact::interface(q.positions(), 0.5 * q.length, q.kappa)).max();
+        double err = arma::abs(y - exact::interface(scaled.positions(), 0.5 * scaled.length, scaled.kappa)).max();
         rows.push_back({"interface", "max |y - tanh((x - L/2) / sqrt(2 kappa))|", err, 0.0, 1e-3});
       }
       rows.push_back(
           {"interface",
            "sigma = Omega_1 - Omega_pm, " + tag,
-           q.grand_potential(y, 0.0) - q.grand_potential(ones, 0.0),
-           exact::surface_tension(q.kappa),
+           scaled.grand_potential(y, 0.0) - scaled.grand_potential(ones, 0.0),
+           exact::surface_tension(scaled.kappa),
            1e-3}
       );
-      arma::vec mid(q.nodes, arma::fill::zeros);
+      arma::vec mid(scaled.nodes, arma::fill::zeros);
       rows.push_back(
           {"interface",
            "Omega_mid - Omega_pm, " + tag,
-           q.grand_potential(mid, 0.0) - q.grand_potential(ones, 0.0),
-           0.25 * q.length,
+           scaled.grand_potential(mid, 0.0) - scaled.grand_potential(ones, 0.0),
+           0.25 * scaled.length,
            1e-12}
       );
       if (scale == 1.0) {
-        rows.push_back({"interface", "index at mu = 0 (fixed mu)", static_cast<double>(q.index(y)), 1.0, 0.0});
+        rows.push_back({"interface", "index at mu = 0 (fixed mu)", static_cast<double>(scaled.index(y)), 1.0, 0.0});
         rows.push_back(
-            {"interface", "index at mu = 0 (fixed N)", static_cast<double>(q.constrained_index(y)), 0.0, 0.0}
+            {"interface", "index at mu = 0 (fixed N)", static_cast<double>(scaled.constrained_index(y)), 0.0, 0.0}
         );
       }
     }
 
     // The two arms of each pitchfork are images of each other.
-    for (const auto& b : res.arms) {
+    for (const auto& b : results.arms) {
       if (b.sign < 0)
         continue;
-      auto m = arm_mismatch(p, cont, b, res.arm(b.mode, -1), 16);
+      auto m = arm_mismatch(problem, continuation, b, results.arm(b.mode, -1), 16);
       std::string tag = std::format("n = {}", b.mode);
       rows.push_back({"arms", "max |d mu|, |d N|, |d Omega| between arms, " + tag, m.observables, 0.0, 1e-6});
       rows.push_back({"arms", "max |S y_- - y_+|, " + tag, m.profiles, 0.0, 1e-6});
@@ -796,11 +808,11 @@ namespace utils {
     // fitted exponent by O(a^2), so the fit converges to 1/2 as the window
     // shrinks. The fit on 1e-4 <= |a_n| <= 1e-3 must lie closer to 1/2 than
     // the fit on the next decade, which sets its tolerance.
-    for (std::size_t j = 0; j < res.pitchfork.size(); ++j) {
-      const int n = res.pitchfork_points[j].mode;
-      auto narrow = fit_power_law(res.pitchfork[j], 1e-4, 1e-3);
-      auto middle = fit_power_law(res.pitchfork[j], 1e-3, 1e-2);
-      auto wide = fit_power_law(res.pitchfork[j], 1e-2, 1e-1);
+    for (std::size_t j = 0; j < results.pitchfork.size(); ++j) {
+      const int n = results.pitchfork_points[j].mode;
+      auto narrow = fit_power_law(results.pitchfork[j], 1e-4, 1e-3);
+      auto middle = fit_power_law(results.pitchfork[j], 1e-3, 1e-2);
+      auto wide = fit_power_law(results.pitchfork[j], 1e-2, 1e-1);
       std::println(
           std::cout,
           "  n = {}: pitchfork exponent {:.8f}, {:.8f}, {:.8f} on |a_n| in [1e-4, 1e-3], [1e-3, 1e-2], [1e-2, 1e-1]",
@@ -824,32 +836,36 @@ namespace utils {
       if (e.rho_bar > 0.0)
         continue;
       ++count;
-      double q2 = std::pow(e.mode * std::numbers::pi / p.length, 2);
+      double q2 = std::pow(e.mode * std::numbers::pi / problem.length, 2);
       std::string tag = std::format("n = {}", e.mode);
       rows.push_back(
           {"bifurcation",
            "rho_bar (discrete D2), " + tag,
            -e.rho_bar,
-           exact::bifurcation_density(p.kappa * p.laplacian_eigenvalue(e.mode)),
+           exact::bifurcation_density(problem.kappa * problem.laplacian_eigenvalue(e.mode)),
            1e-9}
       );
       rows.push_back(
-          {"bifurcation", "rho_bar (continuum), " + tag, -e.rho_bar, exact::bifurcation_density(p.kappa * q2), 1e-3}
+          {"bifurcation",
+           "rho_bar (continuum), " + tag,
+           -e.rho_bar,
+           exact::bifurcation_density(problem.kappa * q2),
+           1e-3}
       );
     }
     rows.push_back(
         {"bifurcation",
          "n_max",
          static_cast<double>(count),
-         static_cast<double>(exact::bifurcation_count(p.length, p.kappa, 0.0)),
+         static_cast<double>(exact::bifurcation_count(problem.length, problem.kappa, 0.0)),
          0.0}
     );
-    arma::vec zero(p.nodes, arma::fill::zeros);
+    arma::vec zero(problem.nodes, arma::fill::zeros);
     rows.push_back(
         {"bifurcation",
          "index of rho = 0",
-         static_cast<double>(p.index(zero)),
-         1.0 + exact::bifurcation_count(p.length, p.kappa, 0.0),
+         static_cast<double>(problem.index(zero)),
+         1.0 + exact::bifurcation_count(problem.length, problem.kappa, 0.0),
          0.0}
     );
     return rows;
