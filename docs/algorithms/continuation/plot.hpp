@@ -176,8 +176,9 @@ namespace plot {
     save("swallowtail");
   }
 
-  // Figure 3: bifurcation diagram (amplitude) and gap to the metastable state.
-  inline void branches(const utils::Problem& p, const utils::Branch& u, const std::vector<utils::Branch>& bs) {
+  // Figure 3: bifurcation diagram (signed modal amplitude) and gap to the metastable state.
+  inline void branches(const utils::Problem& p, const utils::Results& res) {
+    const auto& u = res.uniform;
     plt::figure_size(1300, 560);
 
     subplot(1, 2, 1);
@@ -193,12 +194,18 @@ namespace plot {
         by,
         {{"color", ink}, {"marker", "o"}, {"markersize", "6"}, {"linestyle", "None"}, {"label", "bifurcation points"}}
     );
-    for (std::size_t b = 0; b < bs.size(); ++b) {
-      for (const auto& r : runs(bs[b].mu, bs[b].amplitude, bs[b].index)) {
-        plt::plot(r.x, r.y, {{"color", branch_colors[b]}, {"linewidth", "2"}, {"linestyle", index_style(r.index)}});
+    for (const auto& b : res.arms) {
+      const auto& color = branch_colors[static_cast<std::size_t>(b.mode - 1)];
+      bool first = b.sign > 0;
+      for (const auto& r : runs(b.mu, b.modal, b.index)) {
+        std::map<std::string, std::string>
+            kw{{"color", color}, {"linewidth", "2"}, {"linestyle", index_style(r.index)}};
+        if (first) {
+          kw["label"] = std::format(R"($n = {}$, $a_{}$, both arms)", b.mode, b.mode);
+          first = false;
+        }
+        plt::plot(r.x, r.y, kw);
       }
-      auto peak = std::ranges::max_element(bs[b].amplitude) - bs[b].amplitude.begin();
-      plt::annotate(bs[b].name, 0.03, bs[b].amplitude[static_cast<std::size_t>(peak)] + 0.08);
     }
     // Legend proxies for the line styles.
     for (int k = 1; k <= 3; ++k) {
@@ -213,11 +220,12 @@ namespace plot {
       );
     }
     plt::xlim(-0.45, 0.45);
-    plt::ylim(-0.2, 4.8);
+    plt::ylim(-2.5, 1.4);
+    plt::yticks(std::vector<double>{-1.0, -0.5, 0.0, 0.5, 1.0});
     plt::xlabel(R"($\mu$)");
-    plt::ylabel(R"($\| \rho - \bar\rho \|$)");
-    plt::title("Branches with n interfaces");
-    plt::legend({{"loc", "upper left"}, {"fontsize", "small"}});
+    plt::ylabel(R"($a_n$)");
+    plt::title("Branches with n interfaces: both arms");
+    plt::legend({{"loc", "lower left"}, {"fontsize", "small"}});
     plt::grid(true);
 
     subplot(1, 2, 2);
@@ -263,8 +271,11 @@ namespace plot {
       }
       gap(mu, omega, idx, ink, "uniform, middle arc");
     }
-    for (std::size_t b = 0; b < bs.size(); ++b)
-      gap(bs[b].mu, bs[b].omega, bs[b].index, branch_colors[b], bs[b].name);
+    // The two arms have the same Omega, so one arm per n is drawn.
+    for (const auto& b : res.arms) {
+      if (b.sign > 0)
+        gap(b.mu, b.omega, b.index, branch_colors[static_cast<std::size_t>(b.mode - 1)], std::format("n = {}", b.mode));
+    }
     const double sigma = utils::exact::surface_tension(p.kappa);
     for (int n = 1; n <= 3; ++n) {
       plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.8"}, {"linestyle", ":"}});
@@ -280,8 +291,13 @@ namespace plot {
     save("branches");
   }
 
-  // Figure 4: profiles along each branch.
-  inline void profiles(const utils::Problem& p, const std::vector<utils::Branch>& bs) {
+  // Figure 4: profiles along the plus arm of each branch.
+  inline void profiles(const utils::Problem& p, const utils::Results& res) {
+    std::vector<utils::Branch> bs;
+    for (const auto& b : res.arms) {
+      if (b.sign > 0)
+        bs.push_back(b);
+    }
     plt::figure_size(1400, 460);
     auto x = arma::conv_to<std::vector<double>>::from(p.positions());
     const double w = std::sqrt(2.0 * p.kappa);
@@ -326,7 +342,7 @@ namespace plot {
       plt::xlabel(R"($x$)");
       if (b == 0)
         plt::ylabel(R"($\rho(x)$)");
-      plt::title(std::format("Branch {}", br.name));
+      plt::title(std::format("Branch n = {}", br.mode));
       plt::legend({{"loc", "upper center"}, {"fontsize", "x-small"}});
       plt::grid(true);
     }

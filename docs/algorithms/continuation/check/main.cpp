@@ -1,8 +1,9 @@
 // check.cpp: closed-form checks of the continuation example.
 //
-// Traces the uniform branch and the n = 1 branch of the square-gradient
-// model and compares folds, bifurcation points, the surface tension and the
-// identity dOmega/dmu = -N with their exact values. Exits non-zero on failure.
+// Traces the same branches as the example (utils::run) and compares folds,
+// bifurcation points, the surface tension, the symmetry between the arms of
+// each pitchfork and the identity dOmega/dmu = -N with their exact values.
+// Exits non-zero on failure.
 
 #include "utils.hpp"
 
@@ -21,20 +22,9 @@ int main() {
       .newton = {.max_iterations = 20, .tolerance = 1e-9},
   };
 
-  auto uniform = utils::trace_uniform(problem, cont, 1.35);
-  const utils::Event* start = nullptr;
-  const utils::Event* end = nullptr;
-  for (const auto& e : uniform.bifurcations) {
-    if (e.mode == 1)
-      (e.rho_bar < 0.0 ? start : end) = &e;
-  }
-  if (start == nullptr || end == nullptr) {
-    std::println(std::cout, "FAIL: n = 1 bifurcation points not found");
-    return 1;
-  }
-  auto kink = utils::trace_bifurcating(problem, cont, *start, *end, 0.3, 1.0, 2000);
+  auto results = utils::run(problem, cont, 3);
 
-  auto rows = utils::verification(problem, uniform, kink);
+  auto rows = utils::verification(problem, cont, results);
   utils::print_rows(rows);
   const auto failed = std::ranges::count_if(rows, [](const auto& r) { return !r.passed(); });
   std::println(std::cout, "\n{} / {} checks passed", rows.size() - static_cast<std::size_t>(failed), rows.size());

@@ -8,6 +8,7 @@
 #include <functional>
 #include <iostream>
 #include <numbers>
+#include <optional>
 #include <print>
 #include <string>
 #include <vector>
@@ -98,6 +99,31 @@ namespace utils {
     [[nodiscard]] auto amplitude(const arma::vec& y) const -> double {
       arma::vec d = y - mass(y) / length;
       return std::sqrt(spacing() * arma::dot(weights(), arma::square(d)));
+    }
+
+    // Signed amplitude of the Neumann mode n:
+    // a_n = (2 / L) h sum_i w_i (y_i - rho_bar) cos(n pi x_i / L).
+    // The reflection x -> L - x (odd n) or the shift by L / n (even n) maps
+    // a_n to -a_n, while N, Omega and ||y - rho_bar|| are unchanged.
+    [[nodiscard]] auto modal_amplitude(const arma::vec& y, int n) const -> double {
+      arma::vec c = arma::cos(n * std::numbers::pi * positions() / length);
+      return 2.0 / length * spacing() * arma::dot(weights(), (y - mass(y) / length) % c);
+    }
+
+    // Image of y under the symmetry that exchanges the two arms of the
+    // pitchfork of mode n: the reflection x -> L - x for odd n, and for even n
+    // the shift by L / n of the even 2L-periodic extension of y.
+    [[nodiscard]] auto arm_image(const arma::vec& y, int n) const -> arma::vec {
+      if (n % 2 == 1)
+        return arma::reverse(y);
+      const arma::uword period = 2 * (nodes - 1);
+      const arma::uword shift = (nodes - 1) / static_cast<arma::uword>(n);
+      arma::vec out(nodes);
+      for (arma::uword i = 0; i < nodes; ++i) {
+        arma::uword j = (i + shift) % period;
+        out(i) = y(j < nodes ? j : period - j);
+      }
+      return out;
     }
 
     [[nodiscard]] auto spectrum(const arma::vec& y) const -> arma::vec { return arma::eig_sym(symmetric_hessian(y)); }
@@ -191,24 +217,29 @@ namespace utils {
 
   struct Branch {
     std::string name;
+    int mode{0};
+    int sign{0};
     std::vector<CurvePoint> curve;
     std::vector<double> mu;
     std::vector<double> mass;
     std::vector<double> omega;
     std::vector<double> amplitude;
+    std::vector<double> modal;
     std::vector<int> index;
     std::vector<Event> folds;
     std::vector<Event> bifurcations;
   };
 
   // Record the observables along a mu-parametrised curve.
-  inline auto measure(const Problem& p, std::string name, std::vector<CurvePoint> curve) -> Branch {
-    Branch b{.name = std::move(name), .curve = std::move(curve)};
+  inline auto measure(const Problem& p, std::string name, std::vector<CurvePoint> curve, int mode = 0, int sign = 0)
+      -> Branch {
+    Branch b{.name = std::move(name), .mode = mode, .sign = sign, .curve = std::move(curve)};
     for (const auto& pt : b.curve) {
       b.mu.push_back(pt.lambda);
       b.mass.push_back(p.mass(pt.x));
       b.omega.push_back(p.grand_potential(pt.x, pt.lambda));
       b.amplitude.push_back(p.amplitude(pt.x));
+      b.modal.push_back(mode > 0 ? p.modal_amplitude(pt.x, mode) : 0.0);
       b.index.push_back(p.index(pt.x));
     }
     return b;
@@ -284,22 +315,29 @@ namespace utils {
 
   // Non-uniform branch leaving the uniform one at a bifurcation point: the
   // first step is the library's branch switch along the critical
-  // eigenvector, with dmu/ds = 0 (the pitchfork tangent). The
-  // trace stops when the amplitude collapses back towards the uniform branch;
-  // both bifurcation points are then added as the end points of the curve.
+  // eigenvector, with dmu/ds = 0 (the pitchfork tangent). The eigenvector is
+  // oriented so that sign = +1 gives the arm with a_n > 0 and sign = -1 the
+  // arm with a_n < 0. The trace stops when the amplitude collapses back
+  // towards the uniform branch; both bifurcation points are then added as the
+  // end points of the curve.
   inline auto trace_bifurcating(
       const Problem& p,
       const Continuation& cont,
       const Event& bif,
       const Event& end,
+      int sign,
       double kick,
       double mu_max,
       std::size_t max_points
   ) -> Branch {
     const Residual R = p.grand_canonical();
-    auto first = dft::algorithms::continuation::switch_branch(cont, bif.point, R, bif.eigenvector, kick);
+    const std::string name = std::format("n = {}, {}", bif.mode, sign > 0 ? "+" : "-");
+    arma::vec v = bif.eigenvector;
+    if ((p.modal_amplitude(bif.point.x + v, bif.mode) > 0.0) != (sign > 0))
+      v = -v;
+    auto first = dft::algorithms::continuation::switch_branch(cont, bif.point, R, v, kick);
     if (!first)
-      return Branch{.name = "n = " + std::to_string(bif.mode)};
+      return Branch{.name = name, .mode = bif.mode, .sign = sign};
     const double a0 = p.amplitude(first->x);
     std::size_t count = 0;
     auto curve = cont.trace(*first, R, [&](const CurvePoint& q) {
@@ -308,7 +346,7 @@ namespace utils {
     });
     curve.insert(curve.begin(), bif.point);
     curve.push_back(end.point);
-    Branch b = measure(p, "n = " + std::to_string(bif.mode), std::move(curve));
+    Branch b = measure(p, name, std::move(curve), bif.mode, sign);
     // At the bifurcation points the critical eigenvalue vanishes, so the
     // count there is decided by rounding: take the index of the neighbour.
     b.index.front() = b.index[1];
@@ -326,6 +364,93 @@ namespace utils {
         [&](const arma::vec& v) { return p.jacobian(v); }
     );
     return res.solution;
+  }
+
+  // Largest mismatch between the two arms of a pitchfork. Each sampled point
+  // of the minus arm is mapped by arm_image onto the plus arm, and its foot
+  // point on the traced plus arm (the zero of d/ds of the squared distance)
+  // is located with the library's locate(); when the arms were traced with
+  // the same steps (odd n, where the symmetry permutes the nodes) the image
+  // is a traced point itself. The arms are images of each other
+  // when the image lies on the plus arm with the same mu, N and Omega; the
+  // symmetry is an isometry of the trapezoid norm, so matching points also
+  // sit at matching arclength.
+  //
+  // For even n the shift maps solutions to solutions only among states
+  // symmetric about the cell boundaries, and it does not carry the Hessian
+  // across: the minus arm (a slab away from the walls) has an extra
+  // eigenvalue near zero, the translation of the slab, along which the trace
+  // drifts by up to the Newton tolerance divided by that eigenvalue (on the
+  // mu < 0 half the roles swap and the plus arm drifts). For even n both the
+  // sampled state and its foot point are therefore symmetrised and re-solved
+  // at the same mu; inside the symmetric subspace the translation mode is not
+  // excited. The drift of the traced minus arm is reported separately.
+  struct ArmMismatch {
+    double observables;
+    double profiles;
+    double drift;
+  };
+
+  inline auto
+  arm_mismatch(const Problem& p, const Continuation& cont, const Branch& plus, const Branch& minus, std::size_t samples)
+      -> ArmMismatch {
+    const Residual R = p.grand_canonical();
+    ArmMismatch m{.observables = 0.0, .profiles = 0.0, .drift = 0.0};
+    // Samples from the second to the second-to-last traced point, so that the
+    // foot point is bracketed away from the appended end points.
+    const std::size_t first = 2;
+    const std::size_t last = minus.curve.size() - 3;
+    for (std::size_t s = 0; s < samples; ++s) {
+      const std::size_t k = first + s * (last - first) / (samples - 1);
+      arma::vec y = minus.curve[k].x;
+      if (plus.mode % 2 == 0) {
+        m.drift = std::max(m.drift, arma::abs(y - arma::reverse(y)).max());
+        y = solve_fixed_mu(p, 0.5 * (y + arma::reverse(y)), minus.mu[k]);
+      }
+      const arma::vec target = p.arm_image(y, plus.mode);
+      const double target_mu = minus.mu[k];
+      auto g = [&](const CurvePoint& q) {
+        return arma::dot(q.x - target, q.dx_ds) + (q.lambda - target_mu) * q.dlambda_ds;
+      };
+      std::size_t best = 1;
+      double best_distance = arma::datum::inf;
+      for (std::size_t j = 1; j + 1 < plus.curve.size(); ++j) {
+        double d = arma::norm(plus.curve[j].x - target) + std::abs(plus.mu[j] - target_mu);
+        if (d < best_distance) {
+          best_distance = d;
+          best = j;
+        }
+      }
+      // Bracket the foot point in one of the two intervals next to the
+      // nearest traced point; a sample without a bracket fails the check.
+      std::optional<CurvePoint> foot;
+      if (best_distance < 1e-6)
+        foot = plus.curve[best];
+      for (std::size_t a : {best - 1, best}) {
+        if (foot)
+          break;
+        if (a < 1 || a + 2 > plus.curve.size() - 1)
+          continue;
+        if ((g(plus.curve[a]) > 0.0) != (g(plus.curve[a + 1]) > 0.0)) {
+          foot = dft::algorithms::continuation::locate(cont, plus.curve[a], plus.curve[a + 1], R, g);
+          break;
+        }
+      }
+      if (!foot) {
+        m.observables = m.profiles = arma::datum::inf;
+        continue;
+      }
+      if (plus.mode % 2 == 0)
+        foot->x = solve_fixed_mu(p, 0.5 * (foot->x + arma::reverse(foot->x)), foot->lambda = target_mu);
+      m.observables = std::max(
+          {m.observables,
+           std::abs(foot->lambda - target_mu),
+           std::abs(p.mass(foot->x) - p.mass(y)),
+           std::abs(p.grand_potential(foot->x, foot->lambda) - p.grand_potential(y, target_mu))}
+      );
+      m.profiles = std::max(m.profiles, arma::abs(foot->x - target).max());
+    }
+    return m;
   }
 
   // Branch traced with N as the parameter, unknown x = [y; mu].
@@ -411,7 +536,86 @@ namespace utils {
     return solve_fixed_mu(p, exact::interface(x, 0.5 * p.length, p.kappa), 0.0);
   }
 
-  inline auto verification(const Problem& p, const Branch& uniform, const Branch& kink) -> std::vector<Row> {
+  // Everything the example traces, shared by main.cpp and check/main.cpp.
+  struct Results {
+    Branch uniform;
+    std::vector<Branch> arms; // n = 1, +; n = 1, -; n = 2, +; ...
+    std::vector<CanonicalBranch> canonical;
+
+    [[nodiscard]] auto arm(int n, int sign) const -> const Branch& {
+      return *std::ranges::find_if(arms, [&](const Branch& b) { return b.mode == n && b.sign == sign; });
+    }
+  };
+
+  inline auto run(const Problem& p, const Continuation& cont, int n_max) -> Results {
+    Results r;
+
+    dft::console::info("Tracing the uniform branch");
+    r.uniform = trace_uniform(p, cont, 1.35);
+    std::println(
+        std::cout,
+        "  {} points, {} folds, {} bifurcation points",
+        r.uniform.curve.size(),
+        r.uniform.folds.size(),
+        r.uniform.bifurcations.size()
+    );
+    for (const auto& f : r.uniform.folds)
+      std::println(std::cout, "  fold          rho = {:+.10f}  mu = {:+.10f}", f.rho_bar, f.mu);
+    for (const auto& e : r.uniform.bifurcations)
+      std::println(std::cout, "  bifurcation   rho = {:+.10f}  mu = {:+.10f}  n = {}", e.rho_bar, e.mu, e.mode);
+
+    // Both arms of each pitchfork, from the bifurcation point at rho < 0 to
+    // its mirror at rho > 0.
+    for (int n = 1; n <= n_max; ++n) {
+      const Event* start = nullptr;
+      const Event* end = nullptr;
+      for (const auto& e : r.uniform.bifurcations) {
+        if (e.mode == n)
+          (e.rho_bar < 0.0 ? start : end) = &e;
+      }
+      for (int sign : {+1, -1}) {
+        auto b = trace_bifurcating(p, cont, *start, *end, sign, 0.3, 1.0, 2000);
+        dft::console::info(std::format("Traced the branch {}", b.name));
+        auto [lo, hi] = std::ranges::minmax_element(b.index);
+        auto [a_lo, a_hi] = std::ranges::minmax_element(b.modal);
+        std::println(
+            std::cout,
+            "  {} points, n_minus in [{}, {}], a_n in [{:+.4f}, {:+.4f}]",
+            b.curve.size(),
+            *lo,
+            *hi,
+            *a_lo,
+            *a_hi
+        );
+        r.arms.push_back(std::move(b));
+      }
+    }
+
+    // The n = 1 branch traced again with N as the parameter, from the centred
+    // interface at mu = 0 towards both walls.
+    dft::console::info("Tracing the n = 1 branch at fixed N");
+    arma::vec kink = interface_state(p);
+    for (double direction : {+1.0, -1.0})
+      r.canonical.push_back(trace_canonical(p, cont, kink, 0.0, direction, 1.5 * p.length));
+    for (const auto& c : r.canonical) {
+      auto [lo, hi] = std::ranges::minmax_element(c.index);
+      std::println(
+          std::cout,
+          "  {} points, N from {:+.4f} to {:+.4f}, mu at the end {:+.6f}, n_minus at fixed N in [{}, {}]",
+          c.mass.size(),
+          c.mass.front(),
+          c.mass.back(),
+          c.mu.back(),
+          *lo,
+          *hi
+      );
+    }
+    return r;
+  }
+
+  inline auto verification(const Problem& p, const Continuation& cont, const Results& res) -> std::vector<Row> {
+    const Branch& uniform = res.uniform;
+    const Branch& kink = res.arm(1, +1);
     std::vector<Row> rows;
     const double rho_f = exact::fold_density();
     const double mu_f = exact::fold_chemical_potential();
@@ -464,6 +668,23 @@ namespace utils {
             {"interface", "index at mu = 0 (fixed N)", static_cast<double>(q.constrained_index(y)), 0.0, 0.0}
         );
       }
+    }
+
+    // The two arms of each pitchfork are images of each other.
+    for (const auto& b : res.arms) {
+      if (b.sign < 0)
+        continue;
+      auto m = arm_mismatch(p, cont, b, res.arm(b.mode, -1), 16);
+      std::string tag = std::format("n = {}", b.mode);
+      rows.push_back({"arms", "max |d mu|, |d N|, |d Omega| between arms, " + tag, m.observables, 0.0, 1e-6});
+      rows.push_back({"arms", "max |S y_- - y_+|, " + tag, m.profiles, 0.0, 1e-6});
+      if (b.mode % 2 == 0)
+        std::println(
+            std::cout,
+            "  n = {}: drift of the traced minus arm off the symmetric subspace {:.2e}",
+            b.mode,
+            m.drift
+        );
     }
 
     // Bifurcation points on the rho < 0 half of the uniform branch.
