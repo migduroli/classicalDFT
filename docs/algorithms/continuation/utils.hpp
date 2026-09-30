@@ -172,7 +172,8 @@ namespace utils {
     }
 
     inline auto bifurcation_count(double length, double kappa, double rho_bar) -> int {
-      return static_cast<int>(std::floor(length / std::numbers::pi * std::sqrt((1.0 - 3.0 * rho_bar * rho_bar) / kappa))
+      return static_cast<int>(
+          std::floor(length / std::numbers::pi * std::sqrt((1.0 - 3.0 * rho_bar * rho_bar) / kappa))
       );
     }
 
@@ -213,51 +214,6 @@ namespace utils {
     return b;
   }
 
-  // Arclength from a to its successor b, read from the corrector hyperplane.
-  inline auto arclength(const CurvePoint& a, const CurvePoint& b) -> double {
-    return arma::dot(b.x - a.x, a.dx_ds) + (b.lambda - a.lambda) * a.dlambda_ds;
-  }
-
-  // Root of g(step(a, ds)) on (0, ds_max) by the Illinois variant of regula falsi.
-  inline auto locate(
-      const Continuation& cont,
-      const Residual& R,
-      const CurvePoint& a,
-      double ds_max,
-      const std::function<double(const CurvePoint&)>& g
-  ) -> CurvePoint {
-    double lo = 0.0;
-    double hi = ds_max;
-    double g_lo = g(a);
-    CurvePoint best = *cont.step(a, R, hi);
-    double g_hi = g(best);
-    int side = 0;
-    for (int it = 0; it < 80 && std::abs(hi - lo) > 1e-13; ++it) {
-      double ds = (lo * g_hi - hi * g_lo) / (g_hi - g_lo);
-      auto trial = cont.step(a, R, ds);
-      if (!trial)
-        break;
-      double g_ds = g(*trial);
-      best = *trial;
-      if (std::abs(g_ds) < 1e-13)
-        break;
-      if ((g_ds > 0.0) == (g_hi > 0.0)) {
-        hi = ds;
-        g_hi = g_ds;
-        if (side == -1)
-          g_lo *= 0.5;
-        side = -1;
-      } else {
-        lo = ds;
-        g_lo = g_ds;
-        if (side == +1)
-          g_hi *= 0.5;
-        side = +1;
-      }
-    }
-    return best;
-  }
-
   // Number of sign changes of a vector, ignoring entries near zero.
   inline auto nodal_count(const arma::vec& v) -> int {
     const double floor = 1e-6 * arma::abs(v).max();
@@ -283,47 +239,32 @@ namespace utils {
     return v / arma::norm(v);
   }
 
-  // Locate folds (sign changes of dlambda/ds) and eigenvalue crossings along
-  // a traced branch. Sign flips with |dlambda/ds| below 1e-8 on either side
-  // are not resolved by the tangent and are skipped: on the interface
-  // branches near mu = 0 the curve runs along an exponentially flat family. Crossings of the uniform mode (n = 0) are
-  // the folds and are reported through dlambda/ds; the others are bifurcation points.
+  // Folds and bifurcation points along a traced branch, from the library's
+  // event location. Folds are the zeros of dlambda/ds; the eigenvalue
+  // crossings with a uniform eigenvector (n = 0) are those same folds and are
+  // dropped, and the others are bifurcation points labelled by the number of
+  // sign changes of the critical eigenvector.
   inline void detect_events(const Problem& p, const Continuation& cont, Branch& b) {
+    namespace ac = dft::algorithms::continuation;
     const Residual R = p.grand_canonical();
-    for (std::size_t k = 0; k + 1 < b.curve.size(); ++k) {
-      const auto& a = b.curve[k];
-      const auto& c = b.curve[k + 1];
-      const double ds = arclength(a, c);
-
-      const bool resolved = std::min(std::abs(a.dlambda_ds), std::abs(c.dlambda_ds)) > 1e-8;
-      if (resolved && (a.dlambda_ds > 0.0) != (c.dlambda_ds > 0.0)) {
-        auto root = locate(cont, R, a, ds, [](const CurvePoint& q) { return q.dlambda_ds; });
-        b.folds.push_back(Event{
-            .point = root,
-            .rho_bar = p.mass(root.x) / p.length,
-            .mu = root.lambda,
-            .mode = 0,
-            .eigenvector = {},
-        });
-      }
-
-      const int ia = b.index[k];
-      const int ic = b.index[k + 1];
-      for (int j = std::min(ia, ic); j < std::max(ia, ic); ++j) {
-        auto ju = static_cast<arma::uword>(j);
-        auto root = locate(cont, R, a, ds, [&](const CurvePoint& q) { return p.spectrum(q.x)(ju); });
-        arma::vec v = critical_vector(p, root.x, ju);
-        int n = nodal_count(v);
-        if (n == 0)
-          continue;
-        b.bifurcations.push_back(Event{
-            .point = root,
-            .rho_bar = p.mass(root.x) / p.length,
-            .mu = root.lambda,
-            .mode = n,
-            .eigenvector = v,
-        });
-      }
+    for (auto& f : ac::folds(cont, b.curve, R)) {
+      const double rho_bar = p.mass(f.x) / p.length;
+      const double mu = f.lambda;
+      b.folds.push_back(Event{.point = std::move(f), .rho_bar = rho_bar, .mu = mu, .mode = 0, .eigenvector = {}});
+    }
+    auto spectrum = [&p](const CurvePoint& q) {
+      return p.spectrum(q.x);
+    };
+    for (auto& c : ac::crossings(cont, b.curve, R, spectrum)) {
+      arma::vec v = critical_vector(p, c.point.x, c.eigenvalue);
+      const int n = nodal_count(v);
+      if (n == 0)
+        continue;
+      const double rho_bar = p.mass(c.point.x) / p.length;
+      const double mu = c.point.lambda;
+      b.bifurcations.push_back(
+          Event{.point = std::move(c.point), .rho_bar = rho_bar, .mu = mu, .mode = n, .eigenvector = std::move(v)}
+      );
     }
   }
 
@@ -342,8 +283,8 @@ namespace utils {
   }
 
   // Non-uniform branch leaving the uniform one at a bifurcation point: the
-  // first step is a pseudo-arclength step from the bifurcation point along
-  // the critical eigenvector, with dmu/ds = 0 (the pitchfork tangent). The
+  // first step is the library's branch switch along the critical
+  // eigenvector, with dmu/ds = 0 (the pitchfork tangent). The
   // trace stops when the amplitude collapses back towards the uniform branch;
   // both bifurcation points are then added as the end points of the curve.
   inline auto trace_bifurcating(
@@ -356,8 +297,7 @@ namespace utils {
       std::size_t max_points
   ) -> Branch {
     const Residual R = p.grand_canonical();
-    CurvePoint start{.x = bif.point.x, .lambda = bif.point.lambda, .dx_ds = bif.eigenvector, .dlambda_ds = 0.0};
-    auto first = cont.step(start, R, kick);
+    auto first = dft::algorithms::continuation::switch_branch(cont, bif.point, R, bif.eigenvector, kick);
     if (!first)
       return Branch{.name = "n = " + std::to_string(bif.mode)};
     const double a0 = p.amplitude(first->x);
@@ -520,7 +460,8 @@ namespace utils {
       );
       if (scale == 1.0) {
         rows.push_back({"interface", "index at mu = 0 (fixed mu)", static_cast<double>(q.index(y)), 1.0, 0.0});
-        rows.push_back({"interface", "index at mu = 0 (fixed N)", static_cast<double>(q.constrained_index(y)), 0.0, 0.0}
+        rows.push_back(
+            {"interface", "index at mu = 0 (fixed N)", static_cast<double>(q.constrained_index(y)), 0.0, 0.0}
         );
       }
     }
