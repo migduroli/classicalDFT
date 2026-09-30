@@ -5,7 +5,7 @@
 // each pitchfork and the identity dOmega/dmu = -N with their exact values.
 // Exits non-zero on failure.
 
-#include "utils.hpp"
+#include "verification.hpp"
 
 #include <dftlib>
 #include <iostream>

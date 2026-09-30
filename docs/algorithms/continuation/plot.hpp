@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils.hpp"
+#include "branches.hpp"
 
 #include <array>
 #include <cmath>
@@ -308,7 +308,7 @@ namespace plot {
       for (std::size_t k = 0; k < mu.size(); ++k) {
         if (std::abs(mu[k]) >= mu_f)
           continue;
-        const double rho = utils::metastable_density(mu[k]);
+        const double rho = utils::exact::metastable_density(mu[k]);
         const double omega_meta = problem.length * (0.25 * std::pow(rho * rho - 1.0, 2) - mu[k] * rho);
         x.push_back(axis[k]);
         y.push_back(omega[k] - omega_meta);
