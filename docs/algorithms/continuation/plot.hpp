@@ -246,9 +246,9 @@ namespace plot {
   // Figure 3: bifurcation diagram (signed modal amplitude) and gap to the metastable state.
   inline void branches(const utils::Problem& problem, const utils::Results& results) {
     const auto& uniform = results.uniform;
-    plt::figure_size(1300, 560);
+    plt::figure_size(1900, 560);
 
-    subplot(1, 2, 1);
+    subplot(1, 3, 1);
     std::vector<double> zeros(uniform.mu.size(), 0.0);
     plt::plot(uniform.mu, zeros, {{"color", ink}, {"linewidth", "2"}, {"label", "uniform"}});
     std::vector<double> bx, by;
@@ -295,9 +295,10 @@ namespace plot {
     plt::legend({{"loc", "lower left"}, {"fontsize", "small"}});
     plt::grid(true);
 
-    subplot(1, 2, 2);
+    // Gap to the metastable uniform state, against mu (panel 2) and N (panel 3).
     const double mu_f = utils::exact::fold_chemical_potential();
-    auto gap = [&](const std::vector<double>& mu,
+    auto gap = [&](const std::vector<double>& axis,
+                   const std::vector<double>& mu,
                    const std::vector<double>& omega,
                    const std::vector<int>& index,
                    const std::string& color,
@@ -307,9 +308,9 @@ namespace plot {
       for (std::size_t k = 0; k < mu.size(); ++k) {
         if (std::abs(mu[k]) >= mu_f)
           continue;
-        double rho = utils::metastable_density(mu[k]);
-        double omega_meta = problem.length * (0.25 * std::pow(rho * rho - 1.0, 2) - mu[k] * rho);
-        x.push_back(mu[k]);
+        const double rho = utils::metastable_density(mu[k]);
+        const double omega_meta = problem.length * (0.25 * std::pow(rho * rho - 1.0, 2) - mu[k] * rho);
+        x.push_back(axis[k]);
         y.push_back(omega[k] - omega_meta);
         indices.push_back(index[k]);
       }
@@ -324,37 +325,51 @@ namespace plot {
         plt::plot(r.x, r.y, keywords);
       }
     };
+
     // Middle arc of the uniform branch: between the two folds.
-    {
-      std::vector<double> mu, omega;
-      std::vector<int> indices;
-      for (std::size_t k = 0; k < uniform.mu.size(); ++k) {
-        double rho = problem.mass(uniform.curve[k].x) / problem.length;
-        if (std::abs(rho) < utils::exact::fold_density()) {
-          mu.push_back(uniform.mu[k]);
-          omega.push_back(uniform.omega[k]);
-          indices.push_back(uniform.index[k]);
+    std::vector<double> middle_mu, middle_mass, middle_omega;
+    std::vector<int> middle_index;
+    for (std::size_t k = 0; k < uniform.mu.size(); ++k) {
+      if (std::abs(uniform.mass[k] / problem.length) < utils::exact::fold_density()) {
+        middle_mu.push_back(uniform.mu[k]);
+        middle_mass.push_back(uniform.mass[k]);
+        middle_omega.push_back(uniform.omega[k]);
+        middle_index.push_back(uniform.index[k]);
+      }
+    }
+
+    const double sigma = utils::exact::surface_tension(problem.kappa);
+    for (int panel : {2, 3}) {
+      const bool against_mass = panel == 3;
+      subplot(1, 3, panel);
+      gap(against_mass ? middle_mass : middle_mu, middle_mu, middle_omega, middle_index, ink, "uniform, middle arc");
+      // The two arms have the same Omega and N, so one arm per n is drawn.
+      for (const auto& b : results.arms) {
+        if (b.sign > 0) {
+          const auto& color = branch_colors[static_cast<std::size_t>(b.mode - 1)];
+          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, b.index, color, std::format("n = {}", b.mode));
         }
       }
-      gap(mu, omega, indices, ink, "uniform, middle arc");
+      for (int n = 1; n <= 3; ++n)
+        plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.8"}, {"linestyle", ":"}});
+      plt::yticks(
+          std::vector<double>{0.0, sigma, 2.0 * sigma, 3.0 * sigma, 4.0, 5.0, 6.0, 7.0},
+          std::vector<std::string>{"0", R"($\sigma$)", R"($2\sigma$)", R"($3\sigma$)", "4", "5", "6", "7"}
+      );
+      if (against_mass) {
+        plt::xlim(-0.85 * problem.length, 0.85 * problem.length);
+        plt::xlabel(R"($N$)");
+        plt::title(R"(The same gap against $N$: the plateau at $\mu \approx 0$)");
+      } else {
+        plt::xlim(-0.4, 0.4);
+        plt::xlabel(R"($\mu$)");
+        plt::title("Gap to the metastable uniform state");
+      }
+      plt::ylim(0.0, 7.5);
+      plt::ylabel(R"($\Omega - \Omega_{\rm meta}$)");
+      plt::legend({{"loc", "upper left"}, {"fontsize", "small"}});
+      plt::grid(true);
     }
-    // The two arms have the same Omega, so one arm per n is drawn.
-    for (const auto& b : results.arms) {
-      if (b.sign > 0)
-        gap(b.mu, b.omega, b.index, branch_colors[static_cast<std::size_t>(b.mode - 1)], std::format("n = {}", b.mode));
-    }
-    const double sigma = utils::exact::surface_tension(problem.kappa);
-    for (int n = 1; n <= 3; ++n) {
-      plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.8"}, {"linestyle", ":"}});
-      plt::annotate(std::format(R"(${}\sigma$)", n == 1 ? std::string{} : std::to_string(n)), 0.33, n * sigma + 0.08);
-    }
-    plt::xlim(-0.4, 0.4);
-    plt::ylim(0.0, 7.5);
-    plt::xlabel(R"($\mu$)");
-    plt::ylabel(R"($\Omega - \Omega_{\rm meta}$)");
-    plt::title("Gap to the metastable uniform state");
-    plt::legend({{"loc", "upper left"}, {"fontsize", "small"}});
-    plt::grid(true);
     save("branches");
   }
 
