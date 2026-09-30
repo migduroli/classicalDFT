@@ -2,18 +2,20 @@
 
 This document traces the stationary states of the one-dimensional
 square-gradient (Cahn-Hilliard) model with pseudo-arclength continuation.
-The code in `main.cpp` performs four tasks: (1) it follows the uniform branch
-through both of its folds, (2) it locates the folds and the bifurcation points
-on that branch, (3) it steps off at the bifurcation points onto the branches
-with $n = 1, 2, 3$ interfaces and follows each of them back to the uniform
-branch, and (4) it traces the $n = 1$ branch again with the particle number
-$N$ as the parameter. The closed-form results that the computation must
-reproduce are collected in a verification table at the end.
+The code follows the uniform branch through both of its folds, locates the
+folds and the bifurcation points on it, steps off at every bifurcation point
+onto both arms of the branches with $n = 1, 2, 3$ interfaces, samples the
+pitchforks at prescribed amplitude, and traces the $n = 1$ branch again with
+the order-parameter content $N$ as the parameter, up to its finite-size fold.
+The closed-form results that the computation must reproduce are collected in a
+verification table at the end.
 
 The model has no DFT-specific ingredients, so every quantity along the curves
-can be compared with an exact value. The same machinery (the
-`Continuation` struct in `dft/algorithms/solvers/continuation.hpp`) is used by
-the phase-diagram code to follow coexistence lines in temperature.
+can be compared with an exact value. The continuation machinery used here
+(`Continuation` in `dft/algorithms/solvers/continuation.hpp`: `trace`,
+`folds`, `crossings`, `switch_branch`, `constrained_point`) is general and is
+also used by the phase-diagram code to follow coexistence lines in
+temperature.
 
 <p align="center">
   <img src="exports/branches.png" alt="Branches with n interfaces" width="900"/>
@@ -50,6 +52,22 @@ $$
 The two uniform minima $\rho = \pm 1$ coexist at $\mu_0 = 0$, and the spinodal
 of $f_0$ is $|\rho| = 1/\sqrt3$.
 
+### What $\rho$ and $N$ measure
+
+Here $\rho$ is an order parameter, not a number density: $\rho = -1$ is the
+vapour, $\rho = +1$ the liquid, and $\rho = 0$ lies halfway between them. Read as a
+density, $\rho_{\rm phys} = \rho_c + \tfrac12 \Delta\rho\,\rho$, with
+$\rho_c$ the density midway between the coexisting phases and $\Delta\rho$
+the width of the coexistence gap. $N = \int \rho\,dx$ is therefore not a particle number but
+the excess over the half-and-half box: in a box that holds a liquid fraction
+$\phi$ at coexistence, $N \approx L(2\phi - 1)$. $N < 0$ means more vapour than
+liquid and $N > 0$ more liquid than vapour. On the $n = 1$ branch near
+$N \approx -16$ the state is a thin liquid layer against a wall (the
+one-dimensional droplet), and near $N \approx +16$ it is a thin vapour layer
+(the one-dimensional bubble). The model is symmetric under
+$\rho \to -\rho$, $\mu \to -\mu$, $N \to -N$, which maps the two onto each
+other; every figure below has this mirror symmetry.
+
 ### Discretisation
 
 The interval is sampled at $K$ nodes $x_i = i h$, $h = L/(K-1)$. The second
@@ -77,17 +95,24 @@ N = h \sum_i w_i\, y_i, \qquad
        + \frac{\kappa}{2h} \sum_{i=0}^{K-2} \left(y_{i+1} - y_i\right)^2,
 $$
 
+$$
+a_n = \frac{2}{L}\, h \sum_i w_i \left(y_i - \bar\rho\right) \cos\frac{n\pi x_i}{L},
+\qquad \bar\rho = N / L ,
+$$
+
 with trapezoid weights $w_0 = w_{K-1} = \tfrac12$ and $w_i = 1$ otherwise. The
 gradient term is the sum of $(\kappa/2)\,y'^2$ over the $K - 1$ cells, with
-$y'$ the forward difference. With this choice the discrete functional and the
-discrete equation fit together exactly:
+$y'$ the forward difference, so that the discrete functional and the discrete
+equation fit together exactly:
 
 $$
-\frac{\partial \Omega}{\partial y_i} = h\, w_i\, F_i(y, \mu),
+\frac{\partial \Omega}{\partial y_i} = h\, w_i\, F_i(y, \mu).
 $$
 
-so the zeros of $F$ are the critical points of $\Omega$ and the discrete Hessian
-is $h\,W H$, with $W = \mathrm{diag}(w_i)$ and $H = \partial F/\partial y$.
+The zeros of $F$ are the critical points of $\Omega$, and the discrete Hessian
+is $h\,W H$ with $W = \mathrm{diag}(w_i)$ and $H = \partial F/\partial y$. The
+signed amplitude $a_n$ of the Neumann mode $n$ tells the two arms of a
+pitchfork apart (Section 5).
 
 ### The Hessian and the index
 
@@ -106,8 +131,9 @@ $$
 n_- = \#\{\text{negative eigenvalues of } S\}
 $$
 
-counts the unstable directions of $\Omega$ at fixed $\mu$: $n_- = 0$ is a local
-minimum, $n_- = 1$ a transition state, and so on.
+counts the unstable directions of $\Omega$ at fixed $\mu$. At fixed $N$ the
+same count is taken on $S$ projected onto mass-conserving perturbations,
+$\sum_i w_i\,\delta y_i = 0$.
 
 The eigenvalues of $-D_2$ with mirrored ends are known in closed form,
 
@@ -123,9 +149,8 @@ $(n\pi/L)^2$ as $h \to 0$.
 ## 2. Pseudo-arclength continuation
 
 A branch is a curve $s \mapsto (y(s), \mu(s))$ in $\mathbb{R}^{K+1}$ on which
-$F(y, \mu) = 0$, parametrised by arclength $s$ rather than by $\mu$. Arclength
-does not care whether $\mu$ increases or decreases, so the curve can be
-followed through folds, where $\mu$ turns back.
+$F(y, \mu) = 0$, parametrised by arclength $s$ rather than by $\mu$, so that it
+can be followed through folds, where $\mu$ turns back.
 
 ### Tangent
 
@@ -138,11 +163,10 @@ $$
 $$
 
 The tangent $(\dot y, \dot\mu)$ is the null vector of the $K \times (K+1)$
-extended Jacobian. The library forms that matrix by central differences, takes
-the last right singular vector of its SVD, and orients it so that its dot
-product with the previous tangent is positive. The extended Jacobian has
-rank $K$ at a fold as well as at a regular point, so the tangent stays well
-defined where $\partial_y F$ alone is singular.
+extended Jacobian: the library forms it by central differences, takes the
+last right singular vector of its SVD, and orients it along the previous
+tangent. The extended Jacobian has rank $K$ at a fold as well as at a regular
+point, so the tangent stays defined where $\partial_y F$ alone is singular.
 
 ### Predictor and corrector
 
@@ -158,40 +182,47 @@ $$
 
 $$
 F(y, \mu) = 0, \qquad
-\dot y_k \cdot (y - y_k) + \dot\mu_k\,(\mu - \mu_k) - \Delta s = 0 .
+\dot y_k \cdot (y - y_k) + \dot\mu_k\,(\mu - \mu_k) - \Delta s = 0 ,
 $$
 
-The second equation confines the correction to the hyperplane through the
-predicted point normal to the tangent. The bordered Jacobian is nonsingular at
-simple folds, so Newton converges there as well.
+which confines the correction to the hyperplane through the predicted point
+normal to the tangent. The bordered Jacobian is nonsingular at simple folds.
 
 3. **Adaptive step**: if Newton fails, $\Delta s$ is halved and the step is
-retried; after a success it grows by a factor $1.2$, up to `max_step`. The
-trace ends when a user-supplied stop condition returns true, or when
-$\Delta s$ falls below `min_step`.
+retried; after a success it grows by a factor $1.2$, up to `max_step`.
 
-### Library call
+### Library calls
 
 ```cpp
-const algorithms::continuation::Continuation cont{
+const algorithms::continuation::Continuation continuation{
     .initial_step = 0.05,
     .max_step = 0.3,
     .min_step = 1e-6,
     .newton = {.max_iterations = 20, .tolerance = 1e-9},
 };
 
-algorithms::continuation::Residual R = [&](const arma::vec& y, double mu) {
-  return -kappa * laplacian(y) + arma::pow(y, 3) - y - mu;
-};
+// A branch, until a stop condition holds.
+auto curve = continuation.trace(start, R, [](const CurvePoint& q) { return arma::mean(q.x) > 1.35; });
 
-auto curve = cont.trace(start, R, [&](const CurvePoint& q) { return arma::mean(q.x) > 1.35; });
+// Folds (zeros of dmu/ds) and zero crossings of the eigenvalues of S.
+auto folds = continuation.folds(curve, R);
+auto crossings = continuation.crossings(curve, R, [&](const CurvePoint& q) { return problem.spectrum(q.x); });
+
+// First point on a bifurcating branch, along the critical eigenvector v.
+auto first = continuation.switch_branch(bifurcation, R, v, 0.3);
+
+// The point of a branch where a condition holds, here a_n(y) = a.
+auto point = continuation.constrained_point(y, mu, R, [&](const arma::vec& v, double) {
+  return problem.modal_amplitude(v, n) - a;
+});
 ```
 
-`start` is a `CurvePoint{x, lambda, dx_ds, dlambda_ds}` on the curve;
-`cont.step(point, R, ds)` performs a single predictor-corrector step and returns
-`std::nullopt` if Newton fails. `trace` returns the list of `CurvePoint`s. The
-problem-specific code (residual, Jacobian, observables and event location) is in
-`utils.hpp`.
+`folds` and `crossings` find the interval where a test function changes sign
+and locate its root by regula falsi (Illinois variant) on the step length,
+through `locate`. The problem-specific code is in three headers:
+`model.hpp` (the discretised model and its closed forms), `branches.hpp` (the
+traces, the events and the sampled states) and `verification.hpp` (the checks
+behind the table in Section 7).
 
 ---
 
@@ -201,27 +232,22 @@ problem-specific code (residual, Jacobian, observables and event location) is in
 
 At a fold $\dot\mu = 0$, so the tangent reduces to $(\dot y, 0)$ with
 $\partial_y F\,\dot y = 0$: the Hessian is singular and $\dot y$ is its null
-vector. On either side of the fold one eigenvalue changes sign, so $n_-$
-changes by one. The code flags a fold wherever `dlambda_ds` changes sign
-between consecutive points and then locates it by regula falsi (Illinois
-variant) on the step length: the root of $\dot\mu$ along
-$\Delta s \mapsto \mathrm{step}(y_k, \Delta s)$.
+vector. One eigenvalue changes sign across the fold, so $n_-$ changes by one.
 
 ### Bifurcation points
 
-A change of $n_-$ between consecutive points without a sign change of
-$\dot\mu$ is a bifurcation point: an eigenvalue of $S$ crosses zero while the
-branch passes straight through. The code locates the root of the eigenvalue
-that changes sign (the $j$-th in ascending order, with $j$ the smaller of the
-two counts) by the same regula falsi, and labels the crossing by the number of
-sign changes of the critical eigenvector. A crossing with a uniform
-eigenvector ($n = 0$) is the fold itself and is reported only once, as a fold.
+A change of $n_-$ between consecutive points without a sign change of $\dot\mu$
+is a bifurcation point: an eigenvalue of $S$ crosses zero while the branch
+passes straight through. `crossings` locates the root of the eigenvalue that
+changes sign, and the code labels it by the number of sign changes of the
+critical eigenvector. A crossing with a uniform eigenvector ($n = 0$) is the
+fold itself and is reported only once, as a fold.
 
 ### The index labels the arcs
 
-Between events $n_-$ is constant, so each arc of a branch has a well defined
-index. Stable arcs have $n_- = 0$; the arcs with $n_- = 1$ are the transition
-states; higher indices are saddles of higher order.
+Between events $n_-$ is constant, so every arc of a branch has a well defined
+index: stable arcs have $n_- = 0$, transition states $n_- = 1$, higher indices
+are saddles of higher order.
 
 ### $d\Omega/d\mu = -N$
 
@@ -234,9 +260,8 @@ $$
 $$
 
 because $F = 0$ on the branch. So $d\Omega/d\mu = -N$ wherever $\dot\mu \ne 0$.
-At a fold $\dot\mu$ and $\dot\Omega$ vanish together, and $\Omega(\mu)$ has a
-cusp. The code checks the identity segment by segment with the trapezoid rule,
-$\Delta\Omega_k + \tfrac12(N_k + N_{k+1})\,\Delta\mu_k \approx 0$.
+At a fold the two arcs meet with the same slope and $\Omega(\mu)$ has a cusp:
+$d^2\Omega/d\mu^2 = -dN/d\mu$ diverges there.
 
 ---
 
@@ -250,29 +275,36 @@ $$
 \rho_f = \pm \frac{1}{\sqrt3}, \qquad \mu_f = \mp \frac{2}{3\sqrt3} \approx \mp 0.3849 .
 $$
 
-On the uniform branch the eigenvalues of $S$ are
-$\kappa d_n + 3\rho^2 - 1$, $n = 0, \ldots, K - 1$. The $n = 0$ eigenvalue
-changes sign at the folds; each $n \ge 1$ eigenvalue changes sign at a
-bifurcation point (Section 5).
+On the uniform branch the eigenvalues of $S$ are $\kappa d_n + 3\rho^2 - 1$:
+the $n = 0$ eigenvalue changes sign at the folds, and each $n \ge 1$ eigenvalue
+at a bifurcation point (Section 5).
 
-The trace starts at $\rho = -1.35$ with the tangent pointing towards
-increasing $\rho$ and stops at $\rho = 1.35$.
+### Why the uniform branch folds instead of splitting
+
+In the $(\rho, T)$ phase diagram the uniform state splits at the critical
+point by a pitchfork. At fixed $\mu$ it does not: the symmetry
+$\rho \to -\rho$ that would force a pitchfork maps $\mu$ to $-\mu$, so it is a
+symmetry of the problem only at $\mu = 0$. Traced in $\mu$, the uniform branch
+loses stability through two folds, at $\pm\mu_f$, which are the spinodals.
+The pitchfork appears when $\mu = 0$ is held fixed and a temperature-like
+parameter is varied instead.
 
 ### The S-curve
 
 $N$ against $\mu$. The stable arcs ($n_- = 0$) are solid and the unstable arc
-between the folds is dashed. Between $\mu_f^-$ and $\mu_f^+$ three uniform
+between the folds is dashed. Between $-\mu_f$ and $+\mu_f$ three uniform
 states coexist at every $\mu$.
 
-![S-curve](exports/s_curve.png)
+<p align="center"><img src="exports/s_curve.png" alt="S-curve" width="420"/></p>
 
 ### The swallowtail
 
-$\Omega$ against $\mu$ for the same branch. The two stable arcs cross at
-$\mu_0 = 0$, where $\rho = \pm 1$ have the same grand potential; the unstable
-arc joins them at the folds. There the two arcs meet with the same slope
-$d\Omega/d\mu = -N$ and $\Omega(\mu)$ has a cusp: $d^2\Omega/d\mu^2 = -dN/d\mu$
-diverges at the fold.
+$\Omega$ against $\mu$. The two stable uniform arcs cross at $\mu_0 = 0$, where
+$\rho = \pm 1$ have the same grand potential; the unstable uniform arc (dashed)
+joins them at the folds, where $\Omega(\mu)$ has cusps. Every state on the
+dashed arc is uniform: its profile is flat. The interface branches of
+Section 5 are separate curves; they are drawn in colour, below the dashed arc,
+and the panels on the right show the profiles at $\mu = 0$.
 
 ![Swallowtail](exports/swallowtail.png)
 
@@ -284,9 +316,9 @@ $$
 \qquad \omega = f_0(\rho) - \mu\rho .
 $$
 
-It is extensive: it is the cost of converting the whole box at once through a
-uniform state, not a nucleation barrier. At $\mu = 0$ it equals $L/4$, which is
-5 at $L = 20$ and 10 at $L = 40$ (see the verification table).
+It is extensive: the cost of converting the whole box at once through a
+uniform state, not a nucleation barrier. At $\mu = 0$ it is $L/4$: 5 at
+$L = 20$ and 10 at $L = 40$ (Section 7).
 
 ---
 
@@ -314,74 +346,119 @@ $$
 At $L = 20$, $\kappa = 1$ this gives $n_{\max} = 6$, and the uniform state
 $\rho = 0$ has index $1 + n_{\max} = 7$.
 
+### Pitchforks, and why the norm hid them
+
 These bifurcations are pitchforks. The reflection $x \mapsto L - x$ maps the
-critical mode $\cos(n\pi x/L)$ to $(-1)^n$ times itself; for odd $n$ it acts as
-$-1$ on the kernel, and the equivariant problem can only bifurcate
-symmetrically. For even $n$ the same argument applies to the reflection of a
-cell of length $L/n$, since the mode and the bifurcating states are copies of
-the $n = 1$ problem on $(0, L/n)$ reflected into the box. Consistently, the
+critical mode $\cos(n\pi x/L)$ to $(-1)^n$ times itself: for odd $n$ it acts
+as $-1$ on the kernel, and the equivariant problem can only bifurcate
+symmetrically. For even $n$ the same holds for the reflection of a cell of
+length $L/n$, since the mode and the bifurcating states are copies of the
+$n = 1$ problem on $(0, L/n)$ reflected into the box. Consistently, the
 quadratic coefficient of the reduced equation is proportional to
 $\int_0^L \cos^3(n\pi x/L)\,dx = 0$.
 
+A pitchfork has two arms, exchanged by the symmetry: for odd $n$ the arm
+$y_-(x) = y_+(L - x)$, for even $n$ the shift of $y_+$ by one cell, $L/n$.
+Every quantity invariant under that symmetry takes the same value on both
+arms, and so do $N$, $\Omega$ and the norm $\|\rho - \bar\rho\|$. Plotted with
+any of them, the two arms fall on one curve and the pitchfork looks like a
+single branch leaving the uniform one. The signed amplitude $a_n$ changes sign
+under the symmetry, so against $a_n$ the arms separate and each bifurcation
+point shows the sideways parabola.
+
 ### Stepping off
 
-At a pitchfork the bifurcating branch leaves with tangent $(v_n, 0)$, where
-$v_n$ is the critical eigenvector (the right null vector of $H$, recovered as
-$W^{-1/2}$ times the eigenvector of $S$). The code takes one ordinary
-continuation step from the bifurcation point with this tangent,
-
-```cpp
-CurvePoint start{.x = bif.point.x, .lambda = bif.point.lambda, .dx_ds = bif.eigenvector, .dlambda_ds = 0.0};
-auto first = cont.step(start, R, 0.3);
-```
-
-so the corrector solves $F = 0$ on the hyperplane $v_n \cdot (y - y_b) = 0.3$.
-That excludes the uniform branch, and Newton lands on the bifurcating one. The
-trace then continues until the amplitude falls back towards zero, which
-happens at the mirror bifurcation point $+\bar\rho_n$: each branch connects the
-pair $\pm\bar\rho_n$.
+At a pitchfork the bifurcating branch leaves with tangent $(\pm v_n, 0)$, with
+$v_n$ the critical eigenvector (the right null vector of $H$, recovered as
+$W^{-1/2}$ times the eigenvector of $S$). `switch_branch` takes one ordinary
+continuation step from the bifurcation point with that tangent, so the
+corrector solves $F = 0$ on the hyperplane $v_n \cdot (y - y_b) = \pm 0.3$;
+that excludes the uniform branch, and Newton lands on the arm. Each arm is then
+traced until its amplitude falls back towards zero, which happens at the
+mirror bifurcation point $+\bar\rho_n$: each branch connects the pair
+$\pm\bar\rho_n$.
 
 ### Bifurcation diagram
 
-Left: the amplitude $\|\rho - \bar\rho\|$ (trapezoid norm, $\bar\rho = N/L$)
-against $\mu$, with the line style set by $n_-$. The uniform branch lies on the
-axis with its twelve bifurcation points. Right: the gap
-$\Omega - \Omega_{\rm meta}$ to the metastable uniform state for
-$|\mu| < \mu_f$.
+Top: $a_n$ against $\mu$, both arms, with every bifurcation point numbered by
+its $n$; the points $n = 1$ to 4 lie within 0.03 of each fold and are shown in
+the zoom. Bottom: the gap $\Omega - \Omega_{\rm meta}$ to the metastable
+uniform state, against $\mu$ and against $N$. All the non-uniform curves in
+this figure are unstable at fixed $\mu$: the branch with $n$ interfaces has
+$n_- = n$ at every computed point.
 
 ![Branches](exports/branches.png)
 
+Against $\mu$ each interface branch passes through $\mu = 0$ as a vertical
+spike. Along that stretch the interface positions can be moved at an
+exponentially small cost, so $|\mu| < 3 \times 10^{-5}$ while $N$ runs from
+$-11$ to $+11$ on the $n = 1$ branch: the whole family collapses onto one
+abscissa. Against $N$ the same stretch is a plateau at $n\sigma$. The
+arclength parametrisation follows it without difficulty; a trace in $\mu$
+could not.
+
 Three features of the diagram:
 
-- **The index grows with $n$.** The branch with $n$ interfaces has $n_- = n$
-  along its whole length. Each interface carries one soft translation mode;
-  near $\mu = 0$ the interfaces feel each other and the walls only through
-  exponentially small tails, and all $n$ of these modes are unstable.
-- **The branches pass through $\mu = 0$ along a nearly flat family.** Near
-  $\mu = 0$ the interface positions can be moved at an exponentially small
-  cost: on the $n = 1$ branch $|\mu| < 3 \times 10^{-5}$ while $N$ runs from
-  $-11$ to $+11$. The arclength parametrisation follows this segment
-  without difficulty; a trace in $\mu$ could not.
+- **The index is $n$.** At fixed $\mu$ there is no mass constraint, so these
+  are the stationary states of the Allen-Cahn equation with Neumann
+  conditions. At every traced point of the branches computed here
+  ($n = 1, 2, 3$, both arms), away from the two bifurcation points where the
+  critical eigenvalue vanishes, the Hessian has exactly $n$ negative
+  eigenvalues. That is a
+  numerical result for these branches; we do not quote a theorem for it.
 - **The gap is finite.** At $\mu = 0$ the gap is $n\sigma$, the cost of $n$
   interfaces, independently of $L$ (the table checks $n = 1$ at $L = 20$ and
-  $L = 40$). For $\mu \ne 0$ the states on these branches are localised
-  interfaces or partial droplets against the walls, with tails that decay
-  exponentially, so their gap converges to a finite limit as $L$ grows, while
-  the uniform middle state costs $L(\omega_{\rm mid} - \omega_{\rm meta})$.
-  The saddles that control the escape from the metastable state are on these
-  branches, not on the uniform one.
+  $L = 40$). The uniform middle state costs $L(\omega_{\rm mid} -
+  \omega_{\rm meta})$ instead. The saddles that control the escape from the
+  metastable state are on the interface branches, not on the uniform one.
+- **In one dimension the barrier stays finite at coexistence.** As
+  $\mu \to 0$ the gap tends to $\sigma$, one interface, instead of diverging
+  as the classical nucleation barrier does in three dimensions. An interface
+  in one dimension has no area to grow, so the cost of a nucleus does not
+  depend on its size, and there is no critical radius that diverges at
+  coexistence.
 
-### Profiles
+### The pitchforks up close
 
-Representative profiles along each branch, taken on the $\mu > 0$ half at
-10%, 40%, 70% and 100% of the largest amplitude. Close to the bifurcation the
-profile is the cosine mode; by $\mu = 0$ it is a chain of $n$ interfaces,
-matched by $\prod_j \tanh\!\left((x - x_j)/\sqrt{2\kappa}\right)$ with
-$x_j = (2j - 1)L/2n$ (dashed). On the $n = 1$ branch the second and third
-profiles show the interface pushed towards the wall: these are the partial
-droplets described above.
+The uniform state (black) exists on both sides of $\mu_n$; at $\mu_n$ two
+mirror-image solutions branch off with amplitude $\propto
+\sqrt{\mu_n - \mu}$. The points are solved at prescribed $a_n$ with
+`constrained_point`; the fit of the exponent uses $|a_n| \le 10^{-3}$
+(shaded in the log-log panels). Further out, higher-order terms bend the arms,
+and the two-term normal form $\mu - \mu_n = c_2 a^2 + c_4 a^4$ follows them.
+$n = 1$ bends sooner because $\mu_1$ is within $10^{-4}$ of the fold
+($\mu_f - \mu_1 = 8.9 \times 10^{-5}$). The insets show one state on each arm:
+mirror images for $n = 1$, and the shift by $L/2$ for $n = 2$.
 
-![Profiles](exports/profiles.png)
+![Pitchfork zoom](exports/pitchfork_zoom.png)
+
+The fitted exponent converges to $1/2$ as the window shrinks: for $n = 1$ it
+deviates by $0.075$, $1.9 \times 10^{-3}$ and $2.0 \times 10^{-5}$ on the
+decades $10^{-2} \le |a_1| \le 10^{-1}$, $10^{-3}$ to $10^{-2}$ and $10^{-4}$
+to $10^{-3}$, about a hundredfold per decade, as the $O(a^2)$ correction of
+the normal form predicts. The verification requires the smallest window to
+lie closer to $1/2$ than the next one.
+
+For even $n$ the shift by $L/n$ maps solutions to solutions only among states
+symmetric about the cell boundaries, and it does not carry the Hessian
+across: the arm with a slab away from the walls has an eigenvalue near zero
+(about $10^{-8}$), the free translation of the slab. Along it the trace
+drifts off the symmetric subspace by up to the Newton tolerance divided by
+that eigenvalue; the amount depends on round-off ($2 \times 10^{-4}$ in the
+recorded run). The check of the arms therefore compares even-$n$ states after
+symmetrising them and re-solving at the same $\mu$.
+
+### Along the $n = 1$ branch
+
+Six states on the $n = 1$ arm at fixed $\mu$, with $\Delta\Omega = \Omega -
+\Omega_{\rm meta}$: near the bifurcation (A) the profile is the cosine mode;
+at $\mu = 0.2$ and $0.05$ (B, C) it is a layer of the stable phase against the
+wall, the one-dimensional critical nucleus, growing as $\mu$ decreases; at
+$\mu = 0$ (D) it is the centred interface with $\Delta\Omega = \sigma$; and at
+$\mu < 0$ (E, F) the roles of the phases swap and the layer shrinks against
+the other wall.
+
+![Walk along n = 1](exports/walk.png)
 
 ---
 
@@ -389,7 +466,7 @@ droplets described above.
 
 A critical point of $\Omega$ at chemical potential $\mu$ is a critical point of
 the Helmholtz functional $F[\rho] = \Omega + \mu N$ at its own $N$, with
-Lagrange multiplier $\mu$. So the same curve can be followed with $N$ as the
+Lagrange multiplier $\mu$, so the same curve can be followed with $N$ as the
 parameter. The unknown becomes $x = (y, \mu) \in \mathbb{R}^{K+1}$ and the
 residual gains the mass constraint:
 
@@ -398,41 +475,102 @@ R(x; N) = \begin{pmatrix} F(y, \mu) \\ h \sum_i w_i y_i - N \end{pmatrix} .
 $$
 
 The same `Continuation` object traces it; only the residual changes. The
-figure shows $\mu$ against $N$. The pale band is the $n = 1$ branch traced in
-$\mu$ (Section 5), the thin line the same branch traced in $N$ from the centred
-interface at $N = 0$ towards both walls. They coincide.
+figure shows $\mu$ against $N$, with the index at fixed $N$ by line style. The
+pale band is the $n = 1$ branch traced in $\mu$, the thin line the same branch
+traced in $N$: they coincide.
 
 ![Fixed mass](exports/canonical.png)
 
-What changes is the stability. At fixed $N$ only perturbations that conserve
-mass are admissible, so the index is counted on the Hessian projected onto
-$\sum_i w_i\,\delta y_i = 0$. Consequences, all visible in the figure:
+### The lettered states
 
-- The folds of the uniform branch in $\mu$ are not folds in $N$ ($N = L\rho$
-  is monotone), and the uniform branch is unstable at fixed $N$ only where the
-  first non-uniform mode is soft, $|\bar\rho| < \bar\rho_1 = 0.5702$, slightly
-  inside the spinodal $1/\sqrt3 = 0.5774$.
-- The centred interface has $n_- = 1$ at fixed $\mu$ and $n_- = 0$ at fixed
-  $N$: its unstable direction changes $N$, so the constraint removes it. The
-  phase-separated state is the minimum of $F$ at fixed mass.
-- The $n = 1$ branch has a fold in $N$ near $|N| \approx 16$. Beyond it the
-  branch has $n_- = 1$ at fixed $N$ (dashed) and runs back to the bifurcation
-  point: these states are the critical partial droplets of the canonical
-  problem, between the metastable uniform state and the phase-separated one.
+| State | $N$ | What it is | $F$ | $n_-$ at fixed $N$ |
+|-------|-----|------------|-----|-----|
+| A | 18 | uniform, beyond the finite-size fold: no layer state exists, the only minimum | 0.18 | 0 |
+| B | 14 | uniform, between binodal and spinodal: metastable | 1.30 | 0 |
+| C | 14 | vapour layer at the wall: the fixed-$N$ saddle between B and D | 1.36 | 1 |
+| D | 14 | phase-separated, interface near the wall: stable | 0.94 | 0 |
+| E | 0 | phase-separated, interface in the middle | 0.94 | 0 |
+| F | 5 | uniform, inside the spinodal: unstable | 4.39 | 5 |
+
+B, C and D share $N = 14$: the three states available at one mass, a
+metastable minimum, the saddle between it and the stable minimum, and that
+minimum. The barrier at fixed $N$ is $F_C - F_B = 0.06$. F has one unstable
+mass-conserving mode for each soft Neumann mode,
+$\lfloor (L/\pi)\sqrt{(1 - 3\bar\rho^2)/\kappa} \rfloor = 5$ at $\bar\rho = 0.25$.
+
+### The Maxwell plateau is the lever rule
+
+The uniform branch is the van der Waals loop $\mu = \bar\rho^3 - \bar\rho$
+with $\bar\rho = N/L$. The $n = 1$ branch cuts it with the plateau $\mu = 0$
+from $N \approx -16$ to $+16$: at fixed $N$ inside the binodal the minimum is
+the phase-separated state at the coexistence chemical potential, with the
+interface placed so that the liquid fraction is $\phi = (1 + N/L)/2$. This is
+the Maxwell construction and the lever rule, obtained here by computation
+rather than imposed; by the $\rho \to -\rho$ symmetry the plateau cuts equal
+areas from the loop. On the plateau $F = \sigma$ whatever the interface
+position, which is why D and E have the same $F$.
+
+### Saddle at fixed $\mu$, minimum at fixed $N$
+
+The centred interface E has $n_- = 1$ at fixed $\mu$ and $n_- = 0$ at fixed
+$N$. Its unstable direction at fixed $\mu$ translates the interface and so
+changes $N$; the mass constraint removes it. The same profile is a transition
+state in the grand-canonical problem and the stable state in the canonical
+one. Likewise the uniform branch is unstable at fixed $N$ only where the
+first non-uniform mode is soft, $|\bar\rho| < \bar\rho_1 = 0.570$, slightly
+inside the spinodal $1/\sqrt3 = 0.577$; between the two, the uniform state is
+metastable at fixed $N$.
+
+### The finite-size fold
+
+The plateau ends in a fold in $N$, at $N_{\rm fold} = 16.004$ for $L = 20$.
+Beyond it the branch has $n_- = 1$ at fixed $N$ (dashed) and runs back to the
+bifurcation point: these states are the critical layers of the canonical
+problem. At the fold the minority layer has width
+$l = (L - N_{\rm fold})/2$ in the constant-density estimate, and
+$l/\sqrt{2\kappa} = 1.41$, $1.60$ and $1.77$ at $L = 20$, $40$ and $80$.
+
+The fold position follows from the layer held by its image in the wall. A
+minority layer of width $l$ has $|\mu| = A\,e^{-2ql}$, with
+$q = \sqrt{2/\kappa}$ the decay rate of the interface tails, and the box holds
+$N \approx L(1 - |\mu|/2) - 2l$, the first term from the compressibility of
+the majority phase. $dN/d|\mu| = 0$ gives
+
+$$
+|\mu_{\rm fold}| = \frac{2}{qL}, \qquad
+L - N_{\rm fold} = \frac{1}{q}\left[1 + \ln\frac{AqL}{2}\right].
+$$
+
+So $L\,\mu_{\rm fold} \to -\sqrt{2\kappa}$, and $L - N_{\rm fold}$ is not
+independent of $L$: it grows by $\ln 2/q = 0.490$ per doubling. The measured
+values are:
+
+| $L$ | $N_{\rm fold}$ | $L - N_{\rm fold}$ | $L\,\mu_{\rm fold}$ |
+|-----|----------------|--------------------|---------------------|
+| 20 | 16.0036 | 3.9964 | $-1.4444$ |
+| 40 | 35.4853 | 4.5147 | $-1.4286$ |
+| 80 | 74.9816 | 5.0184 | $-1.4217$ |
+
+The increments are 0.518 and 0.504, and the errors in $L\mu_{\rm fold}$ halve
+with each doubling: both approach the asymptotic values with an $O(1/L)$
+correction, which the verification removes by Richardson extrapolation. The
+fold approaches the binodal $|N| = L$ in relative terms,
+$(L - N_{\rm fold})/L = 0.20$, $0.11$, $0.063$, while the width of the layer at
+the fold grows only logarithmically.
 
 ---
 
 ## 7. Verification
 
-`check/main.cpp` traces the uniform branch and the $n = 1$ branch and compares
-them with the closed forms below; it exits with a non-zero status if any row
-fails. The same table is printed at the end of `main.cpp`. Reference values:
-$L = 20$, $\kappa = 1$, $K = 201$ ($h = 0.1$).
+`check/main.cpp` runs the same traces as the example (`utils::run`) and
+compares them with the closed forms below; it exits with a non-zero status if
+any row fails. The same table is printed at the end of `main.cpp`. Reference
+values: $L = 20$, $\kappa = 1$, $K = 201$ ($h = 0.1$).
 
 | Quantity | Measured | Exact | Error | Tolerance |
 |----------|----------|-------|-------|-----------|
 | Uniform branch: $\max\lvert\rho^3 - \rho - \mu\rvert$, $\max\lvert y_i - \bar\rho\rvert$ | $6.2 \times 10^{-11}$ | $0$ | $6.2 \times 10^{-11}$ | $10^{-9}$ |
-| Fold $\rho_f^-$ | $-0.5773502692$ | $-1/\sqrt3$ | $1.8 \times 10^{-11}$ | $10^{-8}$ |
+| Fold $\rho_f^-$ | $-0.5773502692$ | $-1/\sqrt3$ | $1.9 \times 10^{-11}$ | $10^{-8}$ |
 | Fold $\mu_f^-$ | $+0.3849001795$ | $+2/(3\sqrt3)$ | $2.4 \times 10^{-14}$ | $10^{-8}$ |
 | Fold $\rho_f^+$ | $+0.5773502692$ | $+1/\sqrt3$ | $1.2 \times 10^{-11}$ | $10^{-8}$ |
 | Fold $\mu_f^+$ | $-0.3849001795$ | $-2/(3\sqrt3)$ | $2.3 \times 10^{-15}$ | $10^{-8}$ |
@@ -445,17 +583,29 @@ $L = 20$, $\kappa = 1$, $K = 201$ ($h = 0.1$).
 | $\Omega_{\rm mid} - \Omega_\pm$ at $\mu = 0$, $L = 40$ | $10$ | $L/4 = 10$ | $0$ | $10^{-12}$ |
 | $n_-$ of the interface, fixed $\mu$ | $1$ | $1$ | $0$ | exact |
 | $n_-$ of the interface, fixed $N$ | $0$ | $0$ | $0$ | exact |
-| $\bar\rho_1$ vs discrete $\kappa d_1 = 1 - 3\bar\rho^2$ | $0.5701831566$ | $0.5701831566$ | $1.7 \times 10^{-14}$ | $10^{-9}$ |
+| $n_-$ at fixed $N$ of A, B, C, D, E | $0, 0, 1, 0, 0$ | $0, 0, 1, 0, 0$ | $0$ | exact |
+| $n_-$ at fixed $N$ of F ($\bar\rho = 0.25$) | $5$ | $\lfloor (L/\pi)\sqrt{(1 - 3\bar\rho^2)/\kappa}\rfloor = 5$ | $0$ | exact |
+| $L\,\mu_{\rm fold}$, Richardson from $L = 40, 80$ | $-1.41485$ | $-\sqrt{2\kappa} = -1.41421$ | $6.4 \times 10^{-4}$ | $2 \times 10^{-3}$ |
+| Growth of $L - N_{\rm fold}$ per doubling, Richardson | $0.48897$ | $\ln 2 \sqrt{\kappa/2} = 0.49013$ | $1.2 \times 10^{-3}$ | $3 \times 10^{-3}$ |
+| Arms $n = 1$: $\max\lvert\Delta\mu\rvert, \lvert\Delta N\rvert, \lvert\Delta\Omega\rvert$ | $5.2 \times 10^{-8}$ | $0$ | $5.2 \times 10^{-8}$ | $10^{-6}$ |
+| Arms $n = 1$: $\max\lvert S y_- - y_+\rvert$ | $1.1 \times 10^{-8}$ | $0$ | $1.1 \times 10^{-8}$ | $10^{-6}$ |
+| Arms $n = 2$: $\max\lvert\Delta\mu\rvert, \lvert\Delta N\rvert, \lvert\Delta\Omega\rvert$ | $4.3 \times 10^{-10}$ | $0$ | $4.3 \times 10^{-10}$ | $10^{-6}$ |
+| Arms $n = 2$: $\max\lvert S y_- - y_+\rvert$ | $1.3 \times 10^{-8}$ | $0$ | $1.3 \times 10^{-8}$ | $10^{-6}$ |
+| Arms $n = 3$: $\max\lvert\Delta\mu\rvert, \lvert\Delta N\rvert, \lvert\Delta\Omega\rvert$ | $1.9 \times 10^{-10}$ | $0$ | $1.9 \times 10^{-10}$ | $10^{-6}$ |
+| Arms $n = 3$: $\max\lvert S y_- - y_+\rvert$ | $1.9 \times 10^{-8}$ | $0$ | $1.9 \times 10^{-8}$ | $10^{-6}$ |
+| Pitchfork exponent, $10^{-4} \le \lvert a_1\rvert \le 10^{-3}$ | $0.4999803$ | $1/2$ | $2.0 \times 10^{-5}$ | $1.9 \times 10^{-3}$ |
+| Pitchfork exponent, $10^{-4} \le \lvert a_2\rvert \le 10^{-3}$ | $0.5000029$ | $1/2$ | $2.9 \times 10^{-6}$ | $1.0 \times 10^{-4}$ |
+| $\bar\rho_1$ vs discrete $\kappa d_1 = 1 - 3\bar\rho^2$ | $0.5701831566$ | $0.5701831566$ | $5.3 \times 10^{-15}$ | $10^{-9}$ |
 | $\bar\rho_1$ vs continuum $\kappa(\pi/L)^2 = 1 - 3\bar\rho^2$ | $0.5701831566$ | $0.5701830083$ | $1.5 \times 10^{-7}$ | $10^{-3}$ |
-| $\bar\rho_2$ vs discrete | $0.5481216632$ | $0.5481216632$ | $3.7 \times 10^{-13}$ | $10^{-9}$ |
+| $\bar\rho_2$ vs discrete | $0.5481216632$ | $0.5481216632$ | $3.3 \times 10^{-12}$ | $10^{-9}$ |
 | $\bar\rho_2$ vs continuum | $0.5481216632$ | $0.5481191951$ | $2.5 \times 10^{-6}$ | $10^{-3}$ |
-| $\bar\rho_3$ vs discrete | $0.5092396268$ | $0.5092396268$ | $1.4 \times 10^{-14}$ | $10^{-9}$ |
+| $\bar\rho_3$ vs discrete | $0.5092396268$ | $0.5092396268$ | $2.0 \times 10^{-14}$ | $10^{-9}$ |
 | $\bar\rho_3$ vs continuum | $0.5092396268$ | $0.5092261780$ | $1.3 \times 10^{-5}$ | $10^{-3}$ |
-| $\bar\rho_4$ vs discrete | $0.4492013972$ | $0.4492013972$ | $2.2 \times 10^{-14}$ | $10^{-9}$ |
+| $\bar\rho_4$ vs discrete | $0.4492013972$ | $0.4492013972$ | $2.8 \times 10^{-14}$ | $10^{-9}$ |
 | $\bar\rho_4$ vs continuum | $0.4492013972$ | $0.4491532122$ | $4.8 \times 10^{-5}$ | $10^{-3}$ |
-| $\bar\rho_5$ vs discrete | $0.3575223753$ | $0.3575223753$ | $9.9 \times 10^{-15}$ | $10^{-9}$ |
+| $\bar\rho_5$ vs discrete | $0.3575223753$ | $0.3575223753$ | $1.0 \times 10^{-14}$ | $10^{-9}$ |
 | $\bar\rho_5$ vs continuum | $0.3575223753$ | $0.3573745584$ | $1.5 \times 10^{-4}$ | $10^{-3}$ |
-| $\bar\rho_6$ vs discrete | $0.1935569861$ | $0.1935569861$ | $3.3 \times 10^{-14}$ | $10^{-9}$ |
+| $\bar\rho_6$ vs discrete | $0.1935569861$ | $0.1935569861$ | $3.6 \times 10^{-14}$ | $10^{-9}$ |
 | $\bar\rho_6$ vs continuum | $0.1935569861$ | $0.1929901586$ | $5.7 \times 10^{-4}$ | $10^{-3}$ |
 | Number of bifurcation points per side, $n_{\max}$ | $6$ | $6$ | $0$ | exact |
 | $n_-$ of the uniform state $\rho = 0$ | $7$ | $1 + n_{\max} = 7$ | $0$ | exact |
@@ -463,19 +613,29 @@ $L = 20$, $\kappa = 1$, $K = 201$ ($h = 0.1$).
 Notes on the table:
 
 - The folds and the bifurcation points are located by root finding on the
-  step length, so they agree with the exact discrete values to near machine
+  step length and agree with the exact discrete values to near machine
   precision. The uniform branch is exact in the discretisation, so the folds
-  also match the continuum values.
-- The bifurcation points agree with the discrete eigenvalues of $D_2$ to
-  $10^{-13}$. Their distance from the continuum formula is the discretisation
-  error of $d_n$, $(n\pi/L)^2 - d_n \approx (n\pi/L)^4 h^2/12$, and grows with
-  $n$ as expected.
+  also match the continuum values. The distance of the bifurcation points
+  from the continuum formula is the discretisation error of $d_n$,
+  $(n\pi/L)^2 - d_n \approx (n\pi/L)^4 h^2/12$, and grows with $n$.
 - The surface tension and the tanh profile carry the $O(h^2)$ error of the
-  three-point stencil. The value of $\sigma$ is the same at $L = 20$ and
-  $L = 40$ to all printed digits, while the uniform gap doubles.
+  three-point stencil; $\sigma$ is the same at $L = 20$ and $L = 40$ to all
+  printed digits, while the uniform gap doubles.
 - The $d\Omega/d\mu = -N$ residual is the error of the trapezoid rule over each
-  continuation step, relative to the largest $|\Delta\Omega|$ on the branch.
-  The identity itself is exact on the discrete branch (Section 3).
+  continuation step, relative to the largest $|\Delta\Omega|$ on the branch;
+  the identity itself is exact on the discrete branch (Section 3).
+- The arms are compared by mapping 16 sampled points of the minus arm onto the
+  plus arm and locating their foot points there, so the check holds for any
+  step sequence. The tolerance $10^{-6}$ is $10^3$ times the Newton tolerance
+  of the traces, which leaves room for the conditioning of the bordered
+  Jacobian along the flat stretch at $\mu \approx 0$; the measured mismatches
+  are $10^{-8}$ or smaller.
+- The tolerance of each pitchfork exponent is the deviation of the fit on the
+  next decade, $10^{-3} \le |a_n| \le 10^{-2}$: the row passes only if the fit
+  converges towards $1/2$.
+- The fold rows use Richardson extrapolation from $L = 40$ and $80$, which
+  removes the measured $O(1/L)$ correction; the tolerances are two to three
+  times the extrapolated errors, for the $O(1/L^2)$ remainder.
 
 ---
 
@@ -485,25 +645,28 @@ Notes on the table:
 # Build and run the example: traces all branches, prints the table, writes the figures
 make run-local
 
-# Closed-form checks only (exit status 1 on failure)
+# Checks only (exit status 1 on failure)
 make run-checks
 
 # Run in Docker
 make run
 ```
 
-Results are written to `exports/`:
+The figures use journal sizes: one column ($3.4 \times 3.0$ in) for single
+plots, two columns ($7.0 \times 3.0$ or $7.0 \times 5.2$ in) for multipanel
+figures, with print fonts and 300 dpi PNGs. Results are written to
+`exports/`:
 
 ```
 exports/
-├── uniform.csv       # mu, N, Omega, amplitude, n_minus along the uniform branch
-├── branch_n1.csv     # the same along the branch with n = 1 interface
-├── branch_n2.csv
-├── branch_n3.csv
+├── uniform.csv           # mu, N, Omega, amplitude, a_n, n_minus along the uniform branch
+├── branch_n1p.csv        # the same along the n = 1 plus arm
+├── branch_n1m.csv        # ... and minus arm; likewise n = 2, 3
 ├── s_curve.{png,pdf}
 ├── swallowtail.{png,pdf}
 ├── branches.{png,pdf}
-├── profiles.{png,pdf}
+├── pitchfork_zoom.{png,pdf}
+├── walk.{png,pdf}
 └── canonical.{png,pdf}
 ```
 
