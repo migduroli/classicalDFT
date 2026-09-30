@@ -276,9 +276,8 @@ namespace utils {
   // dropped, and the others are bifurcation points labelled by the number of
   // sign changes of the critical eigenvector.
   inline void detect_events(const Problem& p, const Continuation& cont, Branch& b) {
-    namespace ac = dft::algorithms::continuation;
     const Residual R = p.grand_canonical();
-    for (auto& f : ac::folds(cont, b.curve, R)) {
+    for (auto& f : cont.folds(b.curve, R)) {
       const double rho_bar = p.mass(f.x) / p.length;
       const double mu = f.lambda;
       b.folds.push_back(Event{.point = std::move(f), .rho_bar = rho_bar, .mu = mu, .mode = 0, .eigenvector = {}});
@@ -286,7 +285,7 @@ namespace utils {
     auto spectrum = [&p](const CurvePoint& q) {
       return p.spectrum(q.x);
     };
-    for (auto& c : ac::crossings(cont, b.curve, R, spectrum)) {
+    for (auto& c : cont.crossings(b.curve, R, spectrum)) {
       arma::vec v = critical_vector(p, c.point.x, c.eigenvalue);
       const int n = nodal_count(v);
       if (n == 0)
@@ -335,7 +334,7 @@ namespace utils {
     arma::vec v = bif.eigenvector;
     if ((p.modal_amplitude(bif.point.x + v, bif.mode) > 0.0) != (sign > 0))
       v = -v;
-    auto first = dft::algorithms::continuation::switch_branch(cont, bif.point, R, v, kick);
+    auto first = cont.switch_branch(bif.point, R, v, kick);
     if (!first)
       return Branch{.name = name, .mode = bif.mode, .sign = sign};
     const double a0 = p.amplitude(first->x);
@@ -521,7 +520,7 @@ namespace utils {
         if (a < 1 || a + 2 > plus.curve.size() - 1)
           continue;
         if ((g(plus.curve[a]) > 0.0) != (g(plus.curve[a + 1]) > 0.0)) {
-          foot = dft::algorithms::continuation::locate(cont, plus.curve[a], plus.curve[a + 1], R, g);
+          foot = cont.locate(plus.curve[a], plus.curve[a + 1], R, g);
           break;
         }
       }

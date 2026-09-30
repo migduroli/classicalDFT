@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <armadillo>
 #include <cmath>
-#include <concepts>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -22,6 +21,149 @@ namespace dft::algorithms::continuation {
   };
 
   using Residual = std::function<arma::vec(const arma::vec&, double)>;
+
+  // Test functions evaluated on curve points, for locating events.
+  using TestFunction = std::function<double(const CurvePoint&)>;
+  using Spectrum = std::function<arma::vec(const CurvePoint&)>;
+
+  // A zero of eigenvalue number `eigenvalue` (in ascending order) on a curve.
+  struct Crossing {
+    CurvePoint point;
+    arma::uword eigenvalue;
+  };
+
+  // Arclength of the step from a to its successor b, read from the corrector
+  // hyperplane: dot(b.x - a.x, a.dx_ds) + (b.lambda - a.lambda) a.dlambda_ds.
+  [[nodiscard]] inline auto arclength(const CurvePoint& a, const CurvePoint& b) -> double {
+    return arma::dot(b.x - a.x, a.dx_ds) + (b.lambda - a.lambda) * a.dlambda_ds;
+  }
+
+  // Indices k at which g changes sign between curve[k] and curve[k + 1].
+  // Sign changes with |g| below floor on either side are skipped, for test
+  // functions that are only resolved down to a known noise level.
+  [[nodiscard]] inline auto
+  sign_changes(const std::vector<CurvePoint>& curve, const TestFunction& g, double floor = 0.0)
+      -> std::vector<std::size_t> {
+    std::vector<std::size_t> out;
+    for (std::size_t k = 0; k + 1 < curve.size(); ++k) {
+      const double ga = g(curve[k]);
+      const double gb = g(curve[k + 1]);
+      if (std::min(std::abs(ga), std::abs(gb)) > floor && (ga > 0.0) != (gb > 0.0)) {
+        out.push_back(k);
+      }
+    }
+    return out;
+  }
+
+  // Event location shared by Continuation and MatrixFreeContinuation: both
+  // provide step(point, R, ds), which is all these need.
+  namespace detail {
+
+    template <typename Stepper>
+    [[nodiscard]] auto locate(
+        const Stepper& stepper,
+        const CurvePoint& a,
+        const CurvePoint& b,
+        const Residual& R,
+        const TestFunction& g,
+        double tolerance,
+        int max_iterations
+    ) -> CurvePoint {
+      double lo = 0.0;
+      double hi = arclength(a, b);
+      double g_lo = g(a);
+      double g_hi = g(b);
+      CurvePoint best = std::abs(g_lo) < std::abs(g_hi) ? a : b;
+      int side = 0;
+      for (int it = 0; it < max_iterations && std::abs(hi - lo) > tolerance; ++it) {
+        const double ds = (lo * g_hi - hi * g_lo) / (g_hi - g_lo);
+        auto trial = stepper.step(a, R, ds);
+        if (!trial) {
+          break;
+        }
+        const double g_ds = g(*trial);
+        best = std::move(*trial);
+        if (std::abs(g_ds) < tolerance) {
+          break;
+        }
+        if ((g_ds > 0.0) == (g_hi > 0.0)) {
+          hi = ds;
+          g_hi = g_ds;
+          if (side == -1) {
+            g_lo *= 0.5;
+          }
+          side = -1;
+        } else {
+          lo = ds;
+          g_lo = g_ds;
+          if (side == +1) {
+            g_hi *= 0.5;
+          }
+          side = +1;
+        }
+      }
+      return best;
+    }
+
+    template <typename Stepper>
+    [[nodiscard]] auto
+    folds(const Stepper& stepper, const std::vector<CurvePoint>& curve, const Residual& R, double floor)
+        -> std::vector<CurvePoint> {
+      auto dlambda = [](const CurvePoint& p) {
+        return p.dlambda_ds;
+      };
+      std::vector<CurvePoint> out;
+      for (std::size_t k : sign_changes(curve, dlambda, floor)) {
+        out.push_back(locate(stepper, curve[k], curve[k + 1], R, dlambda, 1e-13, 80));
+      }
+      return out;
+    }
+
+    template <typename Stepper>
+    [[nodiscard]] auto
+    crossings(const Stepper& stepper, const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum)
+        -> std::vector<Crossing> {
+      std::vector<Crossing> out;
+      if (curve.empty()) {
+        return out;
+      }
+      auto negatives = [](const arma::vec& eigenvalues) {
+        return static_cast<arma::uword>(arma::accu(eigenvalues < 0.0));
+      };
+      arma::uword m_prev = negatives(spectrum(curve.front()));
+      for (std::size_t k = 0; k + 1 < curve.size(); ++k) {
+        const arma::uword m_next = negatives(spectrum(curve[k + 1]));
+        for (arma::uword j = std::min(m_prev, m_next); j < std::max(m_prev, m_next); ++j) {
+          auto g = [&spectrum, j](const CurvePoint& p) {
+            return spectrum(p)(j);
+          };
+          out.push_back(Crossing{.point = locate(stepper, curve[k], curve[k + 1], R, g, 1e-13, 80), .eigenvalue = j});
+        }
+        m_prev = m_next;
+      }
+      return out;
+    }
+
+    template <typename Stepper>
+    [[nodiscard]] auto switch_branch(
+        const Stepper& stepper,
+        const CurvePoint& bifurcation,
+        const Residual& R,
+        const arma::vec& dx,
+        double ds,
+        double dlambda
+    ) -> std::optional<CurvePoint> {
+      const double norm = std::sqrt(arma::dot(dx, dx) + dlambda * dlambda);
+      CurvePoint start{
+          .x = bifurcation.x,
+          .lambda = bifurcation.lambda,
+          .dx_ds = dx / norm,
+          .dlambda_ds = dlambda / norm,
+      };
+      return stepper.step(start, R, ds);
+    }
+
+  } // namespace detail
 
   struct Continuation {
     double initial_step{0.01};
@@ -40,6 +182,58 @@ namespace dft::algorithms::continuation {
     [[nodiscard]] auto
     trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {}) const
         -> std::vector<CurvePoint>;
+
+    // Root of g between a and its successor b, where g changes sign. Each
+    // trial point is a fresh step from a of length ds in (0, arclength(a, b)),
+    // and ds is updated by the Illinois variant of regula falsi. Returns the
+    // last point computed, on the curve to the Newton tolerance.
+    [[nodiscard]] auto locate(
+        const CurvePoint& a,
+        const CurvePoint& b,
+        const Residual& R,
+        const TestFunction& g,
+        double tolerance = 1e-13,
+        int max_iterations = 80
+    ) const -> CurvePoint {
+      return detail::locate(*this, a, b, R, g, tolerance, max_iterations);
+    }
+
+    // Folds (turning points in lambda): the zeros of dlambda/ds along the
+    // curve. The default floor skips sign flips of a tangent component that
+    // is zero to the accuracy of the finite-difference tangent.
+    [[nodiscard]] auto folds(const std::vector<CurvePoint>& curve, const Residual& R, double floor = 1e-8) const
+        -> std::vector<CurvePoint> {
+      return detail::folds(*this, curve, R, floor);
+    }
+
+    // Zero crossings of the eigenvalues of a symmetric operator along the
+    // curve; spectrum(p) returns them in ascending order. Where the number of
+    // negative eigenvalues changes from m_a to m_b between consecutive points,
+    // eigenvalue j changes sign for every j from min(m_a, m_b) to
+    // max(m_a, m_b) - 1, and each root is located. A crossing is a fold or a
+    // bifurcation point; the caller tells them apart, for example with folds()
+    // or from the eigenvector.
+    [[nodiscard]] auto
+    crossings(const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum) const
+        -> std::vector<Crossing> {
+      return detail::crossings(*this, curve, R, spectrum);
+    }
+
+    // Branch switching at a bifurcation point: one predictor-corrector step
+    // of length ds along the direction (dx, dlambda), normalised to unit
+    // length. For a pitchfork the bifurcating tangent is (v, 0), with v the
+    // critical null vector, so dlambda defaults to zero. The corrector
+    // hyperplane excludes the branch through the point, so Newton converges
+    // onto the new one. Returns nullopt if Newton fails.
+    [[nodiscard]] auto switch_branch(
+        const CurvePoint& bifurcation,
+        const Residual& R,
+        const arma::vec& dx,
+        double ds,
+        double dlambda = 0.0
+    ) const -> std::optional<CurvePoint> {
+      return detail::switch_branch(*this, bifurcation, R, dx, ds, dlambda);
+    }
   };
 
   namespace detail {
@@ -319,174 +513,61 @@ namespace dft::algorithms::continuation {
 
       return curve;
     }
+
+    // Event location and branch switching, as for Continuation.
+
+    // Root of g between a and its successor b, where g changes sign. Each
+    // trial point is a fresh step from a of length ds in (0, arclength(a, b)),
+    // and ds is updated by the Illinois variant of regula falsi. Returns the
+    // last point computed, on the curve to the Newton tolerance.
+    [[nodiscard]] auto locate(
+        const CurvePoint& a,
+        const CurvePoint& b,
+        const Residual& R,
+        const TestFunction& g,
+        double tolerance = 1e-13,
+        int max_iterations = 80
+    ) const -> CurvePoint {
+      return detail::locate(*this, a, b, R, g, tolerance, max_iterations);
+    }
+
+    // Folds (turning points in lambda): the zeros of dlambda/ds along the
+    // curve. The default floor skips sign flips of a tangent component that
+    // is zero to the accuracy of the finite-difference tangent.
+    [[nodiscard]] auto folds(const std::vector<CurvePoint>& curve, const Residual& R, double floor = 1e-8) const
+        -> std::vector<CurvePoint> {
+      return detail::folds(*this, curve, R, floor);
+    }
+
+    // Zero crossings of the eigenvalues of a symmetric operator along the
+    // curve; spectrum(p) returns them in ascending order. Where the number of
+    // negative eigenvalues changes from m_a to m_b between consecutive points,
+    // eigenvalue j changes sign for every j from min(m_a, m_b) to
+    // max(m_a, m_b) - 1, and each root is located. A crossing is a fold or a
+    // bifurcation point; the caller tells them apart, for example with folds()
+    // or from the eigenvector.
+    [[nodiscard]] auto
+    crossings(const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum) const
+        -> std::vector<Crossing> {
+      return detail::crossings(*this, curve, R, spectrum);
+    }
+
+    // Branch switching at a bifurcation point: one predictor-corrector step
+    // of length ds along the direction (dx, dlambda), normalised to unit
+    // length. For a pitchfork the bifurcating tangent is (v, 0), with v the
+    // critical null vector, so dlambda defaults to zero. The corrector
+    // hyperplane excludes the branch through the point, so Newton converges
+    // onto the new one. Returns nullopt if Newton fails.
+    [[nodiscard]] auto switch_branch(
+        const CurvePoint& bifurcation,
+        const Residual& R,
+        const arma::vec& dx,
+        double ds,
+        double dlambda = 0.0
+    ) const -> std::optional<CurvePoint> {
+      return detail::switch_branch(*this, bifurcation, R, dx, ds, dlambda);
+    }
   };
-
-  // Event location along a traced curve. The functions below work with any
-  // stepper that provides step(point, R, ds) -> std::optional<CurvePoint>,
-  // so they apply to both Continuation and MatrixFreeContinuation.
-
-  template <typename S>
-  concept Stepper = requires(const S& s, const CurvePoint& p, const Residual& R, double ds) {
-    { s.step(p, R, ds) } -> std::same_as<std::optional<CurvePoint>>;
-  };
-
-  using TestFunction = std::function<double(const CurvePoint&)>;
-  using Spectrum = std::function<arma::vec(const CurvePoint&)>;
-
-  // Arclength of the step from a to its successor b, read from the corrector
-  // hyperplane: dot(b.x - a.x, a.dx_ds) + (b.lambda - a.lambda) a.dlambda_ds.
-  [[nodiscard]] inline auto arclength(const CurvePoint& a, const CurvePoint& b) -> double {
-    return arma::dot(b.x - a.x, a.dx_ds) + (b.lambda - a.lambda) * a.dlambda_ds;
-  }
-
-  // Root of g between a and its successor b, where g changes sign. Each trial
-  // point is a fresh step from a of length ds in (0, arclength(a, b)), and ds
-  // is updated by the Illinois variant of regula falsi. Returns the last point
-  // computed, which is on the curve to the Newton tolerance of the stepper.
-  template <Stepper S>
-  [[nodiscard]] auto locate(
-      const S& stepper,
-      const CurvePoint& a,
-      const CurvePoint& b,
-      const Residual& R,
-      const TestFunction& g,
-      double tolerance = 1e-13,
-      int max_iterations = 80
-  ) -> CurvePoint {
-    double lo = 0.0;
-    double hi = arclength(a, b);
-    double g_lo = g(a);
-    double g_hi = g(b);
-    CurvePoint best = std::abs(g_lo) < std::abs(g_hi) ? a : b;
-    int side = 0;
-    for (int it = 0; it < max_iterations && std::abs(hi - lo) > tolerance; ++it) {
-      double ds = (lo * g_hi - hi * g_lo) / (g_hi - g_lo);
-      auto trial = stepper.step(a, R, ds);
-      if (!trial) {
-        break;
-      }
-      double g_ds = g(*trial);
-      best = std::move(*trial);
-      if (std::abs(g_ds) < tolerance) {
-        break;
-      }
-      if ((g_ds > 0.0) == (g_hi > 0.0)) {
-        hi = ds;
-        g_hi = g_ds;
-        if (side == -1) {
-          g_lo *= 0.5;
-        }
-        side = -1;
-      } else {
-        lo = ds;
-        g_lo = g_ds;
-        if (side == +1) {
-          g_hi *= 0.5;
-        }
-        side = +1;
-      }
-    }
-    return best;
-  }
-
-  // Indices k at which g changes sign between curve[k] and curve[k + 1].
-  // Sign changes with |g| below floor on either side are skipped, for test
-  // functions that are only resolved down to a known noise level.
-  [[nodiscard]] inline auto
-  sign_changes(const std::vector<CurvePoint>& curve, const TestFunction& g, double floor = 0.0)
-      -> std::vector<std::size_t> {
-    std::vector<std::size_t> out;
-    for (std::size_t k = 0; k + 1 < curve.size(); ++k) {
-      double ga = g(curve[k]);
-      double gb = g(curve[k + 1]);
-      if (std::min(std::abs(ga), std::abs(gb)) <= floor) {
-        continue;
-      }
-      if ((ga > 0.0) != (gb > 0.0)) {
-        out.push_back(k);
-      }
-    }
-    return out;
-  }
-
-  // Folds (turning points in lambda): the zeros of dlambda/ds along the curve.
-  // The default floor skips sign flips of a tangent component that is zero to
-  // the accuracy of the finite-difference tangent.
-  template <Stepper S>
-  [[nodiscard]] auto
-  folds(const S& stepper, const std::vector<CurvePoint>& curve, const Residual& R, double floor = 1e-8)
-      -> std::vector<CurvePoint> {
-    auto dlambda = [](const CurvePoint& p) {
-      return p.dlambda_ds;
-    };
-    std::vector<CurvePoint> out;
-    for (std::size_t k : sign_changes(curve, dlambda, floor)) {
-      out.push_back(locate(stepper, curve[k], curve[k + 1], R, dlambda));
-    }
-    return out;
-  }
-
-  struct Crossing {
-    CurvePoint point;
-    arma::uword eigenvalue; // position in the ascending spectrum
-  };
-
-  // Zero crossings of the eigenvalues of a symmetric operator along the curve.
-  // spectrum(p) returns the eigenvalues at p in ascending order. Where the
-  // number of negative eigenvalues changes from m_a to m_b between consecutive
-  // points, eigenvalue j changes sign for every j between min(m_a, m_b) and
-  // max(m_a, m_b) - 1, and each of those roots is located. A crossing is a
-  // fold or a bifurcation point; the caller tells them apart, for example
-  // with folds() or from the eigenvector.
-  template <Stepper S>
-  [[nodiscard]] auto
-  crossings(const S& stepper, const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum)
-      -> std::vector<Crossing> {
-    std::vector<Crossing> out;
-    if (curve.empty()) {
-      return out;
-    }
-    auto negatives = [](const arma::vec& ev) {
-      return static_cast<arma::uword>(arma::accu(ev < 0.0));
-    };
-    arma::uword m_prev = negatives(spectrum(curve.front()));
-    for (std::size_t k = 0; k + 1 < curve.size(); ++k) {
-      arma::uword m_next = negatives(spectrum(curve[k + 1]));
-      for (arma::uword j = std::min(m_prev, m_next); j < std::max(m_prev, m_next); ++j) {
-        auto g = [&spectrum, j](const CurvePoint& p) {
-          return spectrum(p)(j);
-        };
-        out.push_back(Crossing{.point = locate(stepper, curve[k], curve[k + 1], R, g), .eigenvalue = j});
-      }
-      m_prev = m_next;
-    }
-    return out;
-  }
-
-  // Branch switching at a bifurcation point: one predictor-corrector step of
-  // length ds from the bifurcation point along the direction (dx, dlambda),
-  // normalised to unit length. For a pitchfork the bifurcating tangent is
-  // (v, 0) with v the critical null vector, so dlambda defaults to zero. The
-  // corrector hyperplane excludes the branch through the point, so Newton
-  // converges onto the new one. Returns nullopt if Newton fails.
-  template <Stepper S>
-  [[nodiscard]] auto switch_branch(
-      const S& stepper,
-      const CurvePoint& bifurcation,
-      const Residual& R,
-      const arma::vec& dx,
-      double ds,
-      double dlambda = 0.0
-  ) -> std::optional<CurvePoint> {
-    const double norm = std::sqrt(arma::dot(dx, dx) + dlambda * dlambda);
-    CurvePoint start{
-        .x = bifurcation.x,
-        .lambda = bifurcation.lambda,
-        .dx_ds = dx / norm,
-        .dlambda_ds = dlambda / norm,
-    };
-    return stepper.step(start, R, ds);
-  }
 
 } // namespace dft::algorithms::continuation
 

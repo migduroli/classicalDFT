@@ -390,7 +390,7 @@ TEST_CASE("locate finds a root of a test function between two points", "[continu
   REQUIRE(next.has_value());
   REQUIRE(next->x(0) > 0.5);
 
-  auto root = locate(event_config, start, *next, circle_residual, [](const CurvePoint& p) { return p.x(0) - 0.5; });
+  auto root = event_config.locate(start, *next, circle_residual, [](const CurvePoint& p) { return p.x(0) - 0.5; });
 
   CHECK(root.x(0) == Catch::Approx(0.5).margin(1e-10));
   CHECK(root.lambda == Catch::Approx(std::sqrt(0.75)).margin(1e-10));
@@ -410,7 +410,7 @@ TEST_CASE("locate works with the matrix-free stepper", "[continuation]") {
   REQUIRE(next.has_value());
   REQUIRE(next->x(0) > 0.5);
 
-  auto root = locate(config, start, *next, circle_residual, [](const CurvePoint& p) { return p.x(0) - 0.5; });
+  auto root = config.locate(start, *next, circle_residual, [](const CurvePoint& p) { return p.x(0) - 0.5; });
 
   CHECK(root.x(0) == Catch::Approx(0.5).margin(1e-7));
 }
@@ -436,7 +436,7 @@ TEST_CASE("sign_changes reports intervals and respects the floor", "[continuatio
 
 TEST_CASE("folds locates both turning points of the cubic", "[continuation]") {
   auto curve = trace_cubic(event_config);
-  auto found = folds(event_config, curve, cubic_fold_residual);
+  auto found = event_config.folds(curve, cubic_fold_residual);
 
   REQUIRE(found.size() == 2);
   const double xf = 1.0 / std::sqrt(3.0);
@@ -469,7 +469,7 @@ TEST_CASE("crossings locates eigenvalue zeros and their positions in the spectru
       .dlambda_ds = 1.0,
   };
   auto curve = event_config.trace(start, residual, [](const CurvePoint& p) { return p.lambda > 3.0; });
-  auto found = crossings(event_config, curve, residual, spectrum);
+  auto found = event_config.crossings(curve, residual, spectrum);
 
   REQUIRE(found.size() == 2);
   CHECK(found[0].point.lambda == Catch::Approx(1.0).margin(1e-10));
@@ -482,11 +482,11 @@ TEST_CASE("crossings returns nothing for an empty or stable curve", "[continuati
   auto spectrum = [](const CurvePoint&) -> arma::vec {
     return arma::vec{1.0};
   };
-  CHECK(crossings(event_config, {}, circle_residual, spectrum).empty());
+  CHECK(event_config.crossings({}, circle_residual, spectrum).empty());
 
   CurvePoint start{.x = arma::vec{0.0}, .lambda = 1.0, .dx_ds = arma::vec{1.0}, .dlambda_ds = 0.0};
   auto curve = event_config.trace(start, circle_residual, [](const CurvePoint& p) { return p.x(0) > 0.5; });
-  CHECK(crossings(event_config, curve, circle_residual, spectrum).empty());
+  CHECK(event_config.crossings(curve, circle_residual, spectrum).empty());
 }
 
 TEST_CASE("switch_branch steps onto both arms of a pitchfork", "[continuation]") {
@@ -497,8 +497,8 @@ TEST_CASE("switch_branch steps onto both arms of a pitchfork", "[continuation]")
   };
   CurvePoint bifurcation{.x = arma::vec{0.0}, .lambda = 0.0, .dx_ds = arma::vec{0.0}, .dlambda_ds = 1.0};
 
-  auto plus = switch_branch(event_config, bifurcation, residual, arma::vec{2.0}, 0.1);
-  auto minus = switch_branch(event_config, bifurcation, residual, arma::vec{-1.0}, 0.1);
+  auto plus = event_config.switch_branch(bifurcation, residual, arma::vec{2.0}, 0.1);
+  auto minus = event_config.switch_branch(bifurcation, residual, arma::vec{-1.0}, 0.1);
 
   REQUIRE(plus.has_value());
   REQUIRE(minus.has_value());
@@ -515,7 +515,7 @@ TEST_CASE("switch_branch normalises a direction with a lambda component", "[cont
   };
   CurvePoint bifurcation{.x = arma::vec{0.0}, .lambda = 0.0, .dx_ds = arma::vec{0.0}, .dlambda_ds = 1.0};
 
-  auto next = switch_branch(event_config, bifurcation, residual, arma::vec{1.0}, 0.2, 1.0);
+  auto next = event_config.switch_branch(bifurcation, residual, arma::vec{1.0}, 0.2, 1.0);
 
   REQUIRE(next.has_value());
   CHECK(next->x(0) == Catch::Approx(next->lambda).margin(1e-10));
