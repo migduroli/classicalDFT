@@ -7,8 +7,20 @@ folds and the bifurcation points on it, steps off at every bifurcation point
 onto both arms of the branches with $n = 1, 2, 3$ interfaces, samples the
 pitchforks at prescribed amplitude, and traces the $n = 1$ branch again with
 the order-parameter content $N$ as the parameter, up to its finite-size fold.
-The closed-form results that the computation must reproduce are collected in a
-verification table at the end.
+It then holds $\mu = 0$ fixed and continues in $L/\sqrt\kappa$, where the
+Neumann modes go soft one after another and give nested pitchforks, and it
+closes with the Landau pitchfork of a uniform order parameter. The closed-form
+results that the computation must reproduce are collected in a verification
+table at the end.
+
+**Figure conventions.** Branches are solid where stable and dashed where
+unstable. A non-uniform branch that is unstable along its whole length is
+drawn solid and the caption says it is unstable, so that figures with many
+such branches stay readable; line style is kept wherever stability changes
+along a curve. Profile panels are labelled by the letter of the marked state,
+with the details written inside. Figures are one column ($3.4 \times 3.0$ in)
+for single plots and two columns ($7.0 \times 3.0$ or $7.0 \times 5.2$ in)
+for multipanel figures.
 
 The model has no DFT-specific ingredients, so every quantity along the curves
 can be compared with an exact value. The continuation machinery used here
@@ -287,7 +299,7 @@ $\rho \to -\rho$ that would force a pitchfork maps $\mu$ to $-\mu$, so it is a
 symmetry of the problem only at $\mu = 0$. Traced in $\mu$, the uniform branch
 loses stability through two folds, at $\pm\mu_f$, which are the spinodals.
 The pitchfork appears when $\mu = 0$ is held fixed and a temperature-like
-parameter is varied instead.
+parameter is varied instead (Section 7).
 
 ### The S-curve
 
@@ -302,9 +314,10 @@ states coexist at every $\mu$.
 $\Omega$ against $\mu$. The two stable uniform arcs cross at $\mu_0 = 0$, where
 $\rho = \pm 1$ have the same grand potential; the unstable uniform arc (dashed)
 joins them at the folds, where $\Omega(\mu)$ has cusps. Every state on the
-dashed arc is uniform: its profile is flat. The interface branches of
-Section 5 are separate curves; they are drawn in colour, below the dashed arc,
-and the panels on the right show the profiles at $\mu = 0$.
+dashed arc is uniform: its profile is flat (A). The interface branches of
+Section 5 are separate curves, drawn in colour below the dashed arc and dashed
+because they are unstable at fixed $\mu$; B, C and D mark their states at
+$\mu = 0$, and the panels on the right show the profiles.
 
 ![Swallowtail](exports/swallowtail.png)
 
@@ -382,10 +395,16 @@ $\pm\bar\rho_n$.
 
 Top: $a_n$ against $\mu$, both arms, with every bifurcation point numbered by
 its $n$; the points $n = 1$ to 4 lie within 0.03 of each fold and are shown in
-the zoom. Bottom: the gap $\Omega - \Omega_{\rm meta}$ to the metastable
-uniform state, against $\mu$ and against $N$. All the non-uniform curves in
-this figure are unstable at fixed $\mu$: the branch with $n$ interfaces has
-$n_- = n$ at every computed point.
+the zooms on both sides. On the axis $a_n = 0$ three uniform states share each
+$|\mu| < \mu_f$: the stable arcs are grey, the unstable middle arc, where the
+pitchforks sit, is dashed. Bottom: the gap $\Omega - \Omega_{\rm meta}(\mu)$,
+against $\mu$ and against $N$, where $\Omega_{\rm meta}(\mu)$ is the grand
+potential of the metastable uniform state at the same $\mu$: of the two
+locally stable uniform states, the one with the higher $\Omega$ (the vapour
+side, $\rho < -1/\sqrt3$, for $\mu > 0$, and the liquid side for $\mu < 0$).
+The gap is the cost of leaving the metastable phase through the state on the
+curve. Every non-uniform state in this figure is unstable at fixed $\mu$: the
+branch with $n$ interfaces has $n_- = n$ at every resolved point.
 
 ![Branches](exports/branches.png)
 
@@ -420,23 +439,27 @@ Three features of the diagram:
 
 ### The pitchforks up close
 
-The uniform state (black) exists on both sides of $\mu_n$; at $\mu_n$ two
-mirror-image solutions branch off with amplitude $\propto
-\sqrt{\mu_n - \mu}$. The points are solved at prescribed $a_n$ with
-`constrained_point`; the fit of the exponent uses $|a_n| \le 10^{-3}$
-(shaded in the log-log panels). Further out, higher-order terms bend the arms,
-and the two-term normal form $\mu - \mu_n = c_2 a^2 + c_4 a^4$ follows them.
-$n = 1$ bends sooner because $\mu_1$ is within $10^{-4}$ of the fold
-($\mu_f - \mu_1 = 8.9 \times 10^{-5}$). The insets show one state on each arm:
-mirror images for $n = 1$, and the shift by $L/2$ for $n = 2$.
+One panel per pitchfork, $n = 1, 2, 3$. The uniform state (dashed, unstable)
+exists on both sides of $\mu_n$; at $\mu_n$ two mirror-image solutions branch
+off with amplitude $\propto \sqrt{\mu_n - \mu}$. The points are solved at
+prescribed $a_n$ with `constrained_point`; the fit of the exponent uses
+$|a_n| \le 10^{-3}$, shaded in the log-log inset, which also gives the fitted
+$\beta$. Further out, higher-order terms bend the arms, and the two-term
+normal form $\mu - \mu_n = c_2 a^2 + c_4 a^4$ (dotted) follows them where the
+leading order (dash-dot) does not. $n = 1$ bends sooner because $\mu_1$ is
+within $10^{-4}$ of the fold ($\mu_f - \mu_1 = 8.9 \times 10^{-5}$). Insets
+(A) and (B) show the marked state on each arm, with the y range fitted to the
+profile: mirror images for odd $n$, and the shift by $L/2$ for $n = 2$.
 
 ![Pitchfork zoom](exports/pitchfork_zoom.png)
 
 The fitted exponent converges to $1/2$ as the window shrinks: for $n = 1$ it
-deviates by $0.075$, $1.9 \times 10^{-3}$ and $2.0 \times 10^{-5}$ on the
+deviates by $0.089$, $1.9 \times 10^{-3}$ and $2.0 \times 10^{-5}$ on the
 decades $10^{-2} \le |a_1| \le 10^{-1}$, $10^{-3}$ to $10^{-2}$ and $10^{-4}$
 to $10^{-3}$, about a hundredfold per decade, as the $O(a^2)$ correction of
-the normal form predicts. The verification requires the smallest window to
+the normal form predicts ($n = 2$: $9.3 \times 10^{-3}$, $1.0 \times 10^{-4}$,
+$2.9 \times 10^{-6}$; $n = 3$: $1.2 \times 10^{-3}$, $1.2 \times 10^{-5}$,
+$4.0 \times 10^{-6}$). The verification requires the smallest window to
 lie closer to $1/2$ than the next one.
 
 For even $n$ the shift by $L/n$ maps solutions to solutions only among states
@@ -451,7 +474,8 @@ symmetrising them and re-solving at the same $\mu$.
 ### Along the $n = 1$ branch
 
 Six states on the $n = 1$ arm at fixed $\mu$, with $\Delta\Omega = \Omega -
-\Omega_{\rm meta}$: near the bifurcation (A) the profile is the cosine mode;
+\Omega_{\rm meta}(\mu)$; the whole branch is unstable at fixed $\mu$
+($n_- = 1$). Near the bifurcation (A) the profile is the cosine mode;
 at $\mu = 0.2$ and $0.05$ (B, C) it is a layer of the stable phase against the
 wall, the one-dimensional critical nucleus, growing as $\mu$ decreases; at
 $\mu = 0$ (D) it is the centred interface with $\Delta\Omega = \sigma$; and at
@@ -475,9 +499,12 @@ R(x; N) = \begin{pmatrix} F(y, \mu) \\ h \sum_i w_i y_i - N \end{pmatrix} .
 $$
 
 The same `Continuation` object traces it; only the residual changes. The
-figure shows $\mu$ against $N$, with the index at fixed $N$ by line style. The
-pale band is the $n = 1$ branch traced in $\mu$, the thin line the same branch
-traced in $N$: they coincide.
+figure shows $\mu$ against $N$, with the index at fixed $N$ by line style
+(solid stable, dashed unstable). The pale band is the $n = 1$ branch traced in
+$\mu$, the thin line the same branch traced in $N$: they coincide. The
+$n = 2$ and $n = 3$ branches, traced in $\mu$, are unstable at fixed $N$
+along their whole length. The insets show the profiles of the lettered states,
+in blue for those on the $n = 1$ branch.
 
 ![Fixed mass](exports/canonical.png)
 
@@ -560,11 +587,81 @@ the fold grows only logarithmically.
 
 ---
 
-## 7. Verification
+## 7. Nested pitchforks at $\mu = 0$
+
+### Continuing in $L/\sqrt\kappa$
+
+At $\mu = 0$ the symmetry $\rho \to -\rho$ is a symmetry of the problem, and
+$\rho = 0$ is a solution for every $\kappa$. With $\lambda = L/\sqrt\kappa$
+as the parameter ($\kappa = (L/\lambda)^2$ at fixed $L$), the residual is
+
+$$
+F(y; \lambda) = -\left(\frac{L}{\lambda}\right)^2 D_2 y + y^3 - y ,
+$$
+
+and the eigenvalues of $S$ at $y = 0$ are $\kappa d_n - 1$. Mode $n$ goes soft
+at
+
+$$
+\kappa_n = \frac{1}{d_n} \quad\xrightarrow{h \to 0}\quad
+\left(\frac{L}{n\pi}\right)^2, \qquad
+\lambda_n = L\sqrt{d_n} \to n\pi .
+$$
+
+The code traces $y = 0$ from $\lambda = 2.5$ to $21$ (between $6\pi$ and
+$7\pi$), locates the six crossings with `crossings`, and starts both arms of
+each branch with `switch_branch`. The branches are supercritical in $\lambda$
+and nested: branch $n$ appears when the box holds $n$ half-wavelengths of the
+soft mode.
+
+![Nested pitchforks](exports/nested_pitchforks.png)
+
+All the states in this figure are unstable at fixed $\mu$: $\rho = 0$ has
+$n_- \ge 1$ (its $n = 0$ eigenvalue is $-1$), and branch $n$ has $n_- = n$.
+The profiles (A) to (F) are the branches at the largest $L/\sqrt\kappa$:
+chains of $n$ interfaces, still of small amplitude for the youngest ones.
+
+The index is checked only where the eigenvalue nearest zero exceeds $10^{-8}$
+in magnitude. On the two $n = 1$ arms beyond $L/\sqrt\kappa \approx 16.5$,
+50 of the 736 traced points, the lone interface can translate almost freely:
+its eigenvalue is of order $e^{-qL} \approx 10^{-11}$, below what states
+converged to a residual of $10^{-9}$ can resolve, and its sign there is
+round-off. The small kink of the $n = 1$ arms near $L/\sqrt\kappa = 20.4$ is
+the trace drifting along that nearly neutral direction.
+
+### How many branches
+
+The number of branches present at a given $L/\sqrt\kappa$ is the number of
+soft modes, $\lfloor (L/\pi)/\sqrt\kappa \rfloor$ in the continuum. The
+detected $\lambda_n$ lie below $n\pi$ by the discretisation error of $d_n$
+($\lambda_1 = 3.14156$ against $\pi$), which is invisible on this scale.
+
+<p align="center"><img src="exports/branch_count.png" alt="Branch count" width="420"/></p>
+
+The offset of $\kappa_n$ from the continuum value has a closed form:
+$1/d_n = (L/n\pi)^2 + h^2/12 + O(h^4 (n\pi/L)^2)$, so
+$\kappa_n - (L/n\pi)^2 \to h^2/12 = 8.33 \times 10^{-4}$ for every $n$. The
+table checks it.
+
+### The Landau pitchfork
+
+For a uniform order parameter at $\mu = 0$ with
+$f_0 = \rho^4/4 + a\rho^2/2$, the stationary condition is $\rho^3 + a\rho = 0$.
+Continued in $a$ from positive to negative, $\rho = 0$ loses stability at
+$a = 0$ and splits into $\rho = \pm\sqrt{-a}$. With $a$ proportional to
+$T - T_c$ this is the pitchfork at the top of the $(\rho, T)$ coexistence
+dome: the one that the uniform branch at fixed $\mu$ (Section 4) does not
+show, because there $\mu$ breaks the symmetry.
+
+<p align="center"><img src="exports/landau.png" alt="Landau pitchfork" width="420"/></p>
+
+---
+
+## 8. Verification
 
 `check/main.cpp` runs the same traces as the example (`utils::run`) and
 compares them with the closed forms below; it exits with a non-zero status if
-any row fails. The same table is printed at the end of `main.cpp`. Reference
+any row fails (61 rows). The same table is printed at the end of `main.cpp`. Reference
 values: $L = 20$, $\kappa = 1$, $K = 201$ ($h = 0.1$).
 
 | Quantity | Measured | Exact | Error | Tolerance |
@@ -595,6 +692,13 @@ values: $L = 20$, $\kappa = 1$, $K = 201$ ($h = 0.1$).
 | Arms $n = 3$: $\max\lvert S y_- - y_+\rvert$ | $1.9 \times 10^{-8}$ | $0$ | $1.9 \times 10^{-8}$ | $10^{-6}$ |
 | Pitchfork exponent, $10^{-4} \le \lvert a_1\rvert \le 10^{-3}$ | $0.4999803$ | $1/2$ | $2.0 \times 10^{-5}$ | $1.9 \times 10^{-3}$ |
 | Pitchfork exponent, $10^{-4} \le \lvert a_2\rvert \le 10^{-3}$ | $0.5000029$ | $1/2$ | $2.9 \times 10^{-6}$ | $1.0 \times 10^{-4}$ |
+| Pitchfork exponent, $10^{-4} \le \lvert a_3\rvert \le 10^{-3}$ | $0.5000040$ | $1/2$ | $4.0 \times 10^{-6}$ | $1.2 \times 10^{-5}$ |
+| $\mu = 0$: $\kappa_n$ against the discrete $\kappa d_n = 1$, $n = 1..6$ | $40.529307$, ..., $1.126625$ | same | $\le 7.1 \times 10^{-11}$ | $10^{-9}\kappa_n$ |
+| $\mu = 0$: $\kappa_n - (L/n\pi)^2$, $n = 1..6$ | $8.33344 \times 10^{-4}$ to $8.33704 \times 10^{-4}$ | $h^2/12 = 8.33333 \times 10^{-4}$ | $1.0 \times 10^{-8}$ to $3.7 \times 10^{-7}$ | $10^{-5}$ |
+| $\mu = 0$: branches found at $L/\sqrt\kappa = 21$ | $6$ | $\lfloor 21/\pi \rfloor = 6$ | $0$ | exact |
+| $\mu = 0$: $\max\lvert n_- - n\rvert$ on all arms (resolved points) | $0$ | $0$ | $0$ | exact |
+| Landau: $a_c$ | $0$ | $0$ | $0$ | $10^{-10}$ |
+| Landau: $\max\lvert\rho \mp \sqrt{-a}\rvert$ on the arms | $5.2 \times 10^{-9}$ | $0$ | $5.2 \times 10^{-9}$ | $10^{-6}$ |
 | $\bar\rho_1$ vs discrete $\kappa d_1 = 1 - 3\bar\rho^2$ | $0.5701831566$ | $0.5701831566$ | $5.3 \times 10^{-15}$ | $10^{-9}$ |
 | $\bar\rho_1$ vs continuum $\kappa(\pi/L)^2 = 1 - 3\bar\rho^2$ | $0.5701831566$ | $0.5701830083$ | $1.5 \times 10^{-7}$ | $10^{-3}$ |
 | $\bar\rho_2$ vs discrete | $0.5481216632$ | $0.5481216632$ | $3.3 \times 10^{-12}$ | $10^{-9}$ |
@@ -636,10 +740,16 @@ Notes on the table:
 - The fold rows use Richardson extrapolation from $L = 40$ and $80$, which
   removes the measured $O(1/L)$ correction; the tolerances are two to three
   times the extrapolated errors, for the $O(1/L^2)$ remainder.
+- The $\kappa_n$ offsets differ from $h^2/12$ by the next term of the
+  expansion of $1/d_n$, which grows like $n^2$ and stays below $4 \times
+  10^{-7}$ for $n \le 6$; the tolerance $10^{-5}$ leaves room for it.
+- The Landau arms are exact up to the Newton tolerance: a residual of $10^{-9}$
+  in $\rho^3 + a\rho$ leaves an error of $10^{-9}/(2|a|)$ in $\rho$, largest at
+  the first point of each arm, where $|a|$ is of order $10^{-3}$.
 
 ---
 
-## 8. Build and run
+## 9. Build and run
 
 ```bash
 # Build and run the example: traces all branches, prints the table, writes the figures
@@ -652,10 +762,8 @@ make run-checks
 make run
 ```
 
-The figures use journal sizes: one column ($3.4 \times 3.0$ in) for single
-plots, two columns ($7.0 \times 3.0$ or $7.0 \times 5.2$ in) for multipanel
-figures, with print fonts and 300 dpi PNGs. Results are written to
-`exports/`:
+Figures use print fonts and 300 dpi PNGs at the sizes given in the figure
+conventions above. Results are written to `exports/`:
 
 ```
 exports/
@@ -667,7 +775,10 @@ exports/
 ├── branches.{png,pdf}
 ├── pitchfork_zoom.{png,pdf}
 ├── walk.{png,pdf}
-└── canonical.{png,pdf}
+├── canonical.{png,pdf}
+├── nested_pitchforks.{png,pdf}
+├── branch_count.{png,pdf}
+└── landau.{png,pdf}
 ```
 
 ## References
