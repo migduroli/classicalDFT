@@ -172,8 +172,7 @@ namespace utils {
     }
 
     inline auto bifurcation_count(double length, double kappa, double rho_bar) -> int {
-      return static_cast<int>(
-          std::floor(length / std::numbers::pi * std::sqrt((1.0 - 3.0 * rho_bar * rho_bar) / kappa))
+      return static_cast<int>(std::floor(length / std::numbers::pi * std::sqrt((1.0 - 3.0 * rho_bar * rho_bar) / kappa))
       );
     }
 
@@ -299,15 +298,13 @@ namespace utils {
       const bool resolved = std::min(std::abs(a.dlambda_ds), std::abs(c.dlambda_ds)) > 1e-8;
       if (resolved && (a.dlambda_ds > 0.0) != (c.dlambda_ds > 0.0)) {
         auto root = locate(cont, R, a, ds, [](const CurvePoint& q) { return q.dlambda_ds; });
-        b.folds.push_back(
-            Event{
-                .point = root,
-                .rho_bar = p.mass(root.x) / p.length,
-                .mu = root.lambda,
-                .mode = 0,
-                .eigenvector = {},
-            }
-        );
+        b.folds.push_back(Event{
+            .point = root,
+            .rho_bar = p.mass(root.x) / p.length,
+            .mu = root.lambda,
+            .mode = 0,
+            .eigenvector = {},
+        });
       }
 
       const int ia = b.index[k];
@@ -319,15 +316,13 @@ namespace utils {
         int n = nodal_count(v);
         if (n == 0)
           continue;
-        b.bifurcations.push_back(
-            Event{
-                .point = root,
-                .rho_bar = p.mass(root.x) / p.length,
-                .mu = root.lambda,
-                .mode = n,
-                .eigenvector = v,
-            }
-        );
+        b.bifurcations.push_back(Event{
+            .point = root,
+            .rho_bar = p.mass(root.x) / p.length,
+            .mu = root.lambda,
+            .mode = n,
+            .eigenvector = v,
+        });
       }
     }
   }
@@ -525,8 +520,7 @@ namespace utils {
       );
       if (scale == 1.0) {
         rows.push_back({"interface", "index at mu = 0 (fixed mu)", static_cast<double>(q.index(y)), 1.0, 0.0});
-        rows.push_back(
-            {"interface", "index at mu = 0 (fixed N)", static_cast<double>(q.constrained_index(y)), 0.0, 0.0}
+        rows.push_back({"interface", "index at mu = 0 (fixed N)", static_cast<double>(q.constrained_index(y)), 0.0, 0.0}
         );
       }
     }
