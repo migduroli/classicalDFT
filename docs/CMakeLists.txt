@@ -37,6 +37,7 @@ add_doc(interaction      functional/interaction)
 add_doc(solver           solver)
 add_doc(picard           algorithms/picard)
 add_doc(string_method    algorithms/string_method)
+add_doc(continuation     algorithms/continuation)
 add_doc(dynamics         dynamics)
 add_doc(density          density)
 add_doc(nucleation       nucleation)
@@ -52,6 +53,7 @@ add_check(density           density)
 add_check(dynamics          dynamics)
 add_check(nucleation        nucleation)
 add_check(string_method     algorithms/string_method)
+add_check(continuation      algorithms/continuation)
 
 # Umbrella target to build all cross-validation checks.
 add_custom_target(check_all
@@ -66,4 +68,5 @@ add_custom_target(check_all
         check_dynamics
         check_nucleation
         check_string_method
+        check_continuation
 )
