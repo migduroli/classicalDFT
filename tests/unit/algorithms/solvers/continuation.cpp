@@ -340,3 +340,184 @@ TEST_CASE("matrix-free continuation handles turning point", "[continuation]") {
     CHECK(std::abs(res) < 1e-5);
   }
 }
+
+// Event location and branch switching.
+
+static auto cubic_fold_residual(const arma::vec& x, double lambda) -> arma::vec {
+  return arma::vec{lambda - x(0) * x(0) * x(0) + x(0)};
+}
+
+// Curve lambda = x^3 - x from x = -1.5 to x = 1.5, through both folds.
+static auto trace_cubic(const Continuation& config) -> std::vector<CurvePoint> {
+  const double x0 = -1.5;
+  const double norm = std::sqrt(1.0 + std::pow(3.0 * x0 * x0 - 1.0, 2));
+  CurvePoint start{
+      .x = arma::vec{x0},
+      .lambda = x0 * x0 * x0 - x0,
+      .dx_ds = arma::vec{1.0 / norm},
+      .dlambda_ds = (3.0 * x0 * x0 - 1.0) / norm,
+  };
+  return config.trace(start, cubic_fold_residual, [](const CurvePoint& p) { return p.x(0) > 1.5; });
+}
+
+static const Continuation event_config{
+    .initial_step = 0.05,
+    .max_step = 0.2,
+    .min_step = 1e-6,
+    .newton = {.max_iterations = 50, .tolerance = 1e-12},
+};
+
+TEST_CASE("arclength recovers the step length", "[continuation]") {
+  CurvePoint start{
+      .x = arma::vec{0.0},
+      .lambda = 1.0,
+      .dx_ds = arma::vec{1.0},
+      .dlambda_ds = 0.0,
+  };
+  auto next = event_config.step(start, circle_residual, 0.1);
+  REQUIRE(next.has_value());
+  CHECK(arclength(start, *next) == Catch::Approx(0.1).margin(1e-12));
+}
+
+TEST_CASE("locate finds a root of a test function between two points", "[continuation]") {
+  CurvePoint start{
+      .x = arma::vec{0.0},
+      .lambda = 1.0,
+      .dx_ds = arma::vec{1.0},
+      .dlambda_ds = 0.0,
+  };
+  auto next = event_config.step(start, circle_residual, 0.8);
+  REQUIRE(next.has_value());
+  REQUIRE(next->x(0) > 0.5);
+
+  auto root = locate(event_config, start, *next, circle_residual, [](const CurvePoint& p) { return p.x(0) - 0.5; });
+
+  CHECK(root.x(0) == Catch::Approx(0.5).margin(1e-10));
+  CHECK(root.lambda == Catch::Approx(std::sqrt(0.75)).margin(1e-10));
+}
+
+TEST_CASE("locate works with the matrix-free stepper", "[continuation]") {
+  MatrixFreeContinuation config{
+      .newton = {.max_iterations = 50, .tolerance = 1e-9, .gmres = {.tolerance = 1e-12}},
+  };
+  CurvePoint start{
+      .x = arma::vec{0.0},
+      .lambda = 1.0,
+      .dx_ds = arma::vec{1.0},
+      .dlambda_ds = 0.0,
+  };
+  auto next = config.step(start, circle_residual, 0.6);
+  REQUIRE(next.has_value());
+  REQUIRE(next->x(0) > 0.5);
+
+  auto root = locate(config, start, *next, circle_residual, [](const CurvePoint& p) { return p.x(0) - 0.5; });
+
+  CHECK(root.x(0) == Catch::Approx(0.5).margin(1e-7));
+}
+
+TEST_CASE("sign_changes reports intervals and respects the floor", "[continuation]") {
+  std::vector<CurvePoint> curve;
+  for (double g : {1.0, 0.5, -0.5, -1e-12, 1e-12, 2.0}) {
+    curve.push_back(CurvePoint{.x = arma::vec{g}, .lambda = 0.0, .dx_ds = arma::vec{1.0}, .dlambda_ds = 0.0});
+  }
+  auto g = [](const CurvePoint& p) {
+    return p.x(0);
+  };
+
+  auto all = sign_changes(curve, g);
+  REQUIRE(all.size() == 2);
+  CHECK(all[0] == 1);
+  CHECK(all[1] == 3);
+
+  auto resolved = sign_changes(curve, g, 1e-8);
+  REQUIRE(resolved.size() == 1);
+  CHECK(resolved[0] == 1);
+}
+
+TEST_CASE("folds locates both turning points of the cubic", "[continuation]") {
+  auto curve = trace_cubic(event_config);
+  auto found = folds(event_config, curve, cubic_fold_residual);
+
+  REQUIRE(found.size() == 2);
+  const double xf = 1.0 / std::sqrt(3.0);
+  const double lf = 2.0 / (3.0 * std::sqrt(3.0));
+  CHECK(found[0].x(0) == Catch::Approx(-xf).margin(1e-9));
+  CHECK(found[0].lambda == Catch::Approx(lf).margin(1e-12));
+  CHECK(found[1].x(0) == Catch::Approx(xf).margin(1e-9));
+  CHECK(found[1].lambda == Catch::Approx(-lf).margin(1e-12));
+  CHECK(std::abs(found[0].dlambda_ds) < 1e-8);
+}
+
+TEST_CASE("crossings locates eigenvalue zeros and their positions in the spectrum", "[continuation]") {
+  // Two decoupled pitchforks on the trivial branch x = 0:
+  //   R_i(x, lambda) = (lambda - c_i) x_i - x_i^3,  c = (1, 2).
+  // The Jacobian at x = 0 is diag(c_i - lambda) after a sign change of R,
+  // so its eigenvalues go negative at lambda = 1 and lambda = 2.
+  auto residual = [](const arma::vec& x, double lambda) -> arma::vec {
+    arma::vec c{1.0, 2.0};
+    return (c - lambda) % x + arma::pow(x, 3);
+  };
+  auto spectrum = [](const CurvePoint& p) -> arma::vec {
+    arma::vec c{1.0, 2.0};
+    return arma::sort(c - p.lambda + 3.0 * arma::square(p.x));
+  };
+
+  CurvePoint start{
+      .x = arma::vec{0.0, 0.0},
+      .lambda = 0.0,
+      .dx_ds = arma::vec{0.0, 0.0},
+      .dlambda_ds = 1.0,
+  };
+  auto curve = event_config.trace(start, residual, [](const CurvePoint& p) { return p.lambda > 3.0; });
+  auto found = crossings(event_config, curve, residual, spectrum);
+
+  REQUIRE(found.size() == 2);
+  CHECK(found[0].point.lambda == Catch::Approx(1.0).margin(1e-10));
+  CHECK(found[0].eigenvalue == 0);
+  CHECK(found[1].point.lambda == Catch::Approx(2.0).margin(1e-10));
+  CHECK(found[1].eigenvalue == 1);
+}
+
+TEST_CASE("crossings returns nothing for an empty or stable curve", "[continuation]") {
+  auto spectrum = [](const CurvePoint&) -> arma::vec {
+    return arma::vec{1.0};
+  };
+  CHECK(crossings(event_config, {}, circle_residual, spectrum).empty());
+
+  CurvePoint start{.x = arma::vec{0.0}, .lambda = 1.0, .dx_ds = arma::vec{1.0}, .dlambda_ds = 0.0};
+  auto curve = event_config.trace(start, circle_residual, [](const CurvePoint& p) { return p.x(0) > 0.5; });
+  CHECK(crossings(event_config, curve, circle_residual, spectrum).empty());
+}
+
+TEST_CASE("switch_branch steps onto both arms of a pitchfork", "[continuation]") {
+  // R(x, lambda) = lambda x - x^3: trivial branch x = 0 and the parabola
+  // lambda = x^2, meeting at the pitchfork (0, 0).
+  auto residual = [](const arma::vec& x, double lambda) -> arma::vec {
+    return arma::vec{lambda * x(0) - x(0) * x(0) * x(0)};
+  };
+  CurvePoint bifurcation{.x = arma::vec{0.0}, .lambda = 0.0, .dx_ds = arma::vec{0.0}, .dlambda_ds = 1.0};
+
+  auto plus = switch_branch(event_config, bifurcation, residual, arma::vec{2.0}, 0.1);
+  auto minus = switch_branch(event_config, bifurcation, residual, arma::vec{-1.0}, 0.1);
+
+  REQUIRE(plus.has_value());
+  REQUIRE(minus.has_value());
+  CHECK(plus->x(0) == Catch::Approx(0.1).margin(1e-12));
+  CHECK(plus->lambda == Catch::Approx(0.01).margin(1e-10));
+  CHECK(minus->x(0) == Catch::Approx(-0.1).margin(1e-12));
+  CHECK(minus->lambda == Catch::Approx(0.01).margin(1e-10));
+}
+
+TEST_CASE("switch_branch normalises a direction with a lambda component", "[continuation]") {
+  // Transcritical R(x, lambda) = x (lambda - x): branches x = 0 and x = lambda.
+  auto residual = [](const arma::vec& x, double lambda) -> arma::vec {
+    return arma::vec{x(0) * (lambda - x(0))};
+  };
+  CurvePoint bifurcation{.x = arma::vec{0.0}, .lambda = 0.0, .dx_ds = arma::vec{0.0}, .dlambda_ds = 1.0};
+
+  auto next = switch_branch(event_config, bifurcation, residual, arma::vec{1.0}, 0.2, 1.0);
+
+  REQUIRE(next.has_value());
+  CHECK(next->x(0) == Catch::Approx(next->lambda).margin(1e-10));
+  CHECK(std::hypot(next->x(0), next->lambda) == Catch::Approx(0.2).margin(1e-10));
+}
