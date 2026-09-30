@@ -521,3 +521,34 @@ TEST_CASE("switch_branch normalises a direction with a lambda component", "[cont
   CHECK(next->x(0) == Catch::Approx(next->lambda).margin(1e-10));
   CHECK(std::hypot(next->x(0), next->lambda) == Catch::Approx(0.2).margin(1e-10));
 }
+
+TEST_CASE("constrained_point samples a curve at a prescribed value", "[continuation]") {
+  // Unit circle at x = 0.6: lambda = 0.8 from a guess on the upper half.
+  auto on_circle = event_config.constrained_point(arma::vec{0.5}, 0.9, circle_residual, [](const arma::vec& x, double) {
+    return x(0) - 0.6;
+  });
+  REQUIRE(on_circle.has_value());
+  CHECK(on_circle->x(0) == Catch::Approx(0.6).margin(1e-12));
+  CHECK(on_circle->lambda == Catch::Approx(0.8).margin(1e-10));
+  CHECK(on_circle->dlambda_ds >= 0.0);
+  CHECK(std::hypot(on_circle->dx_ds(0), on_circle->dlambda_ds) == Catch::Approx(1.0).margin(1e-10));
+
+  // Pitchfork lambda x - x^3 at amplitude x = a: the bifurcating branch lambda = a^2.
+  auto pitchfork = [](const arma::vec& x, double lambda) -> arma::vec {
+    return arma::vec{lambda * x(0) - x(0) * x(0) * x(0)};
+  };
+  for (double a : {1e-3, 0.1, -0.3}) {
+    auto point = event_config.constrained_point(arma::vec{a}, 0.0, pitchfork, [a](const arma::vec& x, double) {
+      return x(0) - a;
+    });
+    REQUIRE(point.has_value());
+    CHECK(point->lambda == Catch::Approx(a * a).margin(1e-10));
+  }
+}
+
+TEST_CASE("constrained_point returns nullopt when the constraint misses the curve", "[continuation]") {
+  auto point = event_config.constrained_point(arma::vec{0.5}, 0.9, circle_residual, [](const arma::vec& x, double) {
+    return x(0) - 2.0;
+  });
+  CHECK(!point.has_value());
+}

@@ -22,6 +22,9 @@ namespace dft::algorithms::continuation {
 
   using Residual = std::function<arma::vec(const arma::vec&, double)>;
 
+  // Scalar condition g(x, lambda) = 0 that singles out one point of a curve.
+  using Constraint = std::function<double(const arma::vec&, double)>;
+
   // Test functions evaluated on curve points, for locating events.
   using TestFunction = std::function<double(const CurvePoint&)>;
   using Spectrum = std::function<arma::vec(const CurvePoint&)>;
@@ -182,6 +185,16 @@ namespace dft::algorithms::continuation {
     [[nodiscard]] auto
     trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {}) const
         -> std::vector<CurvePoint>;
+
+    // The point of the curve R(x, lambda) = 0 where g(x, lambda) = 0, by
+    // Newton on the bordered system [R; g] from the guess (x, lambda). The
+    // constraint replaces the arclength condition of a step, so the curve can
+    // be sampled at prescribed values of any observable (an amplitude, a
+    // mass) instead of at arclength steps. The tangent is oriented with
+    // dlambda/ds >= 0. Returns nullopt if Newton fails.
+    [[nodiscard]] auto
+    constrained_point(const arma::vec& x, double lambda, const Residual& R, const Constraint& g) const
+        -> std::optional<CurvePoint>;
 
     // Root of g between a and its successor b, where g changes sign. Each
     // trial point is a fresh step from a of length ds in (0, arclength(a, b)),
@@ -413,6 +426,27 @@ namespace dft::algorithms::continuation {
     }
 
     return curve;
+  }
+
+  [[nodiscard]] inline auto
+  Continuation::constrained_point(const arma::vec& x, double lambda, const Residual& R, const Constraint& g) const
+      -> std::optional<CurvePoint> {
+    const arma::uword n = x.n_elem;
+    auto bordered = [&](const arma::vec& y) -> arma::vec {
+      arma::vec phys = R(y.head(n), y(n));
+      arma::vec out(phys.n_elem + 1);
+      out.head(phys.n_elem) = phys;
+      out(phys.n_elem) = g(y.head(n), y(n));
+      return out;
+    };
+    auto result = newton.solve(arma::join_cols(x, arma::vec{lambda}), bordered);
+    if (!result.converged) {
+      return std::nullopt;
+    }
+    arma::vec x_new = result.solution.head(n);
+    const double lambda_new = result.solution(n);
+    auto [dx_ds, dlambda_ds] = detail::tangent(R, x_new, lambda_new, arma::zeros(n), 1.0);
+    return CurvePoint{.x = std::move(x_new), .lambda = lambda_new, .dx_ds = std::move(dx_ds), .dlambda_ds = dlambda_ds};
   }
 
   // Matrix-free pseudo-arclength continuation for large-scale problems.
