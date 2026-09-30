@@ -84,6 +84,7 @@ int main() {
   plot::s_curve(problem, uniform);
   plot::swallowtail(problem, uniform);
   plot::branches(problem, results);
+  plot::pitchfork_zoom(results);
   plot::profiles(problem, results);
   plot::canonical(problem, uniform, results.arm(1, +1), results.canonical);
 #endif

@@ -366,6 +366,95 @@ namespace utils {
     return res.solution;
   }
 
+  // States on the pitchfork of mode n at prescribed amplitude a_n = a,
+  // from Newton on the bordered system F(y, mu) = 0, a_n(y) = a, started from
+  // the bifurcation point plus the critical eigenvector scaled to amplitude a.
+  // This parametrises the branch by its own amplitude, so small amplitudes
+  // are reached without resolving them by arclength steps.
+  struct PitchforkSample {
+    double amplitude;
+    double dmu; // mu - mu_n
+  };
+
+  inline auto pitchfork_samples(const Problem& p, const Event& bifurcation, const std::vector<double>& amplitudes)
+      -> std::vector<PitchforkSample> {
+    const arma::uword k = p.nodes;
+    // a_n is linear in y, with gradient (2 / L) h w_i (c_i - c_bar), where
+    // c_i = cos(n pi x_i / L) and c_bar is its trapezoid mean.
+    const arma::vec w = p.weights();
+    const arma::vec c = arma::cos(bifurcation.mode * std::numbers::pi * p.positions() / p.length);
+    const double c_bar = p.spacing() * arma::dot(w, c) / p.length;
+    const arma::vec grad = 2.0 / p.length * p.spacing() * (w % (c - c_bar));
+    const double a_v = arma::dot(grad, bifurcation.eigenvector);
+    dft::algorithms::solvers::Newton newton{.max_iterations = 50, .tolerance = 1e-12};
+    auto jacobian = [&](const arma::vec& v) {
+      arma::mat J(k + 1, k + 1, arma::fill::zeros);
+      J.submat(0, 0, k - 1, k - 1) = p.jacobian(v.head(k));
+      J.col(k).head(k).fill(-1.0);
+      J.row(k).head(k) = grad.t();
+      return J;
+    };
+    // Each sign is swept in increasing |a|, every solve starting from the
+    // previous one (the first from the linear guess).
+    std::vector<PitchforkSample> out;
+    for (double sign : {+1.0, -1.0}) {
+      std::vector<double> sweep;
+      for (double a : amplitudes) {
+        if (a * sign > 0.0)
+          sweep.push_back(a);
+      }
+      std::ranges::sort(sweep, {}, [](double a) { return std::abs(a); });
+      arma::vec previous;
+      double a_previous = 0.0;
+      for (double a : sweep) {
+        arma::vec z(k + 1);
+        if (previous.is_empty()) {
+          z.head(k) = bifurcation.point.x + (a / a_v) * bifurcation.eigenvector;
+          z(k) = bifurcation.mu;
+        } else {
+          z = previous;
+          z.head(k) += ((a - a_previous) / a_v) * bifurcation.eigenvector;
+        }
+        auto residual = [&](const arma::vec& v) {
+          arma::vec r(k + 1);
+          r.head(k) = p.residual(v.head(k), v(k));
+          r(k) = arma::dot(grad, v.head(k)) - a;
+          return r;
+        };
+        auto result = newton.solve(std::move(z), residual, jacobian);
+        if (!result.converged)
+          break;
+        out.push_back({.amplitude = a, .dmu = result.solution(k) - bifurcation.mu});
+        previous = result.solution;
+        a_previous = a;
+      }
+    }
+    return out;
+  }
+
+  // Exponent beta and prefactor C of |a_n| = C |mu - mu_n|^beta, by least
+  // squares on log |a_n| against log |mu - mu_n|, over the samples with
+  // |a_n| in [a_lo, a_hi].
+  struct PowerLaw {
+    double exponent;
+    double prefactor;
+  };
+
+  inline auto fit_power_law(const std::vector<PitchforkSample>& samples, double a_lo, double a_hi) -> PowerLaw {
+    std::vector<double> x, y;
+    for (const auto& s : samples) {
+      if (std::abs(s.amplitude) >= a_lo && std::abs(s.amplitude) <= a_hi) {
+        x.push_back(std::log(std::abs(s.dmu)));
+        y.push_back(std::log(std::abs(s.amplitude)));
+      }
+    }
+    arma::vec lx(x), ly(y);
+    const double mx = arma::mean(lx);
+    const double my = arma::mean(ly);
+    const double slope = arma::dot(lx - mx, ly - my) / arma::dot(lx - mx, lx - mx);
+    return {.exponent = slope, .prefactor = std::exp(my - slope * mx)};
+  }
+
   // Largest mismatch between the two arms of a pitchfork. Each sampled point
   // of the minus arm is mapped by arm_image onto the plus arm, and its foot
   // point on the traced plus arm (the zero of d/ds of the squared distance)
@@ -541,6 +630,8 @@ namespace utils {
     Branch uniform;
     std::vector<Branch> arms; // n = 1, +; n = 1, -; n = 2, +; ...
     std::vector<CanonicalBranch> canonical;
+    std::vector<Event> pitchfork_points;                 // bifurcation points at rho < 0, n = 1, 2
+    std::vector<std::vector<PitchforkSample>> pitchfork; // samples at prescribed a_n, both signs
 
     [[nodiscard]] auto arm(int n, int sign) const -> const Branch& {
       return *std::ranges::find_if(arms, [&](const Branch& b) { return b.mode == n && b.sign == sign; });
@@ -588,6 +679,20 @@ namespace utils {
             *a_hi
         );
         r.arms.push_back(std::move(b));
+      }
+    }
+
+    // Small-amplitude samples on the n = 1 and n = 2 pitchforks.
+    dft::console::info("Sampling the n = 1 and n = 2 pitchforks at prescribed a_n");
+    std::vector<double> amplitudes;
+    for (double e : arma::linspace(-4.0, -1.0, 61)) {
+      amplitudes.push_back(std::pow(10.0, e));
+      amplitudes.push_back(-std::pow(10.0, e));
+    }
+    for (const auto& e : r.uniform.bifurcations) {
+      if (e.rho_bar < 0.0 && e.mode <= 2) {
+        r.pitchfork_points.push_back(e);
+        r.pitchfork.push_back(pitchfork_samples(p, e, amplitudes));
       }
     }
 
@@ -685,6 +790,33 @@ namespace utils {
             b.mode,
             m.drift
         );
+    }
+
+    // Pitchfork exponent: |a_n| ~ C |mu - mu_n|^beta with beta = 1/2. The
+    // next term of the normal form, mu - mu_n = c2 a^2 + c4 a^4, shifts the
+    // fitted exponent by O(a^2), so the fit converges to 1/2 as the window
+    // shrinks. The fit on 1e-4 <= |a_n| <= 1e-3 must lie closer to 1/2 than
+    // the fit on the next decade, which sets its tolerance.
+    for (std::size_t j = 0; j < res.pitchfork.size(); ++j) {
+      const int n = res.pitchfork_points[j].mode;
+      auto narrow = fit_power_law(res.pitchfork[j], 1e-4, 1e-3);
+      auto middle = fit_power_law(res.pitchfork[j], 1e-3, 1e-2);
+      auto wide = fit_power_law(res.pitchfork[j], 1e-2, 1e-1);
+      std::println(
+          std::cout,
+          "  n = {}: pitchfork exponent {:.8f}, {:.8f}, {:.8f} on |a_n| in [1e-4, 1e-3], [1e-3, 1e-2], [1e-2, 1e-1]",
+          n,
+          narrow.exponent,
+          middle.exponent,
+          wide.exponent
+      );
+      rows.push_back(
+          {"pitchfork",
+           std::format("exponent beta, |a_n| in [1e-4, 1e-3], n = {}", n),
+           narrow.exponent,
+           0.5,
+           std::abs(middle.exponent - 0.5)}
+      );
     }
 
     // Bifurcation points on the rho < 0 half of the uniform branch.

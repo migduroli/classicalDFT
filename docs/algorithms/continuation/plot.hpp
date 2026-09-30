@@ -291,6 +291,75 @@ namespace plot {
     save("branches");
   }
 
+  // Figure: zoom on the n = 1 and n = 2 pitchforks, a_n against mu - mu_n.
+  inline void pitchfork_zoom(const utils::Results& res) {
+    plt::figure_size(1200, 480);
+    for (std::size_t j = 0; j < res.pitchfork.size(); ++j) {
+      subplot(1, static_cast<int>(res.pitchfork.size()), static_cast<int>(j + 1));
+      const int n = res.pitchfork_points[j].mode;
+      const double mu_n = res.pitchfork_points[j].mu;
+      const auto& color = branch_colors[static_cast<std::size_t>(n - 1)];
+      auto fit = utils::fit_power_law(res.pitchfork[j], 1e-4, 1e-3);
+
+      std::vector<double> x, y;
+      double span = 0.0;
+      for (const auto& s : res.pitchfork[j]) {
+        x.push_back(s.dmu);
+        y.push_back(s.amplitude);
+        span = std::max(span, std::abs(s.dmu));
+      }
+      const double side = res.pitchfork[j].front().dmu > 0.0 ? 1.0 : -1.0;
+      plt::plot({-span, span}, {0.0, 0.0}, {{"color", ink}, {"linewidth", "2"}, {"label", "uniform"}});
+      // Traced arms inside the window.
+      bool labelled = false;
+      for (const auto& b : res.arms) {
+        if (b.mode != n)
+          continue;
+        std::vector<double> bx, by;
+        for (std::size_t k = 0; k < b.mu.size() / 2; ++k) {
+          if (std::abs(b.modal[k]) <= 0.1) {
+            bx.push_back(b.mu[k] - mu_n);
+            by.push_back(b.modal[k]);
+          }
+        }
+        std::map<std::string, std::string> kw{{"color", tint(color, 0.5)}, {"linewidth", "4"}};
+        if (!labelled) {
+          kw["label"] = "traced arms";
+          labelled = true;
+        }
+        plt::plot(bx, by, kw);
+      }
+      plt::plot(
+          x,
+          y,
+          {{"color", color},
+           {"marker", "o"},
+           {"markersize", "4"},
+           {"linestyle", "None"},
+           {"label", std::format(R"(solved at fixed $a_{}$)", n)}}
+      );
+      std::vector<double> cx, cy_plus, cy_minus;
+      for (double t : arma::linspace(0.0, 1.0, 200)) {
+        double d = side * span * t;
+        double a = fit.prefactor * std::sqrt(std::abs(d));
+        cx.push_back(d);
+        cy_plus.push_back(a);
+        cy_minus.push_back(-a);
+      }
+      std::string fit_label = std::format(R"($a_{} = \pm {:.3f}\,|\mu - \mu_{}|^{{1/2}}$)", n, fit.prefactor, n);
+      plt::plot(cx, cy_plus, {{"color", ink}, {"linewidth", "1"}, {"linestyle", "--"}, {"label", fit_label}});
+      plt::plot(cx, cy_minus, {{"color", ink}, {"linewidth", "1"}, {"linestyle", "--"}});
+      plt::plot({0.0}, {0.0}, {{"color", ink}, {"marker", "o"}, {"markersize", "7"}, {"linestyle", "None"}});
+      plt::xlim(side > 0 ? -0.15 * span : -1.1 * span, side > 0 ? 1.1 * span : 0.15 * span);
+      plt::xlabel(std::format(R"($\mu - \mu_{}$)", n));
+      plt::ylabel(std::format(R"($a_{}$)", n));
+      plt::title(std::format(R"(Pitchfork at $\mu_{} = {:.6f}$, fitted exponent {:.4f})", n, mu_n, fit.exponent));
+      plt::legend({{"loc", side > 0 ? "upper left" : "upper right"}, {"fontsize", "small"}});
+      plt::grid(true);
+    }
+    save("pitchfork_zoom");
+  }
+
   // Figure 4: profiles along the plus arm of each branch.
   inline void profiles(const utils::Problem& p, const utils::Results& res) {
     std::vector<utils::Branch> bs;
