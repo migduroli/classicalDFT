@@ -198,6 +198,26 @@ namespace utils {
       }
     }
 
+    // Index at fixed N of the lettered states: minima A, B, D and E, the
+    // saddle C, and the uniform state F with one unstable mass-conserving
+    // mode per soft Neumann mode, floor((L / pi) sqrt((1 - 3 rho^2) / kappa)).
+    for (const auto& point : results.fixed_mass_points) {
+      double expected = point.letter == "C" ? 1.0 : 0.0;
+      if (point.letter == "F")
+        expected = exact::bifurcation_count(problem.length, problem.kappa, point.mass / problem.length);
+      rows.push_back(
+          {"fixed N",
+           std::format(
+               "index at fixed N of {} (N = {:.0f})",
+               point.letter,
+               std::abs(point.mass) < 1e-9 ? 0.0 : point.mass
+           ),
+           static_cast<double>(point.index),
+           expected,
+           0.0}
+      );
+    }
+
     // The two arms of each pitchfork are images of each other.
     for (const auto& b : results.arms) {
       if (b.sign < 0)

@@ -248,6 +248,27 @@ namespace utils {
     return {.exponent = slope, .prefactor = std::exp(my - slope * mx)};
   }
 
+  // Two-term normal form mu - mu_n = c2 a^2 + c4 a^4, by linear least squares
+  // on the samples with |a_n| <= a_max.
+  struct NormalForm {
+    double c2;
+    double c4;
+  };
+
+  inline auto fit_normal_form(const std::vector<PitchforkSample>& samples, double a_max) -> NormalForm {
+    std::vector<double> a2, dmu;
+    for (const auto& s : samples) {
+      if (std::abs(s.amplitude) <= a_max) {
+        a2.push_back(s.amplitude * s.amplitude);
+        dmu.push_back(s.dmu);
+      }
+    }
+    const arma::vec x(a2);
+    const arma::mat A = arma::join_rows(x, arma::square(x));
+    const arma::vec c = arma::solve(A, arma::vec(dmu));
+    return {.c2 = c(0), .c4 = c(1)};
+  }
+
   // Branch traced with N as the parameter, unknown x = [y; mu].
   struct CanonicalBranch {
     std::vector<double> mass;
@@ -286,6 +307,16 @@ namespace utils {
     return out;
   }
 
+  // A state marked with a letter on a figure, with its profile.
+  struct Labelled {
+    std::string letter;
+    arma::vec y;
+    double mu;
+    double mass;
+    double value; // Helmholtz F at fixed N, or Omega - Omega_meta at fixed mu
+    int index;    // negative eigenvalues in the ensemble of the figure
+  };
+
   // Everything the example traces, shared by main.cpp and check/main.cpp.
   struct Results {
     Branch uniform;
@@ -293,6 +324,8 @@ namespace utils {
     std::vector<CanonicalBranch> canonical;
     std::vector<Event> pitchfork_points;                 // bifurcation points at rho < 0, n = 1, 2
     std::vector<std::vector<PitchforkSample>> pitchfork; // samples at prescribed a_n, both signs
+    std::vector<Labelled> fixed_mass_points;             // A to F on the fixed-N figure
+    std::vector<Labelled> fixed_mu_points;               // A to F along the n = 1 plus arm
 
     [[nodiscard]] auto arm(int n, int sign) const -> const Branch& {
       return *std::ranges::find_if(arms, [&](const Branch& b) { return b.mode == n && b.sign == sign; });
@@ -360,7 +393,7 @@ namespace utils {
     // The n = 1 branch traced again with N as the parameter, from the centred
     // interface at mu = 0 towards both walls.
     dft::console::info("Tracing the n = 1 branch at fixed N");
-    arma::vec kink = problem.interface_state();
+    const arma::vec kink = problem.interface_state();
     for (double direction : {+1.0, -1.0})
       r.canonical.push_back(trace_canonical(problem, continuation, kink, 0.0, direction, 1.5 * problem.length));
     for (const auto& c : r.canonical) {
@@ -376,6 +409,84 @@ namespace utils {
           *hi
       );
     }
+    // Lettered states for the fixed-N figure: uniform states at N = 18 (A),
+    // 14 (B) and 5 (F), the fixed-N saddle (C) and the phase-separated state
+    // (D) at the same N = 14, and the centred interface (E). C and D are solved
+    // at N = 14 exactly, from the nearest traced point with the wanted index.
+    const Residual R = problem.grand_canonical();
+    auto uniform_state = [&](const std::string& letter, double n) {
+      const double rho = n / problem.length;
+      const arma::vec y(problem.nodes, arma::fill::value(rho));
+      const double mu = rho * rho * rho - rho;
+      return Labelled{letter, y, mu, n, problem.grand_potential(y, mu) + mu * n, problem.constrained_index(y)};
+    };
+    auto fixed_mass = [&](const std::string& letter, double n, int wanted_index) {
+      const auto& traced = r.canonical.front();
+      std::size_t pick = 0;
+      double distance = arma::datum::inf;
+      for (std::size_t k = 0; k < traced.mass.size(); ++k) {
+        if (traced.index[k] == wanted_index && std::abs(traced.mass[k] - n) < distance) {
+          distance = std::abs(traced.mass[k] - n);
+          pick = k;
+        }
+      }
+      auto point =
+          continuation.constrained_point(traced.profiles[pick], traced.mu[pick], R, [&](const arma::vec& y, double) {
+            return problem.mass(y) - n;
+          });
+      return Labelled{
+          letter,
+          point->x,
+          point->lambda,
+          n,
+          problem.grand_potential(point->x, point->lambda) + point->lambda * n,
+          problem.constrained_index(point->x)
+      };
+    };
+    r.fixed_mass_points = {
+        uniform_state("A", 18.0),
+        uniform_state("B", 14.0),
+        fixed_mass("C", 14.0, 1),
+        fixed_mass("D", 14.0, 0),
+        Labelled{
+            "E",
+            kink,
+            0.0,
+            problem.mass(kink),
+            problem.grand_potential(kink, 0.0),
+            problem.constrained_index(kink)
+        },
+        uniform_state("F", 5.0),
+    };
+
+    // Lettered states along the n = 1 plus arm at fixed mu: near the
+    // bifurcation, at mu = 0.2 and 0.05, the centred interface at mu = 0, and
+    // the mirror half at mu = -0.05 and -0.2.
+    const auto& arm = r.arm(1, +1);
+    auto fixed_mu = [&](const std::string& letter, double mu) {
+      arma::vec y;
+      if (mu == 0.0) {
+        y = arm.modal[arm.modal.size() / 2] > 0.0 ? arma::vec(-kink) : kink;
+      } else {
+        std::size_t k = 1;
+        while (k + 2 < arm.mu.size() && (arm.mu[k] - mu) * (arm.mu[k + 1] - mu) > 0.0)
+          ++k;
+        const double t = (mu - arm.mu[k]) / (arm.mu[k + 1] - arm.mu[k]);
+        y = problem.stationary_state((1.0 - t) * arm.curve[k].x + t * arm.curve[k + 1].x, mu);
+      }
+      const double rho = exact::metastable_density(mu);
+      const double omega_meta = problem.length * (0.25 * std::pow(rho * rho - 1.0, 2) - mu * rho);
+      return Labelled{letter, y, mu, problem.mass(y), problem.grand_potential(y, mu) - omega_meta, problem.index(y)};
+    };
+    r.fixed_mu_points = {
+        fixed_mu("A", 0.38),
+        fixed_mu("B", 0.2),
+        fixed_mu("C", 0.05),
+        fixed_mu("D", 0.0),
+        fixed_mu("E", -0.05),
+        fixed_mu("F", -0.2),
+    };
+
     return r;
   }
 
