@@ -872,6 +872,138 @@ namespace plot {
     save("canonical", false);
   }
 
+  // Nested pitchforks at mu = 0: a_n against L / sqrt(kappa), all arms, and
+  // the profile of each branch at the largest L / sqrt(kappa).
+  inline void nested_pitchforks(const utils::Problem& problem, const utils::Results& results) {
+    const auto& nested = results.nested;
+    figure(TWO_COLUMN_TALL);
+    plt::subplots_adjust(
+        {{"left", 0.07}, {"right", 0.98}, {"bottom", 0.07}, {"top", 0.98}, {"wspace", 0.35}, {"hspace", 0.5}}
+    );
+    panel(3, 6, 0, 0, 2, 6);
+    std::vector<double> zeros(nested.lambda.size(), 0.0);
+    plt::plot(
+        nested.lambda,
+        zeros,
+        {{"color", ink}, {"linestyle", "--"}, {"label", R"(uniform $\rho = 0$, unstable)"}}
+    );
+    const std::array<std::string, 6> letters{"A", "B", "C", "D", "E", "F"};
+    for (const auto& arm : nested.arms) {
+      std::map<std::string, std::string> keywords{{"color", color_of(arm.mode)}};
+      if (arm.sign > 0)
+        keywords["label"] = std::format(R"($n = {}$, $n_- = {}$)", arm.mode, arm.mode);
+      plt::plot(arm.lambda, arm.modal, keywords);
+      if (arm.sign > 0)
+        mark(
+            arm.lambda.back(),
+            arm.modal.back(),
+            letters[static_cast<std::size_t>(arm.mode - 1)],
+            0.3,
+            arm.mode == 1 ? 0.07 : (arm.mode == 2 ? 0.0 : -0.04)
+        );
+    }
+    for (const auto& [n, lambda_n] : nested.bifurcations) {
+      plt::plot({lambda_n}, {0.0}, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}});
+      plt::annotate(std::to_string(n), lambda_n - 0.25, -0.2);
+    }
+    plt::xlim(2.5, results.nested_lambda_max + 1.5);
+    plt::ylim(-1.5, 1.5);
+    plt::xlabel(R"($L / \sqrt{\kappa}$)");
+    plt::ylabel(R"($a_n$)");
+    plt::legend({{"loc", "lower left"}, {"fontsize", "6"}});
+    plt::grid(true);
+    for (const auto& arm : nested.arms) {
+      if (arm.sign < 0)
+        continue;
+      panel(3, 6, 2, static_cast<long>(arm.mode - 1));
+      profile(
+          problem,
+          arm.profiles.back(),
+          color_of(arm.mode),
+          std::format("({})", letters[static_cast<std::size_t>(arm.mode - 1)]),
+          std::format(R"($n = {}$)", arm.mode)
+      );
+      plt::xlabel(R"($x$)");
+    }
+    save("nested_pitchforks", false);
+  }
+
+  // Number of branches found against L / sqrt(kappa), with the staircase
+  // floor((L / pi) / sqrt(kappa)).
+  inline void branch_count(const utils::Results& results) {
+    const auto& nested = results.nested;
+    figure(ONE_COLUMN);
+    std::vector<double> x, found, formula;
+    for (double lambda : arma::linspace(2.5, results.nested_lambda_max, 2000)) {
+      int count = 0;
+      for (const auto& [n, lambda_n] : nested.bifurcations)
+        count += lambda_n <= lambda ? 1 : 0;
+      x.push_back(lambda);
+      found.push_back(count);
+      formula.push_back(std::floor(lambda / std::numbers::pi));
+    }
+    plt::plot(
+        x,
+        formula,
+        {{"color", muted}, {"linewidth", "3"}, {"label", R"($\lfloor (L/\pi) / \sqrt{\kappa} \rfloor$)"}}
+    );
+    plt::plot(x, found, {{"color", branch_colors[0]}, {"label", "branches found"}});
+    std::vector<double> bx, by;
+    for (const auto& [n, lambda_n] : nested.bifurcations) {
+      bx.push_back(lambda_n);
+      by.push_back(n);
+    }
+    plt::plot(
+        bx,
+        by,
+        {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}, {"label", R"(detected $L/\sqrt{\kappa_n}$)"}}
+    );
+    plt::xlabel(R"($L / \sqrt{\kappa}$)");
+    plt::ylabel("number of branches");
+    plt::legend({{"loc", "upper left"}, {"fontsize", "6"}});
+    plt::grid(true);
+    save("branch_count");
+  }
+
+  // Landau pitchfork of a uniform order parameter at mu = 0, continued in a,
+  // with a proportional to T - T_c.
+  inline void landau(const utils::Results& results) {
+    const auto& landau = results.landau;
+    figure(ONE_COLUMN);
+    std::vector<double> stable_a, unstable_a;
+    for (double a : landau.a_uniform)
+      (a > 0.0 ? stable_a : unstable_a).push_back(a);
+    stable_a.push_back(landau.a_critical);
+    unstable_a.insert(unstable_a.begin(), landau.a_critical);
+    plt::plot(
+        stable_a,
+        std::vector<double>(stable_a.size(), 0.0),
+        {{"color", ink}, {"label", R"($\rho = 0$, stable)"}}
+    );
+    plt::plot(
+        unstable_a,
+        std::vector<double>(unstable_a.size(), 0.0),
+        {{"color", ink}, {"linestyle", "--"}, {"label", R"($\rho = 0$, unstable)"}}
+    );
+    for (std::size_t k = 0; k < 2; ++k) {
+      std::map<std::string, std::string> keywords{{"color", branch_colors[0]}};
+      if (k == 0)
+        keywords["label"] = R"($\rho = \pm\sqrt{-a}$, stable)";
+      plt::plot(landau.a_arm[k], landau.rho_arm[k], keywords);
+    }
+    plt::plot(
+        {landau.a_critical},
+        {0.0},
+        {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}, {"label", R"(pitchfork, $a_c = 0$)"}}
+    );
+    plt::xlabel(R"($a \propto T - T_c$)");
+    plt::ylabel(R"($\rho$)");
+    plt::xlim(-1.0, 1.0);
+    plt::legend({{"loc", "upper right"}, {"fontsize", "6"}});
+    plt::grid(true);
+    save("landau");
+  }
+
 } // namespace plot
 
 #endif

@@ -88,6 +88,9 @@ int main() {
   plot::pitchfork_zoom(problem, results);
   plot::walk(problem, results);
   plot::canonical(problem, results);
+  plot::nested_pitchforks(problem, results);
+  plot::branch_count(results);
+  plot::landau(results);
 #endif
 
   std::println(std::cout, "\nDone.");
