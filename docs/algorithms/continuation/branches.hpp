@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <armadillo>
+#include <array>
 #include <cmath>
 #include <dftlib>
 #include <format>
@@ -339,6 +340,118 @@ namespace utils {
     return {.length = problem.length, .mass = folds.front().lambda, .mu = folds.front().x(problem.nodes)};
   }
 
+  // Stationary states at mu = 0 with lambda = L / sqrt(kappa) as the
+  // parameter, so kappa = (L / lambda)^2. Continuing in lambda at fixed L is
+  // continuing in kappa; lambda is the axis on which the Neumann mode n goes
+  // soft at n pi (continuum) or at L sqrt(d_n) (discrete).
+  struct LambdaBranch {
+    int mode;
+    int sign;
+    std::vector<double> lambda;
+    std::vector<double> modal;
+    std::vector<int> index;
+    std::vector<double> resolution; // smallest |eigenvalue|: the index is decided only where this is resolved
+    std::vector<arma::vec> profiles;
+  };
+
+  struct NestedPitchforks {
+    std::vector<double> lambda;                       // along the uniform state rho = 0
+    std::vector<int> index;                           // its index
+    std::vector<std::pair<int, double>> bifurcations; // (n, lambda_n)
+    std::vector<LambdaBranch> arms;
+  };
+
+  inline auto at_lambda(const Problem& problem, double lambda) -> Problem {
+    return {.length = problem.length, .kappa = std::pow(problem.length / lambda, 2), .nodes = problem.nodes};
+  }
+
+  inline auto
+  nested_pitchforks(const Problem& problem, const Continuation& continuation, double lambda_min, double lambda_max)
+      -> NestedPitchforks {
+    const Residual R = [&problem](const arma::vec& y, double lambda) {
+      return at_lambda(problem, lambda).residual(y, 0.0);
+    };
+    auto spectrum = [&problem](const CurvePoint& q) {
+      return at_lambda(problem, q.lambda).spectrum(q.x);
+    };
+    NestedPitchforks out;
+    const CurvePoint start{
+        .x = arma::zeros(problem.nodes),
+        .lambda = lambda_min,
+        .dx_ds = arma::zeros(problem.nodes),
+        .dlambda_ds = 1.0,
+    };
+    auto uniform = continuation.trace(start, R, [&](const CurvePoint& q) { return q.lambda > lambda_max; });
+    for (const auto& q : uniform) {
+      out.lambda.push_back(q.lambda);
+      out.index.push_back(at_lambda(problem, q.lambda).index(q.x));
+    }
+    for (const auto& crossing : continuation.crossings(uniform, R, spectrum)) {
+      const double lambda_n = crossing.point.lambda;
+      arma::vec v = critical_vector(at_lambda(problem, lambda_n), crossing.point.x, crossing.eigenvalue);
+      const int n = nodal_count(v);
+      out.bifurcations.emplace_back(n, lambda_n);
+      if (problem.modal_amplitude(v, n) < 0.0)
+        v = -v;
+      for (int sign : {+1, -1}) {
+        LambdaBranch arm{.mode = n, .sign = sign};
+        auto first = continuation.switch_branch(crossing.point, R, sign * v, 0.3);
+        if (!first) {
+          out.arms.push_back(std::move(arm));
+          continue;
+        }
+        auto curve = continuation.trace(*first, R, [&](const CurvePoint& q) { return q.lambda > lambda_max; });
+        for (const auto& q : curve) {
+          arm.lambda.push_back(q.lambda);
+          arm.modal.push_back(problem.modal_amplitude(q.x, n));
+          const arma::vec eigenvalues = at_lambda(problem, q.lambda).spectrum(q.x);
+          arm.index.push_back(static_cast<int>(arma::accu(eigenvalues < 0.0)));
+          arm.resolution.push_back(arma::abs(eigenvalues).min());
+          arm.profiles.push_back(q.x);
+        }
+        out.arms.push_back(std::move(arm));
+      }
+    }
+    return out;
+  }
+
+  // Landau pitchfork of a uniform order parameter at mu = 0:
+  // f0 = rho^4 / 4 + a rho^2 / 2, so rho^3 + a rho = 0, continued in a from
+  // positive to negative. rho = 0 loses stability at a = 0 and splits into
+  // rho = +-sqrt(-a); with a proportional to T - T_c this is the pitchfork at
+  // the top of the (rho, T) coexistence dome.
+  struct LandauPitchfork {
+    std::vector<double> a_uniform;
+    double a_critical;
+    std::array<std::vector<double>, 2> a_arm;
+    std::array<std::vector<double>, 2> rho_arm;
+  };
+
+  inline auto landau_pitchfork(const Continuation& continuation, double a_max) -> LandauPitchfork {
+    const Residual R = [](const arma::vec& rho, double a) {
+      return arma::vec{rho(0) * rho(0) * rho(0) + a * rho(0)};
+    };
+    auto spectrum = [](const CurvePoint& q) {
+      return arma::vec{3.0 * q.x(0) * q.x(0) + q.lambda};
+    };
+    const CurvePoint start{.x = arma::vec{0.0}, .lambda = a_max, .dx_ds = arma::vec{0.0}, .dlambda_ds = -1.0};
+    auto uniform = continuation.trace(start, R, [&](const CurvePoint& q) { return q.lambda < -a_max; });
+    LandauPitchfork out;
+    for (const auto& q : uniform)
+      out.a_uniform.push_back(q.lambda);
+    const auto crossing = continuation.crossings(uniform, R, spectrum).front();
+    out.a_critical = crossing.point.lambda;
+    for (std::size_t k = 0; k < 2; ++k) {
+      auto first = continuation.switch_branch(crossing.point, R, arma::vec{k == 0 ? 1.0 : -1.0}, 0.05);
+      auto curve = continuation.trace(*first, R, [&](const CurvePoint& q) { return q.lambda < -a_max; });
+      for (const auto& q : curve) {
+        out.a_arm[k].push_back(q.lambda);
+        out.rho_arm[k].push_back(q.x(0));
+      }
+    }
+    return out;
+  }
+
   // A state marked with a letter on a figure, with its profile.
   struct Labelled {
     std::string letter;
@@ -359,6 +472,9 @@ namespace utils {
     std::vector<Labelled> fixed_mass_points;             // A to F on the fixed-N figure
     std::vector<Labelled> fixed_mu_points;               // A to F along the n = 1 plus arm
     std::vector<FiniteSizeFold> finite_size_folds;       // at L, 2L and 4L, same spacing
+    NestedPitchforks nested;                             // at mu = 0, continued in L / sqrt(kappa)
+    double nested_lambda_max{0.0};
+    LandauPitchfork landau; // uniform, continued in a
 
     [[nodiscard]] auto arm(int n, int sign) const -> const Branch& {
       return *std::ranges::find_if(arms, [&](const Branch& b) { return b.mode == n && b.sign == sign; });
@@ -540,6 +656,24 @@ namespace utils {
       );
       r.finite_size_folds.push_back(fold);
     }
+
+    // Nested pitchforks at mu = 0, continued in lambda = L / sqrt(kappa) up to
+    // 21, between 6 pi and 7 pi.
+    dft::console::info("Continuing the uniform state at mu = 0 in L / sqrt(kappa)");
+    r.nested_lambda_max = 21.0;
+    r.nested = nested_pitchforks(problem, continuation, 2.5, r.nested_lambda_max);
+    for (const auto& [n, lambda_n] : r.nested.bifurcations)
+      std::println(
+          std::cout,
+          "  n = {}: lambda_n = {:.10f}, kappa_n = {:.10f}",
+          n,
+          lambda_n,
+          std::pow(problem.length / lambda_n, 2)
+      );
+
+    dft::console::info("Landau pitchfork in a at mu = 0");
+    r.landau = landau_pitchfork(continuation, 1.0);
+    std::println(std::cout, "  a_c = {:.3e}", r.landau.a_critical);
 
     return r;
   }

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <format>
 #include <iostream>
+#include <numbers>
 #include <optional>
 #include <print>
 #include <string>
@@ -286,6 +287,94 @@ namespace utils {
            0.5,
            std::abs(middle.exponent - 0.5)}
       );
+    }
+
+    // Nested pitchforks at mu = 0: kappa_n against the discrete condition
+    // kappa d_n = 1, and its offset from the continuum value (L / (n pi))^2:
+    // 1 / d_n = (L / n pi)^2 + h^2 / 12 + O(h^4 (n pi / L)^2), the same for
+    // every n, with the O(h^4) remainder below 1e-5 for n <= 6; the
+    // number of branches at the largest lambda against floor(lambda / pi);
+    // and the index along each arm against n.
+    {
+      const auto& nested = results.nested;
+      // The index is compared only where the eigenvalue nearest zero is
+      // resolved, |lambda_min| > 1e-8. At large L / sqrt(kappa) the
+      // translation eigenvalue of a lone interface is of order
+      // exp(-q L) ~ 1e-11, below what states converged to a residual of 1e-9
+      // can resolve; its sign there is round-off.
+      int worst_index = 0;
+      int unresolved = 0;
+      std::size_t total = 0;
+      for (const auto& arm : nested.arms) {
+        total += arm.index.size();
+        for (std::size_t k = 0; k < arm.index.size(); ++k) {
+          if (arm.resolution[k] > 1e-8)
+            worst_index = std::max(worst_index, std::abs(arm.index[k] - arm.mode));
+          else
+            ++unresolved;
+        }
+      }
+      std::println(
+          std::cout,
+          "  mu = 0 arms: {} of {} points have |eigenvalue| <= 1e-8 and are left out of the index check",
+          unresolved,
+          total
+      );
+      for (const auto& arm : nested.arms) {
+        const auto first = std::ranges::find_if(arm.resolution, [](double r) { return r <= 1e-8; });
+        if (first != arm.resolution.end())
+          std::println(
+              std::cout,
+              "    n = {}, {}: unresolved from L / sqrt(kappa) = {:.2f}",
+              arm.mode,
+              arm.sign > 0 ? "+" : "-",
+              arm.lambda[static_cast<std::size_t>(first - arm.resolution.begin())]
+          );
+      }
+      for (const auto& [n, lambda_n] : nested.bifurcations) {
+        const double kappa_n = std::pow(problem.length / lambda_n, 2);
+        const double continuum = std::pow(problem.length / (n * std::numbers::pi), 2);
+        rows.push_back(
+            {"mu = 0",
+             std::format("kappa_n (discrete kappa d_n = 1), n = {}", n),
+             kappa_n,
+             1.0 / problem.laplacian_eigenvalue(n),
+             1e-9 * kappa_n}
+        );
+        rows.push_back(
+            {"mu = 0",
+             std::format("kappa_n - (L / n pi)^2, n = {}", n),
+             kappa_n - continuum,
+             problem.spacing() * problem.spacing() / 12.0,
+             1e-5}
+        );
+      }
+      rows.push_back(
+          {"mu = 0",
+           std::format("branches found at L / sqrt(kappa) = {:g}", results.nested_lambda_max),
+           static_cast<double>(nested.bifurcations.size()),
+           std::floor(results.nested_lambda_max / std::numbers::pi),
+           0.0}
+      );
+      rows.push_back(
+          {"mu = 0", "max |n_minus - n| along all arms (resolved)", static_cast<double>(worst_index), 0.0, 0.0}
+      );
+    }
+
+    // Landau pitchfork: a_c = 0 and the arms rho = +-sqrt(-a).
+    {
+      const auto& landau = results.landau;
+      double worst = 0.0;
+      for (std::size_t k = 0; k < 2; ++k) {
+        const double sign = k == 0 ? 1.0 : -1.0;
+        for (std::size_t j = 0; j < landau.a_arm[k].size(); ++j)
+          worst = std::max(worst, std::abs(landau.rho_arm[k][j] - sign * std::sqrt(-landau.a_arm[k][j])));
+      }
+      rows.push_back({"Landau", "a_c", landau.a_critical, 0.0, 1e-10});
+      // Newton stops at |rho^3 + a rho| < 1e-9, so rho is known to within
+      // 1e-9 / |dR/drho| = 1e-9 / (2 |a|); the first point of each arm has
+      // |a| of order 1e-3.
+      rows.push_back({"Landau", "max |rho - (+-sqrt(-a))| along the arms", worst, 0.0, 1e-6});
     }
 
     // Bifurcation points on the rho < 0 half of the uniform branch.
