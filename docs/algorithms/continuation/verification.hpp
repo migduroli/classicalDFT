@@ -218,6 +218,32 @@ namespace utils {
       );
     }
 
+    // Finite-size fold of the n = 1 branch in N. A minority layer of width l
+    // at a wall has |mu| = A exp(-2 q l), q = sqrt(2 / kappa), and N = L (1 -
+    // |mu| / 2) - 2 l, so dN/d|mu| = 0 at |mu| = 2 / (q L): L mu_fold tends to
+    // -sqrt(2 kappa), and L - N_fold = (1 + ln(A q L / 2)) / q grows by ln 2 / q
+    // per doubling of L. Both carry an O(1/L) correction, removed by
+    // Richardson extrapolation from 2L and 4L; the tolerances allow for the
+    // O(1/L^2) remainder.
+    {
+      const auto& folds = results.finite_size_folds;
+      const double q = std::sqrt(2.0 / problem.kappa);
+      const double l_mu_2 = folds[1].length * folds[1].mu;
+      const double l_mu_4 = folds[2].length * folds[2].mu;
+      const double step_1 = (folds[1].length - folds[1].mass) - (folds[0].length - folds[0].mass);
+      const double step_2 = (folds[2].length - folds[2].mass) - (folds[1].length - folds[1].mass);
+      rows.push_back(
+          {"fold in N",
+           "L mu_fold, Richardson from 2L and 4L",
+           2.0 * l_mu_4 - l_mu_2,
+           -std::sqrt(2.0 * problem.kappa),
+           2e-3}
+      );
+      rows.push_back(
+          {"fold in N", "growth of L - N_fold per doubling, Richardson", 2.0 * step_2 - step_1, std::log(2.0) / q, 3e-3}
+      );
+    }
+
     // The two arms of each pitchfork are images of each other.
     for (const auto& b : results.arms) {
       if (b.sign < 0)

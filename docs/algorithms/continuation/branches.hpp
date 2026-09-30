@@ -307,6 +307,38 @@ namespace utils {
     return out;
   }
 
+  // Fold of the n = 1 branch in N: the largest N with a minority layer at a
+  // wall. Starts from the fixed-N state with a layer of width 3.5 sqrt(2 kappa)
+  // against x = 0, traces in increasing N with N as the parameter, and locates
+  // the zero of dN/ds with the library's folds().
+  struct FiniteSizeFold {
+    double length;
+    double mass;
+    double mu;
+  };
+
+  inline auto finite_size_fold(const Problem& problem, const Continuation& continuation) -> FiniteSizeFold {
+    const double width = std::sqrt(2.0 * problem.kappa);
+    const double layer = 3.5 * width;
+    const arma::vec guess = arma::tanh((problem.positions() - layer) / width);
+    const double n0 = problem.mass(guess);
+    auto start = continuation.constrained_point(guess, 0.0, problem.grand_canonical(), [&](const arma::vec& y, double) {
+      return problem.mass(y) - n0;
+    });
+    const Residual R = problem.canonical();
+    arma::vec x0 = arma::join_cols(start->x, arma::vec{start->lambda});
+    auto [dx, dl] = dft::algorithms::continuation::detail::tangent(R, x0, n0, arma::zeros(problem.nodes + 1), 1.0);
+    CurvePoint first{.x = x0, .lambda = n0, .dx_ds = dx, .dlambda_ds = dl};
+    int after_fold = 0;
+    auto curve = continuation.trace(first, R, [&](const CurvePoint& q) {
+      if (q.dlambda_ds < 0.0)
+        ++after_fold;
+      return after_fold >= 2;
+    });
+    auto folds = continuation.folds(curve, R);
+    return {.length = problem.length, .mass = folds.front().lambda, .mu = folds.front().x(problem.nodes)};
+  }
+
   // A state marked with a letter on a figure, with its profile.
   struct Labelled {
     std::string letter;
@@ -326,6 +358,7 @@ namespace utils {
     std::vector<std::vector<PitchforkSample>> pitchfork; // samples at prescribed a_n, both signs
     std::vector<Labelled> fixed_mass_points;             // A to F on the fixed-N figure
     std::vector<Labelled> fixed_mu_points;               // A to F along the n = 1 plus arm
+    std::vector<FiniteSizeFold> finite_size_folds;       // at L, 2L and 4L, same spacing
 
     [[nodiscard]] auto arm(int n, int sign) const -> const Branch& {
       return *std::ranges::find_if(arms, [&](const Branch& b) { return b.mode == n && b.sign == sign; });
@@ -486,6 +519,27 @@ namespace utils {
         fixed_mu("E", -0.05),
         fixed_mu("F", -0.2),
     };
+
+    // Fold of the n = 1 branch in N at L, 2L and 4L with the same spacing.
+    dft::console::info("Locating the finite-size fold at L, 2L and 4L");
+    for (double scale : {1.0, 2.0, 4.0}) {
+      const Problem box{
+          .length = scale * problem.length,
+          .kappa = problem.kappa,
+          .nodes = static_cast<arma::uword>(scale * static_cast<double>(problem.nodes - 1)) + 1,
+      };
+      const auto fold = finite_size_fold(box, continuation);
+      std::println(
+          std::cout,
+          "  L = {:g}: N_fold = {:.6f}, L - N_fold = {:.6f}, L mu_fold = {:.6f}, l / sqrt(2 kappa) = {:.4f}",
+          fold.length,
+          fold.mass,
+          fold.length - fold.mass,
+          fold.length * fold.mu,
+          0.5 * (fold.length - fold.mass) / std::sqrt(2.0 * box.kappa)
+      );
+      r.finite_size_folds.push_back(fold);
+    }
 
     return r;
   }
