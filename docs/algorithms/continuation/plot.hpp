@@ -7,6 +7,7 @@
 #include <dft/plotting/matplotlib.hpp>
 #include <format>
 #include <map>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -31,7 +32,8 @@ namespace plot {
 
   inline const std::string ink = "#3d3d3a";
   inline const std::string muted = "#8a8980";
-  inline const std::vector<std::string> branch_colors = {"#2a78d6", "#eb6834", "#1baf7a"};
+  inline const std::vector<std::string> branch_colors =
+      {"#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"};
 
   // Font sizes for print at the figure sizes above, and 300 dpi PNGs.
   inline void style() {
@@ -244,6 +246,22 @@ namespace plot {
     Py_DECREF(pyplot);
   }
 
+  // Text at (x, y) in data coordinates, at the given font size.
+  inline void text(const std::string& content, double x, double y, const std::string& size) {
+    PyObject* pyplot = py::import_module("matplotlib.pyplot");
+    PyObject* ax = py::current_axes(pyplot);
+    PyObject* text_fn = py::get_attr(ax, "text");
+    PyObject* args = Py_BuildValue("(dds)", x, y, content.c_str());
+    PyObject* kwargs = PyDict_New();
+    py::set_dict_string(kwargs, "fontsize", size);
+    call(text_fn, args, kwargs, "text");
+    Py_DECREF(kwargs);
+    Py_DECREF(args);
+    Py_DECREF(text_fn);
+    Py_DECREF(ax);
+    Py_DECREF(pyplot);
+  }
+
   // Legend of the current axes entries, centred below all panels.
   inline void figure_legend(long columns) {
     PyObject* pyplot = py::import_module("matplotlib.pyplot");
@@ -280,14 +298,17 @@ namespace plot {
   }
 
   // A profile y(x) in a small panel titled by its label, with the details
-  // written inside. Every such panel has the same x range and the y range
-  // (-1.15, 1.9), which leaves room above the profile for the details.
+  // written inside. By default every such panel has the same x range and the
+  // y range (-1.15, 1.9), which leaves room above the profile for the
+  // details; fit = true scales the y range to the profile instead, for
+  // small-amplitude states.
   inline void profile(
       const utils::Problem& problem,
       const arma::vec& y,
       const std::string& color,
       const std::string& label,
-      const std::string& details
+      const std::string& details,
+      bool fit = false
   ) {
     plt::plot(
         arma::conv_to<std::vector<double>>::from(problem.positions()),
@@ -295,9 +316,14 @@ namespace plot {
         {{"color", color}, {"linewidth", "1.2"}}
     );
     plt::xlim(0.0, problem.length);
-    plt::ylim(-1.15, 1.9);
     plt::xticks(std::vector<double>{0.0, 0.5 * problem.length, problem.length});
-    plt::yticks(std::vector<double>{-1.0, 0.0, 1.0});
+    if (fit) {
+      const double pad = 0.15 * (y.max() - y.min());
+      plt::ylim(y.min() - pad, y.max() + pad);
+    } else {
+      plt::ylim(-1.15, 1.9);
+      plt::yticks(std::vector<double>{-1.0, 0.0, 1.0});
+    }
     plt::tick_params({{"labelsize", "6"}});
     if (!details.empty())
       plt::annotate(details, 0.04 * problem.length, 1.3);
@@ -462,12 +488,14 @@ namespace plot {
         {{"left", 0.08}, {"right", 0.98}, {"bottom", 0.16}, {"top", 0.97}, {"wspace", 0.22}, {"hspace", 0.45}}
     );
 
-    // Top: a_n against mu, both arms (dashed: unstable at fixed mu), and the
-    // bifurcation points numbered by n.
+    // Top: a_n against mu, both arms, and the bifurcation points numbered by
+    // n. Every non-uniform state here is unstable at fixed mu (n_- = n), so
+    // those curves are solid and the caption says so; the uniform line keeps
+    // its stable (solid) and unstable (dashed) arcs.
     panel(3, 2, 0, 0, 2, 2);
     uniform_axis(uniform, true);
     for (const auto& b : results.arms) {
-      std::map<std::string, std::string> keywords{{"color", color_of(b.mode)}, {"linestyle", "--"}};
+      std::map<std::string, std::string> keywords{{"color", color_of(b.mode)}};
       if (b.sign > 0)
         keywords["label"] = std::format(R"($n = {}$ interface{}, both arms)", b.mode, b.mode > 1 ? "s" : "");
       plt::plot(b.mu, b.modal, keywords);
@@ -503,7 +531,7 @@ namespace plot {
       inset(top, side > 0 ? 0.64 : 0.14, 0.66, 0.22, 0.24);
       uniform_axis(uniform, false);
       for (const auto& b : results.arms)
-        plt::plot(b.mu, b.modal, {{"color", color_of(b.mode)}, {"linestyle", "--"}});
+        plt::plot(b.mu, b.modal, {{"color", color_of(b.mode)}});
       for (const auto& e : uniform.bifurcations) {
         if (side * e.mu > 0.35 && e.mode <= 4) {
           plt::plot({e.mu}, {0.0}, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}});
@@ -518,12 +546,14 @@ namespace plot {
     }
 
     // Bottom: gap to the metastable uniform state at the same mu, against mu
-    // and against N. All the curves are unstable at fixed mu.
+    // and against N. All the curves are unstable at fixed mu; the uniform
+    // middle arc is dashed as on the axis above.
     const double mu_f = utils::exact::fold_chemical_potential();
     auto gap = [&](const std::vector<double>& axis,
                    const std::vector<double>& mu,
                    const std::vector<double>& omega,
-                   const std::string& color) {
+                   const std::string& color,
+                   const std::string& linestyle) {
       std::vector<double> x, y;
       for (std::size_t k = 0; k < mu.size(); ++k) {
         if (std::abs(mu[k]) < mu_f) {
@@ -531,7 +561,7 @@ namespace plot {
           y.push_back(omega[k] - omega_meta(problem, mu[k]));
         }
       }
-      plt::plot(x, y, {{"color", color}, {"linestyle", "--"}});
+      plt::plot(x, y, {{"color", color}, {"linestyle", linestyle}});
     };
     std::vector<double> middle_mu, middle_mass, middle_omega;
     for (std::size_t k = 0; k < uniform.mu.size(); ++k) {
@@ -545,10 +575,10 @@ namespace plot {
     for (long column : {0L, 1L}) {
       const bool against_mass = column == 1;
       panel(3, 2, 2, column);
-      gap(against_mass ? middle_mass : middle_mu, middle_mu, middle_omega, ink);
+      gap(against_mass ? middle_mass : middle_mu, middle_mu, middle_omega, ink, "--");
       for (const auto& b : results.arms) {
         if (b.sign > 0)
-          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, color_of(b.mode));
+          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, color_of(b.mode), "-");
       }
       for (int n = 1; n <= 3; ++n)
         plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}, {"linestyle", ":"}});
@@ -612,8 +642,7 @@ namespace plot {
             by.push_back(b.modal[k]);
           }
         }
-        std::map<std::string, std::string>
-            keywords{{"color", tint(color, 0.45)}, {"linewidth", "2"}, {"linestyle", "--"}};
+        std::map<std::string, std::string> keywords{{"color", tint(color, 0.45)}, {"linewidth", "2"}};
         if (sign > 0 && j == 0)
           keywords["label"] = "traced arms, unstable";
         plt::plot(bx, by, keywords);
@@ -657,7 +686,7 @@ namespace plot {
       plt::ylim(-1.2 * a_max, 1.2 * a_max);
       plt::xlabel(std::format(R"($\mu - \mu_{}$)", n));
       plt::ylabel(std::format(R"($a_{}$)", n));
-      plt::title(std::format(R"($n = {}$, $\mu_{} = {:.6f}$, $\beta = {:.4f}$)", n, n, mu_n, leading.exponent));
+      plt::title(std::format(R"($n = {}$, $\mu_{} = {:.6f}$)", n, n, mu_n));
       plt::grid(true);
       x_tick_count(3);
       if (j == 0)
@@ -666,7 +695,7 @@ namespace plot {
       // Insets on the right half of the panel: A, the log-log fit, B.
       const Bounds main = current_bounds();
       inset(main, 0.56, 0.74, 0.41, 0.2);
-      profile(problem, shown[0], color, "(A)", "");
+      profile(problem, shown[0], color, "(A)", "", true);
       inset(main, 0.62, 0.4, 0.35, 0.22);
       std::vector<double> abs_dmu, abs_a;
       for (const auto& s : samples) {
@@ -689,8 +718,9 @@ namespace plot {
       );
       log_axes();
       plt::tick_params({{"labelsize", "5"}});
+      text(std::format(R"($\beta = {:.4f}$)", leading.exponent), x_lo * 1.5, 2e-2, "6");
       inset(main, 0.56, 0.06, 0.41, 0.2);
-      profile(problem, shown[1], color, "(B)", "");
+      profile(problem, shown[1], color, "(B)", "", true);
     }
     save("pitchfork_zoom", false);
   }
@@ -707,7 +737,7 @@ namespace plot {
     const auto& color = color_of(1);
     for (int sign : {+1, -1}) {
       const auto& arm = results.arm(1, sign);
-      std::map<std::string, std::string> keywords{{"color", color}, {"linestyle", "--"}};
+      std::map<std::string, std::string> keywords{{"color", color}};
       if (sign > 0)
         keywords["label"] = R"($n = 1$, both arms, unstable ($n_- = 1$))";
       plt::plot(arm.mu, arm.modal, keywords);
@@ -757,8 +787,30 @@ namespace plot {
         "uniform, stable at fixed N",
         "uniform, unstable at fixed N"
     );
-    // The interface branches traced in mu, with their index at fixed N.
-    for (int n = 1; n <= 3; ++n) {
+    // The n = 1 branch traced in mu (pale band) and in N (thin line); they
+    // coincide. The n = 2 and 3 branches traced in mu. All with their index
+    // at fixed N.
+    const auto& kink = results.arm(1, +1);
+    plt::plot(
+        kink.mass,
+        kink.mu,
+        {{"color", tint(color_of(1), 0.7)}, {"linewidth", "5"}, {"label", R"(1 interface, traced in $\mu$)"}}
+    );
+    bool first = true;
+    for (const auto& c : results.canonical) {
+      std::vector<int> unstable(c.index.size());
+      for (std::size_t k = 0; k < c.index.size(); ++k)
+        unstable[k] = c.index[k] > 0 ? 1 : 0;
+      for (const auto& r : runs(c.mass, c.mu, unstable)) {
+        std::map<std::string, std::string> keywords{{"color", color_of(1)}, {"linestyle", r.index == 0 ? "-" : "--"}};
+        if (first && r.index == 0) {
+          keywords["label"] = R"(1 interface, traced in $N$)";
+          first = false;
+        }
+        plt::plot(r.x, r.y, keywords);
+      }
+    }
+    for (int n = 2; n <= 3; ++n) {
       const auto& b = results.arm(n, +1);
       std::vector<utils::CurvePoint> inner(b.curve.begin() + 1, b.curve.end() - 1);
       std::vector<double> mass(b.mass.begin() + 1, b.mass.end() - 1);
@@ -812,7 +864,7 @@ namespace plot {
       profile(
           problem,
           point.y,
-          ink,
+          point.letter == "C" || point.letter == "D" || point.letter == "E" ? color_of(1) : ink,
           std::format("({})", point.letter),
           std::format(R"($F = {:.2f}$, $n_- = {}$)", point.value, point.index)
       );
