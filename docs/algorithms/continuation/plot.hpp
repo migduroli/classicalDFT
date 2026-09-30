@@ -6,7 +6,6 @@
 #include <cmath>
 #include <dft/plotting/matplotlib.hpp>
 #include <format>
-#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -17,10 +16,42 @@
 namespace plot {
 
   namespace plt = matplotlibcpp;
+  namespace py = dft::plotting::detail;
+
+  // Figure sizes in inches, at journal widths: a single plot fills one
+  // column, multipanel figures fill two.
+  struct Size {
+    double width;
+    double height;
+  };
+
+  inline constexpr Size ONE_COLUMN{3.4, 3.0};
+  inline constexpr Size TWO_COLUMN{7.0, 3.0};
+  inline constexpr Size TWO_COLUMN_TALL{7.0, 5.2};
 
   inline const std::string ink = "#3d3d3a";
   inline const std::string muted = "#8a8980";
   inline const std::vector<std::string> branch_colors = {"#2a78d6", "#eb6834", "#1baf7a"};
+
+  // Font sizes for print at the figure sizes above, and 300 dpi PNGs.
+  inline void style() {
+    plt::rcparams({
+        {"font.size", "8"},
+        {"axes.titlesize", "8"},
+        {"axes.labelsize", "8"},
+        {"legend.fontsize", "7"},
+        {"xtick.labelsize", "7"},
+        {"ytick.labelsize", "7"},
+        {"lines.linewidth", "1.2"},
+        {"lines.markersize", "4"},
+        {"savefig.dpi", "300"},
+    });
+  }
+
+  // matplotlibcpp's figure_size takes pixels at 100 dpi.
+  inline void figure(Size size) {
+    plt::figure_size(static_cast<std::size_t>(size.width * 100.0), static_cast<std::size_t>(size.height * 100.0));
+  }
 
   // Blend a #rrggbb colour towards white: t = 0 keeps it, t = 1 gives white.
   inline auto tint(const std::string& hex, double t) -> std::string {
@@ -29,20 +60,6 @@ namespace plot {
       return static_cast<int>(std::lround(c + t * (255 - c)));
     };
     return std::format("#{:02x}{:02x}{:02x}", channel(0), channel(1), channel(2));
-  }
-
-  // Line style for a given number of negative eigenvalues.
-  inline auto index_style(int index) -> std::string {
-    switch (index) {
-      case 0:
-        return "-";
-      case 1:
-        return "--";
-      case 2:
-        return "-.";
-      default:
-        return ":";
-    }
   }
 
   // Split a curve into runs of constant index; consecutive runs share their
@@ -77,48 +94,65 @@ namespace plot {
       const std::vector<double>& y,
       const std::vector<int>& index,
       const std::string& color,
-      bool label
+      const std::string& stable_label,
+      const std::string& unstable_label
   ) {
     std::vector<int> unstable(index.size());
     for (std::size_t k = 0; k < index.size(); ++k)
       unstable[k] = index[k] > 0 ? 1 : 0;
-    bool stable_labelled = false;
-    bool unstable_labelled = false;
+    bool stable_labelled = stable_label.empty();
+    bool unstable_labelled = unstable_label.empty();
     for (const auto& r : runs(x, y, unstable)) {
-      std::map<std::string, std::string>
-          keywords{{"color", color}, {"linewidth", "2"}, {"linestyle", r.index == 0 ? "-" : "--"}};
-      if (label && r.index == 0 && !stable_labelled) {
-        keywords["label"] = R"(stable, $n_- = 0$)";
+      std::map<std::string, std::string> keywords{{"color", color}, {"linestyle", r.index == 0 ? "-" : "--"}};
+      if (r.index == 0 && !stable_labelled) {
+        keywords["label"] = stable_label;
         stable_labelled = true;
       }
-      if (label && r.index == 1 && !unstable_labelled) {
-        keywords["label"] = R"(unstable, $n_- \geq 1$)";
+      if (r.index == 1 && !unstable_labelled) {
+        keywords["label"] = unstable_label;
         unstable_labelled = true;
       }
       plt::plot(r.x, r.y, keywords);
     }
   }
 
-  // plt::subplot passes floats, which recent matplotlib rejects; select the
-  // axes through the library wrapper instead.
-  inline void subplot(int rows, int columns, int index) {
-    PyObject* pyplot = dft::plotting::detail::import_module("matplotlib.pyplot");
-    Py_DECREF(dft::plotting::detail::select_subplot(pyplot, rows, columns, index));
+  // Axes operations that matplotlibcpp does not wrap, or wraps with a bug
+  // (subplot passes floats, which recent matplotlib rejects, and
+  // subplot2grid releases its shape and location tuples twice), through the
+  // library's Python helpers.
+
+  inline void call(PyObject* callable, PyObject* args, PyObject* kwargs, const char* what) {
+    PyObject* result = PyObject_Call(callable, args, kwargs);
+    if (!result) {
+      PyErr_Print();
+      throw std::runtime_error(std::string("matplotlib call failed: ") + what);
+    }
+    Py_DECREF(result);
+  }
+
+  // Panel spanning rows [row, row + rowspan) and columns [column, column + colspan)
+  // of a rows x columns grid, made the current axes.
+  inline void panel(long rows, long columns, long row, long column, long rowspan = 1, long colspan = 1) {
+    PyObject* pyplot = py::import_module("matplotlib.pyplot");
+    PyObject* subplot2grid = py::get_attr(pyplot, "subplot2grid");
+    PyObject* args = Py_BuildValue("((ll)(ll))", rows, columns, row, column);
+    PyObject* kwargs = PyDict_New();
+    py::set_dict_long(kwargs, "rowspan", rowspan);
+    py::set_dict_long(kwargs, "colspan", colspan);
+    call(subplot2grid, args, kwargs, "subplot2grid");
+    Py_DECREF(kwargs);
+    Py_DECREF(args);
+    Py_DECREF(subplot2grid);
     Py_DECREF(pyplot);
   }
 
-  // Axes operations that matplotlibcpp does not wrap, through the library's
-  // Python helpers.
+  // Position (x0, y0, width, height) of the current axes in figure coordinates.
+  using Bounds = std::array<double, 4>;
 
-  // Inset at (x0, y0, width, height) in the axes coordinates of the panel
-  // selected by subplot(rows, columns, index), added as a figure axes (which
-  // becomes current, unlike an Axes.inset_axes child) so that the plt:: calls
-  // that follow draw into it. Call after the layout of the panels is final.
-  inline void inset(int rows, int columns, int index, double x0, double y0, double width, double height) {
-    namespace py = dft::plotting::detail;
+  inline auto current_bounds() -> Bounds {
     PyObject* pyplot = py::import_module("matplotlib.pyplot");
-    PyObject* parent = py::select_subplot(pyplot, rows, columns, index);
-    PyObject* get_position = py::get_attr(parent, "get_position");
+    PyObject* ax = py::current_axes(pyplot);
+    PyObject* get_position = py::get_attr(ax, "get_position");
     PyObject* box = PyObject_CallObject(get_position, nullptr);
     auto field = [box](const char* name) {
       PyObject* value = py::get_attr(box, name);
@@ -126,20 +160,54 @@ namespace plot {
       Py_DECREF(value);
       return out;
     };
-    const double left = field("x0");
-    const double bottom = field("y0");
-    const double w = field("width");
-    const double h = field("height");
-    Py_DECREF(py::add_axes_rect(pyplot, left + x0 * w, bottom + y0 * h, width * w, height * h));
+    Bounds bounds{field("x0"), field("y0"), field("width"), field("height")};
     Py_DECREF(box);
     Py_DECREF(get_position);
-    Py_DECREF(parent);
+    Py_DECREF(ax);
+    Py_DECREF(pyplot);
+    return bounds;
+  }
+
+  // Inset at (x0, y0, width, height) in the axes coordinates of a panel with
+  // the given bounds, added as a figure axes and made current. The panel
+  // positions must be final: figures with insets fix their margins with
+  // subplots_adjust and are saved without tight_layout.
+  inline void inset(const Bounds& parent, double x0, double y0, double width, double height) {
+    PyObject* pyplot = py::import_module("matplotlib.pyplot");
+    Py_DECREF(
+        py::add_axes_rect(
+            pyplot,
+            parent[0] + x0 * parent[2],
+            parent[1] + y0 * parent[3],
+            width * parent[2],
+            height * parent[3]
+        )
+    );
     Py_DECREF(pyplot);
   }
 
-  // Logarithmic scale on both axes of the current axes.
+  // At most `count` major ticks on the x axis of the current axes.
+  inline void x_tick_count(long count) {
+    PyObject* pyplot = py::import_module("matplotlib.pyplot");
+    PyObject* ticker = py::import_module("matplotlib.ticker");
+    PyObject* locator_type = py::get_attr(ticker, "MaxNLocator");
+    PyObject* locator = PyObject_CallFunction(locator_type, "l", count);
+    PyObject* ax = py::current_axes(pyplot);
+    PyObject* xaxis = py::get_attr(ax, "xaxis");
+    PyObject* set_locator = py::get_attr(xaxis, "set_major_locator");
+    PyObject* args = PyTuple_Pack(1, locator);
+    call(set_locator, args, nullptr, "set_major_locator");
+    Py_DECREF(args);
+    Py_DECREF(set_locator);
+    Py_DECREF(xaxis);
+    Py_DECREF(ax);
+    Py_DECREF(locator);
+    Py_DECREF(locator_type);
+    Py_DECREF(ticker);
+    Py_DECREF(pyplot);
+  }
+
   inline void log_axes() {
-    namespace py = dft::plotting::detail;
     PyObject* pyplot = py::import_module("matplotlib.pyplot");
     PyObject* ax = py::current_axes(pyplot);
     py::call_axes_string_method(ax, "set_xscale", "log");
@@ -148,30 +216,59 @@ namespace plot {
     Py_DECREF(pyplot);
   }
 
-  // Legend of the current axes centred below it, in the given number of columns.
-  inline void legend_below(long columns) {
-    namespace py = dft::plotting::detail;
+  // Text at (text_x, text_y) with an arrow to (x, y), in data coordinates.
+  inline void callout(const std::string& text, double x, double y, double text_x, double text_y) {
     PyObject* pyplot = py::import_module("matplotlib.pyplot");
     PyObject* ax = py::current_axes(pyplot);
-    PyObject* legend = py::get_attr(ax, "legend");
+    PyObject* annotate = py::get_attr(ax, "annotate");
+    PyObject* args = Py_BuildValue("(s)", text.c_str());
     PyObject* kwargs = PyDict_New();
-    py::set_dict_string(kwargs, "loc", "upper center");
-    PyObject* anchor = py::to_pylist_1d({0.5, -0.13});
-    PyDict_SetItemString(kwargs, "bbox_to_anchor", anchor);
-    py::set_dict_long(kwargs, "ncol", columns);
-    py::set_dict_string(kwargs, "fontsize", "small");
-    PyObject* args = PyTuple_New(0);
-    Py_XDECREF(PyObject_Call(legend, args, kwargs));
-    Py_DECREF(args);
-    Py_DECREF(anchor);
+    PyObject* xy = Py_BuildValue("(dd)", x, y);
+    PyObject* xytext = Py_BuildValue("(dd)", text_x, text_y);
+    PyObject* arrow = PyDict_New();
+    py::set_dict_string(arrow, "arrowstyle", "->");
+    py::set_dict_string(arrow, "color", muted);
+    py::set_dict_double(arrow, "lw", 0.7);
+    PyDict_SetItemString(kwargs, "xy", xy);
+    PyDict_SetItemString(kwargs, "xytext", xytext);
+    PyDict_SetItemString(kwargs, "arrowprops", arrow);
+    py::set_dict_string(kwargs, "fontsize", "7");
+    call(annotate, args, kwargs, "annotate");
+    Py_DECREF(arrow);
+    Py_DECREF(xytext);
+    Py_DECREF(xy);
     Py_DECREF(kwargs);
-    Py_DECREF(legend);
+    Py_DECREF(args);
+    Py_DECREF(annotate);
     Py_DECREF(ax);
     Py_DECREF(pyplot);
   }
 
-  // Save as PDF and PNG; layout = false keeps the current layout, for figures
-  // with insets placed after an explicit tight_layout().
+  // Legend of the current axes entries, centred below all panels.
+  inline void figure_legend(long columns) {
+    PyObject* pyplot = py::import_module("matplotlib.pyplot");
+    PyObject* ax = py::current_axes(pyplot);
+    PyObject* handles_labels_fn = py::get_attr(ax, "get_legend_handles_labels");
+    PyObject* handles_labels = PyObject_CallObject(handles_labels_fn, nullptr);
+    PyObject* gcf = py::get_attr(pyplot, "gcf");
+    PyObject* fig = PyObject_CallObject(gcf, nullptr);
+    PyObject* legend = py::get_attr(fig, "legend");
+    PyObject* kwargs = PyDict_New();
+    py::set_dict_string(kwargs, "loc", "lower center");
+    py::set_dict_long(kwargs, "ncol", columns);
+    PyDict_SetItemString(kwargs, "frameon", Py_False);
+    call(legend, handles_labels, kwargs, "figure legend");
+    Py_DECREF(kwargs);
+    Py_DECREF(legend);
+    Py_DECREF(fig);
+    Py_DECREF(gcf);
+    Py_DECREF(handles_labels);
+    Py_DECREF(handles_labels_fn);
+    Py_DECREF(ax);
+    Py_DECREF(pyplot);
+  }
+
+  // Save as PDF and PNG; layout = false keeps the margins set by subplots_adjust.
   inline void save(const std::string& name, bool layout = true) {
     if (layout)
       plt::tight_layout();
@@ -182,211 +279,265 @@ namespace plot {
     std::cout << "Plot saved: exports/" << name << ".png\n";
   }
 
-  inline void fold_markers(const utils::Problem& problem, const utils::Branch& uniform, bool omega) {
-    std::vector<double> fx, fy;
-    for (const auto& f : uniform.folds) {
-      fx.push_back(f.mu);
-      fy.push_back(omega ? problem.grand_potential(f.point.x, f.mu) : problem.mass(f.point.x));
-    }
+  // A profile y(x) in a small panel, with the same x range and y range
+  // (-1.1, 1.1) in every such panel.
+  inline void
+  profile(const utils::Problem& problem, const arma::vec& y, const std::string& color, const std::string& title) {
     plt::plot(
-        fx,
-        fy,
-        {{"color", ink}, {"marker", "o"}, {"markersize", "8"}, {"linestyle", "None"}, {"label", "folds"}}
+        arma::conv_to<std::vector<double>>::from(problem.positions()),
+        arma::conv_to<std::vector<double>>::from(y),
+        {{"color", color}, {"linewidth", "1.2"}}
+    );
+    plt::xlim(0.0, problem.length);
+    plt::ylim(-1.1, 1.1);
+    plt::xticks(std::vector<double>{0.0, 0.5 * problem.length, problem.length});
+    plt::yticks(std::vector<double>{-1.0, 0.0, 1.0});
+    plt::tick_params({{"labelsize", "6"}});
+    plt::title(title, {{"fontsize", "7"}});
+    plt::grid(true);
+  }
+
+  inline auto omega_meta(const utils::Problem& problem, double mu) -> double {
+    const double rho = utils::exact::metastable_density(mu);
+    return problem.length * (0.25 * std::pow(rho * rho - 1.0, 2) - mu * rho);
+  }
+
+  inline auto widest(const utils::Branch& branch) -> std::size_t {
+    return static_cast<std::size_t>(
+        std::ranges::max_element(branch.modal, {}, [](double a) { return std::abs(a); }) - branch.modal.begin()
     );
   }
 
-  // Figure 1: N against mu on the uniform branch.
+  // N against mu on the uniform branch.
   inline void s_curve(const utils::Problem& problem, const utils::Branch& uniform) {
-    plt::figure_size(800, 560);
-    stability_line(uniform.mu, uniform.mass, uniform.index, branch_colors[0], true);
-    fold_markers(problem, uniform, false);
+    figure(ONE_COLUMN);
+    stability_line(
+        uniform.mu,
+        uniform.mass,
+        uniform.index,
+        branch_colors[0],
+        R"(stable, $n_- = 0$)",
+        R"(unstable, $n_- \geq 1$)"
+    );
+    std::vector<double> fx, fy;
     for (const auto& f : uniform.folds) {
-      double n = problem.mass(f.point.x);
-      plt::annotate(std::format(R"($\mu = {:+.4f}$)", f.mu), f.mu + (f.mu > 0 ? 0.02 : -0.2), n + (n > 0 ? 1.0 : -2.0));
+      fx.push_back(f.mu);
+      fy.push_back(problem.mass(f.point.x));
     }
-    plt::axhline(0.0, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}});
-    plt::axvline(0.0, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}});
+    plt::plot(fx, fy, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}, {"label", "folds"}});
+    for (const auto& f : uniform.folds) {
+      const double n = problem.mass(f.point.x);
+      plt::annotate(
+          std::format(R"($\mu = {:+.4f}$)", f.mu),
+          f.mu > 0 ? f.mu + 0.03 : f.mu - 0.36,
+          n + (n > 0 ? 1.5 : -3.0)
+      );
+    }
+    plt::axhline(0.0, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.5"}});
+    plt::axvline(0.0, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.5"}});
     plt::xlim(-0.8, 0.8);
     plt::xlabel(R"($\mu$)");
     plt::ylabel(R"($N = \int_0^L \rho\,dx$)");
     plt::title("Uniform branch: the S-curve");
-    plt::legend({{"loc", "upper left"}});
+    plt::legend({{"loc", "center right"}, {"fontsize", "6"}});
     plt::grid(true);
     save("s_curve");
   }
 
-  // Figure 2: Omega against mu on the uniform branch.
-  inline void swallowtail(const utils::Problem& problem, const utils::Branch& uniform) {
-    plt::figure_size(800, 560);
-    stability_line(uniform.mu, uniform.omega, uniform.index, branch_colors[0], true);
-    fold_markers(problem, uniform, true);
+  // Omega against mu: the uniform swallowtail with the interface branches,
+  // and the profiles of the states that the curves stand for.
+  inline void swallowtail(const utils::Problem& problem, const utils::Results& results) {
+    const auto& uniform = results.uniform;
+    figure(TWO_COLUMN);
+    plt::subplots_adjust(
+        {{"left", 0.07}, {"right", 0.98}, {"bottom", 0.14}, {"top", 0.9}, {"wspace", 0.35}, {"hspace", 0.6}}
+    );
+    panel(2, 4, 0, 0, 2, 2);
+    stability_line(uniform.mu, uniform.omega, uniform.index, ink, "uniform, stable", "uniform, unstable (flat)");
+    for (const auto& b : results.arms) {
+      if (b.sign > 0)
+        plt::plot(
+            b.mu,
+            b.omega,
+            {{"color", branch_colors[static_cast<std::size_t>(b.mode - 1)]},
+             {"label", std::format("{} interface{}", b.mode, b.mode > 1 ? "s" : "")}}
+        );
+    }
+    std::vector<double> fx, fy;
+    for (const auto& f : uniform.folds) {
+      fx.push_back(f.mu);
+      fy.push_back(problem.grand_potential(f.point.x, f.mu));
+    }
+    plt::plot(fx, fy, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}, {"label", "folds"}});
     plt::plot(
         {0.0},
         {0.0},
-        {{"color", ink},
-         {"marker", "D"},
-         {"markersize", "7"},
-         {"linestyle", "None"},
-         {"label", R"(crossing $\mu_0 = 0$)"}}
+        {{"color", ink}, {"marker", "D"}, {"linestyle", "None"}, {"label", R"(crossing $\mu_0 = 0$)"}}
     );
-    arma::vec mid(problem.nodes, arma::fill::zeros);
-    double omega_mid = problem.grand_potential(mid, 0.0);
-    plt::plot({0.0, 0.0}, {0.0, omega_mid}, {{"color", muted}, {"linewidth", "1"}, {"linestyle", ":"}});
-    plt::annotate(std::format(R"($\Omega_{{\rm mid}} - \Omega_\pm = L/4 = {:g}$)", omega_mid), 0.02, 0.5 * omega_mid);
-    plt::xlim(-0.6, 0.6);
+    plt::xlim(-1.0, 0.6);
     plt::ylim(-6.0, 9.0);
     plt::xlabel(R"($\mu$)");
     plt::ylabel(R"($\Omega$)");
-    plt::title("Uniform branch: the swallowtail");
-    plt::legend({{"loc", "lower left"}});
+    plt::title("Uniform swallowtail and the interface branches");
+    plt::legend({{"loc", "center left"}, {"fontsize", "6"}});
     plt::grid(true);
-    save("swallowtail");
+
+    // Profiles at mu = 0: the middle uniform state and the widest state of
+    // each interface branch.
+    const arma::vec middle(problem.nodes, arma::fill::zeros);
+    const std::array<std::array<long, 2>, 4> cells{{{0, 2}, {0, 3}, {1, 2}, {1, 3}}};
+    panel(2, 4, cells[0][0], cells[0][1]);
+    profile(problem, middle, ink, std::format(R"(uniform, $\Omega = {:.2f}$)", problem.grand_potential(middle, 0.0)));
+    for (int n = 1; n <= 3; ++n) {
+      const auto& b = results.arm(n, +1);
+      const std::size_t k = widest(b);
+      panel(2, 4, cells[static_cast<std::size_t>(n)][0], cells[static_cast<std::size_t>(n)][1]);
+      profile(
+          problem,
+          b.curve[k].x,
+          branch_colors[static_cast<std::size_t>(n - 1)],
+          std::format(R"({} interface{}, $\Omega = {:.2f}$)", n, n > 1 ? "s" : "", b.omega[k])
+      );
+    }
+    save("swallowtail", false);
   }
 
-  // Figure 3: bifurcation diagram (signed modal amplitude) and gap to the metastable state.
+  // Bifurcation diagram (signed modal amplitude) over the gap to the
+  // metastable uniform state, against mu and against N.
   inline void branches(const utils::Problem& problem, const utils::Results& results) {
     const auto& uniform = results.uniform;
-    plt::figure_size(1900, 560);
+    figure(TWO_COLUMN_TALL);
+    plt::subplots_adjust(
+        {{"left", 0.07}, {"right", 0.98}, {"bottom", 0.16}, {"top", 0.95}, {"wspace", 0.22}, {"hspace", 0.55}}
+    );
 
-    subplot(1, 3, 1);
+    // Top: a_n against mu, both arms, bifurcation points numbered by n.
+    panel(3, 2, 0, 0, 2, 2);
     std::vector<double> zeros(uniform.mu.size(), 0.0);
-    plt::plot(uniform.mu, zeros, {{"color", ink}, {"linewidth", "2"}, {"label", "uniform"}});
+    plt::plot(uniform.mu, zeros, {{"color", ink}, {"label", "uniform"}});
+    for (const auto& b : results.arms) {
+      std::map<std::string, std::string> keywords{{"color", branch_colors[static_cast<std::size_t>(b.mode - 1)]}};
+      if (b.sign > 0)
+        keywords["label"] = std::format(R"($n = {}$ interface{}, both arms)", b.mode, b.mode > 1 ? "s" : "");
+      plt::plot(b.mu, b.modal, keywords);
+    }
     std::vector<double> bx, by;
     for (const auto& e : uniform.bifurcations) {
       bx.push_back(e.mu);
       by.push_back(0.0);
     }
-    plt::plot(
-        bx,
-        by,
-        {{"color", ink}, {"marker", "o"}, {"markersize", "6"}, {"linestyle", "None"}, {"label", "bifurcation points"}}
-    );
-    for (const auto& b : results.arms) {
-      const auto& color = branch_colors[static_cast<std::size_t>(b.mode - 1)];
-      bool first = b.sign > 0;
-      for (const auto& r : runs(b.mu, b.modal, b.index)) {
-        std::map<std::string, std::string>
-            keywords{{"color", color}, {"linewidth", "2"}, {"linestyle", index_style(r.index)}};
-        if (first) {
-          keywords["label"] = std::format(R"($n = {}$, $a_{}$, both arms)", b.mode, b.mode);
-          first = false;
-        }
-        plt::plot(r.x, r.y, keywords);
-      }
+    plt::plot(bx, by, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}, {"label", R"(bifurcation point $n$)"}});
+    for (const auto& e : uniform.bifurcations) {
+      if (e.mode >= 5)
+        plt::annotate(std::to_string(e.mode), e.mu - 0.006, -0.17);
     }
-    // Legend proxies for the line styles.
-    for (int k = 1; k <= 3; ++k) {
-      const double nan = std::numeric_limits<double>::quiet_NaN();
-      plt::plot(
-          std::vector<double>{nan},
-          std::vector<double>{nan},
-          {{"color", muted},
-           {"linewidth", "2"},
-           {"linestyle", index_style(k)},
-           {"label", std::format(R"($n_- = {}$)", k)}}
-      );
+    // The points n = 1 to 4 lie within 0.03 of each fold: boxed here, zoomed in the inset.
+    for (double side : {-1.0, 1.0}) {
+      const double a = side * 0.353;
+      const double b = side * 0.388;
+      plt::plot({a, b, b, a, a}, {-0.12, -0.12, 0.12, 0.12, -0.12}, {{"color", muted}, {"linewidth", "0.7"}});
     }
+    plt::annotate(R"($n = 1..4$)", 0.345, -0.3);
+    plt::annotate(R"($n = 1..4$)", -0.395, -0.3);
     plt::xlim(-0.45, 0.45);
-    plt::ylim(-2.5, 1.4);
-    plt::yticks(std::vector<double>{-1.0, -0.5, 0.0, 0.5, 1.0});
+    plt::ylim(-1.35, 1.35);
     plt::xlabel(R"($\mu$)");
     plt::ylabel(R"($a_n$)");
-    plt::title("Branches with n interfaces: both arms");
-    plt::legend({{"loc", "lower left"}, {"fontsize", "small"}});
+    plt::title(R"(Pitchforks from the uniform branch: $a_n$ changes sign between the two arms)");
     plt::grid(true);
 
-    // Gap to the metastable uniform state, against mu (panel 2) and N (panel 3).
+    figure_legend(3);
+
+    // Zoom on the points n = 1 to 4 at mu > 0, in the space between the arms.
+    const Bounds top = current_bounds();
+    inset(top, 0.64, 0.66, 0.22, 0.24);
+    plt::plot(uniform.mu, zeros, {{"color", ink}});
+    for (const auto& b : results.arms)
+      plt::plot(b.mu, b.modal, {{"color", branch_colors[static_cast<std::size_t>(b.mode - 1)]}});
+    for (const auto& e : uniform.bifurcations) {
+      if (e.mu > 0.35 && e.mode <= 4) {
+        plt::plot({e.mu}, {0.0}, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}});
+        plt::annotate(std::to_string(e.mode), e.mu - 0.0012, e.mode % 2 == 0 ? 0.03 : -0.07);
+      }
+    }
+    plt::xlim(0.353, 0.388);
+    plt::ylim(-0.12, 0.12);
+    plt::xticks(std::vector<double>{0.36, 0.37, 0.38});
+    plt::yticks(std::vector<double>{-0.1, 0.0, 0.1});
+    plt::tick_params({{"labelsize", "6"}});
+    plt::title(R"(zoom, $\mu > 0$)", {{"fontsize", "7"}});
+
+    // Bottom: gap to the metastable uniform state, against mu and against N.
     const double mu_f = utils::exact::fold_chemical_potential();
     auto gap = [&](const std::vector<double>& axis,
                    const std::vector<double>& mu,
                    const std::vector<double>& omega,
-                   const std::vector<int>& index,
                    const std::string& color,
-                   const std::string& label) {
+                   const std::string& linestyle) {
       std::vector<double> x, y;
-      std::vector<int> indices;
       for (std::size_t k = 0; k < mu.size(); ++k) {
-        if (std::abs(mu[k]) >= mu_f)
-          continue;
-        const double rho = utils::exact::metastable_density(mu[k]);
-        const double omega_meta = problem.length * (0.25 * std::pow(rho * rho - 1.0, 2) - mu[k] * rho);
-        x.push_back(axis[k]);
-        y.push_back(omega[k] - omega_meta);
-        indices.push_back(index[k]);
-      }
-      bool first = true;
-      for (const auto& r : runs(x, y, indices)) {
-        std::map<std::string, std::string>
-            keywords{{"color", color}, {"linewidth", "2"}, {"linestyle", index_style(r.index)}};
-        if (first) {
-          keywords["label"] = label;
-          first = false;
+        if (std::abs(mu[k]) < mu_f) {
+          x.push_back(axis[k]);
+          y.push_back(omega[k] - omega_meta(problem, mu[k]));
         }
-        plt::plot(r.x, r.y, keywords);
       }
+      plt::plot(x, y, {{"color", color}, {"linestyle", linestyle}});
     };
-
-    // Middle arc of the uniform branch: between the two folds.
     std::vector<double> middle_mu, middle_mass, middle_omega;
-    std::vector<int> middle_index;
     for (std::size_t k = 0; k < uniform.mu.size(); ++k) {
       if (std::abs(uniform.mass[k] / problem.length) < utils::exact::fold_density()) {
         middle_mu.push_back(uniform.mu[k]);
         middle_mass.push_back(uniform.mass[k]);
         middle_omega.push_back(uniform.omega[k]);
-        middle_index.push_back(uniform.index[k]);
       }
     }
-
     const double sigma = utils::exact::surface_tension(problem.kappa);
-    for (int panel : {2, 3}) {
-      const bool against_mass = panel == 3;
-      subplot(1, 3, panel);
-      gap(against_mass ? middle_mass : middle_mu, middle_mu, middle_omega, middle_index, ink, "uniform, middle arc");
-      // The two arms have the same Omega and N, so one arm per n is drawn.
+    for (long column : {0L, 1L}) {
+      const bool against_mass = column == 1;
+      panel(3, 2, 2, column);
+      gap(against_mass ? middle_mass : middle_mu, middle_mu, middle_omega, ink, "--");
       for (const auto& b : results.arms) {
-        if (b.sign > 0) {
-          const auto& color = branch_colors[static_cast<std::size_t>(b.mode - 1)];
-          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, b.index, color, std::format("n = {}", b.mode));
-        }
+        if (b.sign > 0)
+          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, branch_colors[static_cast<std::size_t>(b.mode - 1)], "-");
       }
       for (int n = 1; n <= 3; ++n)
-        plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.8"}, {"linestyle", ":"}});
+        plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}, {"linestyle", ":"}});
       plt::yticks(
-          std::vector<double>{0.0, sigma, 2.0 * sigma, 3.0 * sigma, 4.0, 5.0, 6.0, 7.0},
-          std::vector<std::string>{"0", R"($\sigma$)", R"($2\sigma$)", R"($3\sigma$)", "4", "5", "6", "7"}
+          std::vector<double>{0.0, sigma, 2.0 * sigma, 3.0 * sigma, 4.0, 5.0, 6.0},
+          std::vector<std::string>{"0", R"($\sigma$)", R"($2\sigma$)", R"($3\sigma$)", "4", "5", "6"}
       );
+      plt::ylim(0.0, 6.5);
+      plt::ylabel(R"($\Omega - \Omega_{\rm meta}$)");
       if (against_mass) {
         plt::xlim(-0.85 * problem.length, 0.85 * problem.length);
         plt::xlabel(R"($N$)");
-        plt::title(R"(The same gap against $N$: the plateau at $\mu \approx 0$)");
+        plt::title(R"(Against $N$: the $\mu \approx 0$ spike is a plateau at $n\sigma$)");
       } else {
         plt::xlim(-0.4, 0.4);
         plt::xlabel(R"($\mu$)");
-        plt::title("Gap to the metastable uniform state");
+        plt::title(R"(Gap to the metastable state; uniform middle arc dashed)");
       }
-      plt::ylim(0.0, 7.5);
-      plt::ylabel(R"($\Omega - \Omega_{\rm meta}$)");
-      plt::legend({{"loc", "upper left"}, {"fontsize", "small"}});
       plt::grid(true);
     }
-    save("branches");
+    save("branches", false);
   }
 
-  // Figure: zoom on the n = 1 and n = 2 pitchforks, a_n against mu - mu_n,
-  // with a log-log inset for the exponent and the profiles of both arms.
+  // Zoom on the n = 1 and n = 2 pitchforks: a_n against mu - mu_n with the
+  // leading-order and two-term normal forms and the profiles of both arms,
+  // over |a_n| against |mu - mu_n| on logarithmic axes.
   inline void pitchfork_zoom(const utils::Problem& problem, const utils::Results& results) {
-    plt::figure_size(1400, 640);
-    const auto x_nodes = arma::conv_to<std::vector<double>>::from(problem.positions());
-    std::vector<std::vector<arma::vec>> profiles_shown;
+    figure(TWO_COLUMN_TALL);
+    plt::subplots_adjust(
+        {{"left", 0.08}, {"right", 0.98}, {"bottom", 0.14}, {"top", 0.95}, {"wspace", 0.25}, {"hspace", 0.42}}
+    );
+    const long columns = static_cast<long>(results.pitchfork.size());
     for (std::size_t j = 0; j < results.pitchfork.size(); ++j) {
-      subplot(1, static_cast<int>(results.pitchfork.size()), static_cast<int>(j + 1));
       const auto& samples = results.pitchfork[j];
       const int n = results.pitchfork_points[j].mode;
       const double mu_n = results.pitchfork_points[j].mu;
       const auto& color = branch_colors[static_cast<std::size_t>(n - 1)];
-      const auto fit = utils::fit_power_law(samples, 1e-4, 1e-3);
-      const auto fit_all = utils::fit_power_law(samples, 1e-4, 1e-1);
+      const auto leading = utils::fit_power_law(samples, 1e-4, 1e-3);
+      const auto two_term = utils::fit_normal_form(samples, 0.1);
 
       std::vector<double> dmu, amplitude;
       double span = 0.0;
@@ -399,12 +550,10 @@ namespace plot {
       }
       const double side = samples.front().dmu > 0.0 ? 1.0 : -1.0;
 
-      // Main panel: uniform branch, traced arms, samples and the fitted law.
-      plt::plot({-1.2 * span, 1.6 * span}, {0.0, 0.0}, {{"color", ink}, {"linewidth", "2"}, {"label", "uniform"}});
-      bool labelled = false;
-      for (const auto& b : results.arms) {
-        if (b.mode != n)
-          continue;
+      panel(2, columns, 0, static_cast<long>(j));
+      plt::plot({-1.2 * span, 1.2 * span}, {0.0, 0.0}, {{"color", ink}, {"label", "uniform"}});
+      for (int sign : {+1, -1}) {
+        const auto& b = results.arm(n, sign);
         std::vector<double> bx, by;
         for (std::size_t k = 0; k < b.mu.size() / 2; ++k) {
           if (std::abs(b.modal[k]) <= a_max) {
@@ -412,11 +561,9 @@ namespace plot {
             by.push_back(b.modal[k]);
           }
         }
-        std::map<std::string, std::string> keywords{{"color", tint(color, 0.5)}, {"linewidth", "4"}};
-        if (!labelled) {
+        std::map<std::string, std::string> keywords{{"color", tint(color, 0.55)}, {"linewidth", "3"}};
+        if (sign > 0)
           keywords["label"] = "traced arms";
-          labelled = true;
-        }
         plt::plot(bx, by, keywords);
       }
       plt::plot(
@@ -424,32 +571,31 @@ namespace plot {
           amplitude,
           {{"color", color},
            {"marker", "o"},
-           {"markersize", "4"},
+           {"markersize", "2.5"},
            {"linestyle", "None"},
-           {"label", std::format(R"(solved at fixed $a_{}$)", n)}}
+           {"label", R"(solved at fixed $a_n$)"}}
       );
-      std::vector<double> cx, cy_plus, cy_minus;
-      for (double t : arma::linspace(0.0, 1.0, 200)) {
-        const double d = side * span * t;
-        cx.push_back(d);
-        cy_plus.push_back(fit.prefactor * std::sqrt(std::abs(d)));
-        cy_minus.push_back(-fit.prefactor * std::sqrt(std::abs(d)));
+      std::vector<double> a_curve, leading_curve, two_term_curve;
+      for (double a : arma::linspace(-a_max, a_max, 201)) {
+        a_curve.push_back(a);
+        leading_curve.push_back(side * std::pow(std::abs(a) / leading.prefactor, 2.0));
+        two_term_curve.push_back(two_term.c2 * a * a + two_term.c4 * a * a * a * a);
       }
       plt::plot(
-          cx,
-          cy_plus,
+          leading_curve,
+          a_curve,
           {{"color", ink},
-           {"linewidth", "1"},
+           {"linewidth", "0.8"},
            {"linestyle", "--"},
-           {"label",
-            std::
-                format(R"($\pm {:.3f}\,|\mu - \mu_{}|^{{1/2}}$, fit on $|a_{}| \leq 10^{{-3}}$)", fit.prefactor, n, n)}}
+           {"label", R"(leading order, $a \propto |\mu - \mu_n|^{1/2}$)"}}
       );
-      plt::plot(cx, cy_minus, {{"color", ink}, {"linewidth", "1"}, {"linestyle", "--"}});
-      plt::plot({0.0}, {0.0}, {{"color", ink}, {"marker", "o"}, {"markersize", "7"}, {"linestyle", "None"}});
-
-      // The two profiles shown in the insets, marked on their arms.
-      std::vector<arma::vec> shown;
+      plt::plot(
+          two_term_curve,
+          a_curve,
+          {{"color", ink}, {"linewidth", "0.8"}, {"linestyle", ":"}, {"label", R"($\mu - \mu_n = c_2 a^2 + c_4 a^4$)"}}
+      );
+      // One marked state on each arm, its profile in the insets.
+      std::array<arma::vec, 2> shown;
       for (int sign : {+1, -1}) {
         const auto& b = results.arm(n, sign);
         std::size_t pick = 1;
@@ -457,188 +603,184 @@ namespace plot {
           if (std::abs(std::abs(b.modal[k]) - 0.8 * a_max) < std::abs(std::abs(b.modal[pick]) - 0.8 * a_max))
             pick = k;
         }
-        plt::plot(
-            {b.mu[pick] - mu_n},
-            {b.modal[pick]},
-            {{"color", ink}, {"marker", "s"}, {"markersize", "7"}, {"linestyle", "None"}}
-        );
-        plt::annotate(sign > 0 ? "A" : "B", b.mu[pick] - mu_n + 0.04 * span, b.modal[pick]);
-        shown.push_back(b.curve[pick].x);
+        plt::plot({b.mu[pick] - mu_n}, {b.modal[pick]}, {{"color", ink}, {"marker", "s"}, {"linestyle", "None"}});
+        plt::annotate(sign > 0 ? "A" : "B", b.mu[pick] - mu_n + 0.05 * span, b.modal[pick]);
+        shown[sign > 0 ? 0 : 1] = b.curve[pick].x;
       }
-
-      plt::xlim(side > 0 ? -0.2 * span : -1.15 * span, side > 0 ? 1.15 * span : 1.6 * span);
+      plt::xlim(side > 0 ? -0.1 * span : -1.1 * span, side > 0 ? 1.1 * span : 0.9 * span);
       plt::ylim(-1.3 * a_max, 1.3 * a_max);
       plt::xlabel(std::format(R"($\mu - \mu_{}$)", n));
       plt::ylabel(std::format(R"($a_{}$)", n));
-      plt::title(
-          std::format(
-              R"($n = {}$, $\mu_{} = {:.6f}$: $\beta = {:.4f}$ on $|a| \leq 10^{{-3}}$, ${:.3f}$ on $|a| \leq 10^{{-1}}$)",
-              n,
-              n,
-              mu_n,
-              fit.exponent,
-              fit_all.exponent
-          )
-      );
+      plt::title(std::format(R"($n = {}$ pitchfork at $\mu_{} = {:.6f}$)", n, n, mu_n));
       plt::grid(true);
-      legend_below(2);
+      x_tick_count(4);
+      if (j == 0)
+        figure_legend(5);
+      const Bounds main = current_bounds();
+      inset(main, 0.6, 0.6, 0.37, 0.26);
+      profile(problem, shown[0], color, "A: upper arm");
+      inset(main, 0.6, 0.15, 0.37, 0.26);
+      profile(problem, shown[1], color, "B: lower arm");
 
-      profiles_shown.push_back(std::move(shown));
-    }
-    plt::tight_layout();
-
-    // Insets, placed once the panels have their final positions.
-    const int columns = static_cast<int>(results.pitchfork.size());
-    for (std::size_t j = 0; j < results.pitchfork.size(); ++j) {
-      const int panel = static_cast<int>(j + 1);
-      const auto& samples = results.pitchfork[j];
-      const int n = results.pitchfork_points[j].mode;
-      const auto& color = branch_colors[static_cast<std::size_t>(n - 1)];
-      const auto fit = utils::fit_power_law(samples, 1e-4, 1e-3);
-
-      // Profiles of the marked points: mirror images under the arm symmetry.
-      const std::array<double, 2> inset_y{0.70, 0.06};
-      for (std::size_t s = 0; s < 2; ++s) {
-        inset(1, columns, panel, 0.62, inset_y[s], 0.35, 0.24);
-        plt::plot(
-            x_nodes,
-            arma::conv_to<std::vector<double>>::from(profiles_shown[j][s]),
-            {{"color", color}, {"linewidth", "1.5"}}
-        );
-        plt::title(s == 0 ? "A: upper arm" : "B: lower arm", {{"fontsize", "x-small"}});
-        plt::tick_params({{"labelsize", "x-small"}});
-        plt::grid(true);
+      // Log-log: slope 1/2 inside the fit window, and where the data leave it.
+      panel(2, columns, 1, static_cast<long>(j));
+      std::vector<double> abs_dmu, abs_a;
+      for (const auto& s : samples) {
+        abs_dmu.push_back(std::abs(s.dmu));
+        abs_a.push_back(std::abs(s.amplitude));
       }
-
-      // Log-log inset: slope 1/2 at small amplitude, the fit window shaded.
-      inset(1, columns, panel, 0.69, 0.41, 0.28, 0.20);
-      std::vector<double> ax_abs, ay_abs;
-      for (const auto& sample : samples) {
-        ax_abs.push_back(std::abs(sample.dmu));
-        ay_abs.push_back(std::abs(sample.amplitude));
-      }
-      const double x_lo = *std::ranges::min_element(ax_abs);
-      const double x_hi = *std::ranges::max_element(ax_abs);
+      const double x_lo = *std::ranges::min_element(abs_dmu);
+      const double x_hi = *std::ranges::max_element(abs_dmu);
       plt::fill_between(
           std::vector<double>{x_lo, x_hi},
           std::vector<double>{1e-4, 1e-4},
           std::vector<double>{1e-3, 1e-3},
           {{"color", tint(color, 0.8)}}
       );
-      plt::plot(ax_abs, ay_abs, {{"color", color}, {"marker", "o"}, {"markersize", "2"}, {"linestyle", "None"}});
+      plt::plot(abs_dmu, abs_a, {{"color", color}, {"marker", "o"}, {"markersize", "2"}, {"linestyle", "None"}});
       plt::plot(
           std::vector<double>{x_lo, x_hi},
-          std::vector<double>{fit.prefactor * std::sqrt(x_lo), fit.prefactor * std::sqrt(x_hi)},
-          {{"color", ink}, {"linewidth", "1"}, {"linestyle", "--"}}
+          std::vector<double>{leading.prefactor * std::sqrt(x_lo), leading.prefactor * std::sqrt(x_hi)},
+          {{"color", ink}, {"linewidth", "0.8"}, {"linestyle", "--"}}
       );
       log_axes();
-      plt::title("slope 1/2 (dashed), fit window shaded", {{"fontsize", "x-small"}});
-      plt::tick_params({{"labelsize", "x-small"}});
+      plt::xlabel(std::format(R"($|\mu - \mu_{}|$)", n));
+      plt::ylabel(std::format(R"($|a_{}|$)", n));
+      plt::title(std::format(R"(slope $\beta = {:.4f}$ in the shaded window $|a| \leq 10^{{-3}}$)", leading.exponent));
+      plt::grid(true);
     }
     save("pitchfork_zoom", false);
   }
 
-  // Figure 4: profiles along the plus arm of each branch.
-  inline void profiles(const utils::Problem& problem, const utils::Results& results) {
-    std::vector<utils::Branch> branches;
-    for (const auto& b : results.arms) {
-      if (b.sign > 0)
-        branches.push_back(b);
+  // The n = 1 branch at fixed mu: a_1 against mu with six lettered states,
+  // and their profiles in a row below.
+  inline void walk(const utils::Problem& problem, const utils::Results& results) {
+    figure(TWO_COLUMN_TALL);
+    plt::subplots_adjust(
+        {{"left", 0.07}, {"right", 0.98}, {"bottom", 0.07}, {"top", 0.95}, {"wspace", 0.35}, {"hspace", 0.75}}
+    );
+    panel(3, 6, 0, 0, 2, 6);
+    const auto& uniform = results.uniform;
+    const auto& color = branch_colors[0];
+    std::vector<double> zeros(uniform.mu.size(), 0.0);
+    plt::plot(uniform.mu, zeros, {{"color", ink}, {"label", "uniform"}});
+    for (int sign : {+1, -1}) {
+      const auto& arm = results.arm(1, sign);
+      std::map<std::string, std::string> keywords{{"color", color}};
+      if (sign > 0)
+        keywords["label"] = R"($n = 1$, both arms, $n_- = 1$ at fixed $\mu$)";
+      plt::plot(arm.mu, arm.modal, keywords);
     }
-    plt::figure_size(1400, 460);
-    auto x = arma::conv_to<std::vector<double>>::from(problem.positions());
-    const double w = std::sqrt(2.0 * problem.kappa);
-    for (std::size_t b = 0; b < branches.size(); ++b) {
-      subplot(1, static_cast<int>(branches.size()), static_cast<int>(b + 1));
-      const auto& branch = branches[b];
-      auto peak = static_cast<std::size_t>(std::ranges::max_element(branch.amplitude) - branch.amplitude.begin());
-      const double a_max = branch.amplitude[peak];
-      // Points on the mu > 0 half at a fraction of the peak amplitude.
-      for (double frac : {0.1, 0.4, 0.7, 1.0}) {
-        std::size_t pick = peak;
-        for (std::size_t k = 0; k <= peak; ++k) {
-          if (branch.amplitude[k] >= frac * a_max) {
-            pick = k;
-            break;
-          }
-        }
-        auto y = arma::conv_to<std::vector<double>>::from(branch.curve[pick].x);
-        plt::plot(
-            x,
-            y,
-            {{"color", tint(branch_colors[b], 0.7 * (1.0 - frac))},
-             {"linewidth", "2"},
-             {"label", std::format(R"($\mu = {:+.3f}$)", std::abs(branch.mu[pick]) < 5e-4 ? 0.0 : branch.mu[pick])}}
-        );
-      }
-      // Tanh chain with interfaces at (2j - 1) L / 2n, signed to match the peak profile.
-      const int n = static_cast<int>(b + 1);
-      arma::vec chain(problem.nodes, arma::fill::ones);
-      arma::vec xs = problem.positions();
-      for (int j = 1; j <= n; ++j)
-        chain %= arma::tanh((xs - (2.0 * j - 1.0) * problem.length / (2.0 * n)) / w);
-      if ((chain(0) > 0.0) != (branch.curve[peak].x(0) > 0.0))
-        chain = -chain;
-      plt::plot(
-          x,
-          arma::conv_to<std::vector<double>>::from(chain),
-          {{"color", ink}, {"linewidth", "1"}, {"linestyle", "--"}, {"label", "tanh chain"}}
+    for (const auto& point : results.fixed_mu_points) {
+      const double a = problem.modal_amplitude(point.y, 1);
+      plt::plot({point.mu}, {a}, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}});
+      plt::annotate(point.letter, point.mu + 0.008, a + 0.06);
+    }
+    plt::xlim(-0.42, 0.42);
+    plt::ylim(-1.4, 1.4);
+    plt::xlabel(R"($\mu$)");
+    plt::ylabel(R"($a_1$)");
+    plt::title(R"(Along the $n = 1$ branch at fixed $\mu$)");
+    plt::legend({{"loc", "lower left"}});
+    plt::grid(true);
+    for (std::size_t k = 0; k < results.fixed_mu_points.size(); ++k) {
+      const auto& point = results.fixed_mu_points[k];
+      panel(3, 6, 2, static_cast<long>(k));
+      profile(
+          problem,
+          point.y,
+          color,
+          std::format(
+              "{}: $\\mu = {:+.2f}$\n$\\Delta\\Omega = {:.3f}$",
+              point.letter,
+              point.mu == 0.0 ? 0.0 : point.mu,
+              point.value
+          )
       );
-      plt::ylim(-1.2, 2.3);
-      plt::yticks(std::vector<double>{-1.0, -0.5, 0.0, 0.5, 1.0});
       plt::xlabel(R"($x$)");
-      if (b == 0)
-        plt::ylabel(R"($\rho(x)$)");
-      plt::title(std::format("Branch n = {}", branch.mode));
-      plt::legend({{"loc", "upper center"}, {"fontsize", "x-small"}});
-      plt::grid(true);
     }
-    save("profiles");
+    save("walk", false);
   }
 
-  // Figure 5: the same states parametrised by N (fixed mass).
-  inline void canonical(
-      const utils::Problem& problem,
-      const utils::Branch& uniform,
-      const utils::Branch& kink,
-      const std::vector<utils::CanonicalBranch>& traced
-  ) {
-    plt::figure_size(800, 560);
-    // Uniform branch: index at fixed N.
-    std::vector<int> u_index;
+  // The same states at fixed N: mu against N, the index at fixed N by line
+  // style, and the profiles of six lettered states in insets.
+  inline void canonical(const utils::Problem& problem, const utils::Results& results) {
+    const auto& uniform = results.uniform;
+    figure(TWO_COLUMN_TALL);
+    plt::subplots_adjust({{"left", 0.07}, {"right", 0.98}, {"bottom", 0.17}, {"top", 0.95}});
+    panel(1, 1, 0, 0);
+    std::vector<int> fixed_mass_index;
     for (const auto& q : uniform.curve)
-      u_index.push_back(problem.constrained_index(q.x));
-    std::vector<double> u_n = uniform.mass;
-    stability_line(u_n, uniform.mu, u_index, ink, true);
+      fixed_mass_index.push_back(problem.constrained_index(q.x));
+    stability_line(
+        uniform.mass,
+        uniform.mu,
+        fixed_mass_index,
+        ink,
+        "uniform, stable at fixed N",
+        "uniform, unstable at fixed N"
+    );
+    const auto& kink = results.arm(1, +1);
     plt::plot(
         kink.mass,
         kink.mu,
-        {{"color", tint(branch_colors[0], 0.7)}, {"linewidth", "7"}, {"label", R"($n = 1$, traced in $\mu$)"}}
+        {{"color", tint(branch_colors[0], 0.7)}, {"linewidth", "5"}, {"label", R"($n = 1$, traced in $\mu$)"}}
     );
     bool first = true;
-    for (const auto& c : traced) {
+    for (const auto& c : results.canonical) {
       std::vector<int> unstable(c.index.size());
       for (std::size_t k = 0; k < c.index.size(); ++k)
         unstable[k] = c.index[k] > 0 ? 1 : 0;
       for (const auto& r : runs(c.mass, c.mu, unstable)) {
         std::map<std::string, std::string>
-            keywords{{"color", branch_colors[0]}, {"linewidth", "2"}, {"linestyle", r.index == 0 ? "-" : "--"}};
+            keywords{{"color", branch_colors[0]}, {"linestyle", r.index == 0 ? "-" : "--"}};
         if (first && r.index == 0) {
-          keywords["label"] = R"($n = 1$, traced in $N$)";
+          keywords["label"] = R"($n = 1$, traced in $N$; dashed: saddle at fixed $N$)";
           first = false;
         }
         plt::plot(r.x, r.y, keywords);
       }
     }
-    plt::axhline(0.0, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}});
+    plt::axhline(0.0, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.5"}});
+    for (const auto& point : results.fixed_mass_points) {
+      plt::plot({point.mass}, {point.mu}, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}});
+      plt::annotate(point.letter, point.mass - 1.3, point.mu + 0.02);
+    }
+    const double rho_1 = utils::exact::bifurcation_density(problem.kappa * problem.laplacian_eigenvalue(1));
+    callout(R"(Maxwell plateau, $\mu = 0$)", -6.0, 0.0, -10.5, -0.2);
+    callout("finite-size fold", 16.0, 0.0, 4.5, 0.08);
+    callout(R"(fixed-$N$ saddles)", 15.6, -0.15, 5.5, -0.1);
+    callout(
+        std::format(R"(uniform unstable at fixed $N$ for $|\bar\rho| < \bar\rho_1 = {:.3f}$)", rho_1),
+        -3.0,
+        std::pow(-3.0 / problem.length, 3) + 3.0 / problem.length,
+        0.5,
+        0.24
+    );
     plt::xlim(-1.3 * problem.length, 1.3 * problem.length);
-    plt::ylim(-0.7, 0.7);
+    plt::ylim(-0.75, 0.75);
     plt::xlabel(R"($N$)");
     plt::ylabel(R"($\mu$)");
-    plt::title("Fixed mass: index at fixed $N$ by line style");
-    plt::legend({{"loc", "upper left"}, {"fontsize", "small"}});
+    plt::title(R"(Fixed mass: $\mu$ against $N$, index at fixed $N$ by line style)");
     plt::grid(true);
-    save("canonical");
+    figure_legend(2);
+
+    // Insets in the bands above mu = 0.42 and below mu = -0.39, clear of the curves.
+    const Bounds main = current_bounds();
+    const std::array<std::array<double, 2>, 6> corners{
+        {{0.04, 0.77}, {0.33, 0.77}, {0.62, 0.77}, {0.1, 0.03}, {0.33, 0.03}, {0.56, 0.03}}
+    };
+    for (std::size_t k = 0; k < results.fixed_mass_points.size(); ++k) {
+      const auto& point = results.fixed_mass_points[k];
+      inset(main, corners[k][0], corners[k][1], 0.19, 0.17);
+      profile(
+          problem,
+          point.y,
+          branch_colors[0],
+          std::format(R"({}: $F = {:.2f}$, $n_- = {}$)", point.letter, point.value, point.index)
+      );
+    }
+    save("canonical", false);
   }
 
 } // namespace plot

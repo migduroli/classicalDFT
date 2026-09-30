@@ -81,12 +81,13 @@ int main() {
   std::println(std::cout, "  Saved branches to exports/*.csv");
 
 #ifdef DFT_HAS_MATPLOTLIB
+  plot::style();
   plot::s_curve(problem, uniform);
-  plot::swallowtail(problem, uniform);
+  plot::swallowtail(problem, results);
   plot::branches(problem, results);
   plot::pitchfork_zoom(problem, results);
-  plot::profiles(problem, results);
-  plot::canonical(problem, uniform, results.arm(1, +1), results.canonical);
+  plot::walk(problem, results);
+  plot::canonical(problem, results);
 #endif
 
   std::println(std::cout, "\nDone.");
