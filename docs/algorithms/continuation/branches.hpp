@@ -467,7 +467,7 @@ namespace utils {
     Branch uniform;
     std::vector<Branch> arms; // n = 1, +; n = 1, -; n = 2, +; ...
     std::vector<CanonicalBranch> canonical;
-    std::vector<Event> pitchfork_points;                 // bifurcation points at rho < 0, n = 1, 2
+    std::vector<Event> pitchfork_points;                 // bifurcation points at rho < 0, n = 1, 2, 3
     std::vector<std::vector<PitchforkSample>> pitchfork; // samples at prescribed a_n, both signs
     std::vector<Labelled> fixed_mass_points;             // A to F on the fixed-N figure
     std::vector<Labelled> fixed_mu_points;               // A to F along the n = 1 plus arm
@@ -525,15 +525,15 @@ namespace utils {
       }
     }
 
-    // Small-amplitude samples on the n = 1 and n = 2 pitchforks.
-    dft::console::info("Sampling the n = 1 and n = 2 pitchforks at prescribed a_n");
+    // Small-amplitude samples on the n = 1, 2 and 3 pitchforks.
+    dft::console::info("Sampling the n = 1, 2 and 3 pitchforks at prescribed a_n");
     std::vector<double> amplitudes;
     for (double e : arma::linspace(-4.0, -1.0, 61)) {
       amplitudes.push_back(std::pow(10.0, e));
       amplitudes.push_back(-std::pow(10.0, e));
     }
     for (const auto& e : r.uniform.bifurcations) {
-      if (e.rho_bar < 0.0 && e.mode <= 2) {
+      if (e.rho_bar < 0.0 && e.mode <= 3) {
         r.pitchfork_points.push_back(e);
         r.pitchfork.push_back(pitchfork_samples(problem, continuation, e, amplitudes));
       }
