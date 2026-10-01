@@ -579,8 +579,11 @@ namespace plot {
       for (int n = 1; n <= 3; ++n)
         plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}, {"linestyle", ":"}});
       plt::yticks(
-          std::vector<double>{0.0, sigma, 2.0 * sigma, 3.0 * sigma, 4.0, 5.0, 6.0},
-          std::vector<std::string>{"0", R"($\sigma$)", R"($2\sigma$)", R"($3\sigma$)", "4", "5", "6"}
+          std::vector<double>{0.0, sigma, 2.0 * sigma, 3.0 * sigma, 4.0 * sigma, 5.0 * sigma, 6.0 * sigma},
+          std::vector<std::string>{
+              "0", R"($\sigma$)", R"($2\sigma$)", R"($3\sigma$)",
+              R"($4\sigma$)", R"($5\sigma$)", R"($6\sigma$)"
+          }
       );
       plt::ylim(0.0, 6.5);
       plt::ylabel(R"($\Omega - \Omega_{\rm meta}(\mu)$)");

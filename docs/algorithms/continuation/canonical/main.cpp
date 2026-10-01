@@ -44,7 +44,7 @@ int main() {
   matplotlibcpp::backend("Agg");
 #endif
 
-  console::info("Continuation: stationary states of the square-gradient model");
+  console::info("Canonical continuation: stationary states of the square-gradient model");
 
   const utils::Problem problem{.length = 20.0, .kappa = 1.0, .nodes = 201};
 

@@ -1,4 +1,4 @@
-// check.cpp: closed-form checks of the continuation example.
+// check.cpp: closed-form checks of the canonical continuation example.
 //
 // Traces the same branches as the example (utils::run) and compares folds,
 // bifurcation points, the surface tension, the symmetry between the arms of
