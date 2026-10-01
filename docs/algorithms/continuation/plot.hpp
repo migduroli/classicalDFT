@@ -488,14 +488,12 @@ namespace plot {
         {{"left", 0.08}, {"right", 0.98}, {"bottom", 0.16}, {"top", 0.97}, {"wspace", 0.22}, {"hspace", 0.45}}
     );
 
-    // Top: a_n against mu, both arms, and the bifurcation points numbered by
-    // n. Every non-uniform state here is unstable at fixed mu (n_- = n), so
-    // those curves are solid and the caption says so; the uniform line keeps
-    // its stable (solid) and unstable (dashed) arcs.
+    // Top: a_n against mu, both arms (dashed: unstable at fixed mu, n_- = n),
+    // and the bifurcation points numbered by n.
     panel(3, 2, 0, 0, 2, 2);
     uniform_axis(uniform, true);
     for (const auto& b : results.arms) {
-      std::map<std::string, std::string> keywords{{"color", color_of(b.mode)}};
+      std::map<std::string, std::string> keywords{{"color", color_of(b.mode)}, {"linestyle", "--"}};
       if (b.sign > 0)
         keywords["label"] = std::format(R"($n = {}$ interface{}, both arms)", b.mode, b.mode > 1 ? "s" : "");
       plt::plot(b.mu, b.modal, keywords);
@@ -531,7 +529,7 @@ namespace plot {
       inset(top, side > 0 ? 0.64 : 0.14, 0.66, 0.22, 0.24);
       uniform_axis(uniform, false);
       for (const auto& b : results.arms)
-        plt::plot(b.mu, b.modal, {{"color", color_of(b.mode)}});
+        plt::plot(b.mu, b.modal, {{"color", color_of(b.mode)}, {"linestyle", "--"}});
       for (const auto& e : uniform.bifurcations) {
         if (side * e.mu > 0.35 && e.mode <= 4) {
           plt::plot({e.mu}, {0.0}, {{"color", ink}, {"marker", "o"}, {"linestyle", "None"}});
@@ -578,7 +576,7 @@ namespace plot {
       gap(against_mass ? middle_mass : middle_mu, middle_mu, middle_omega, ink, "--");
       for (const auto& b : results.arms) {
         if (b.sign > 0)
-          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, color_of(b.mode), "-");
+          gap(against_mass ? b.mass : b.mu, b.mu, b.omega, color_of(b.mode), "--");
       }
       for (int n = 1; n <= 3; ++n)
         plt::axhline(n * sigma, 0.0, 1.0, {{"color", muted}, {"linewidth", "0.6"}, {"linestyle", ":"}});
@@ -642,7 +640,8 @@ namespace plot {
             by.push_back(b.modal[k]);
           }
         }
-        std::map<std::string, std::string> keywords{{"color", tint(color, 0.45)}, {"linewidth", "2"}};
+        std::map<std::string, std::string>
+            keywords{{"color", tint(color, 0.45)}, {"linewidth", "2"}, {"linestyle", "--"}};
         if (sign > 0 && j == 0)
           keywords["label"] = "traced arms, unstable";
         plt::plot(bx, by, keywords);
@@ -737,7 +736,7 @@ namespace plot {
     const auto& color = color_of(1);
     for (int sign : {+1, -1}) {
       const auto& arm = results.arm(1, sign);
-      std::map<std::string, std::string> keywords{{"color", color}};
+      std::map<std::string, std::string> keywords{{"color", color}, {"linestyle", "--"}};
       if (sign > 0)
         keywords["label"] = R"($n = 1$, both arms, unstable ($n_- = 1$))";
       plt::plot(arm.mu, arm.modal, keywords);
@@ -889,9 +888,9 @@ namespace plot {
     );
     const std::array<std::string, 6> letters{"A", "B", "C", "D", "E", "F"};
     for (const auto& arm : nested.arms) {
-      std::map<std::string, std::string> keywords{{"color", color_of(arm.mode)}};
+      std::map<std::string, std::string> keywords{{"color", color_of(arm.mode)}, {"linestyle", "--"}};
       if (arm.sign > 0)
-        keywords["label"] = std::format(R"($n = {}$, $n_- = {}$)", arm.mode, arm.mode);
+        keywords["label"] = std::format(R"($n = {}$, unstable, $n_- = {}$)", arm.mode, arm.mode);
       plt::plot(arm.lambda, arm.modal, keywords);
       if (arm.sign > 0)
         mark(
