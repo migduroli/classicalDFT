@@ -13,11 +13,8 @@ closes with the Landau pitchfork of a uniform order parameter. The closed-form
 results that the computation must reproduce are collected in a verification
 table at the end.
 
-**Figure conventions.** Branches are solid where stable and dashed where
-unstable. A non-uniform branch that is unstable along its whole length is
-drawn solid and the caption says it is unstable, so that figures with many
-such branches stay readable; line style is kept wherever stability changes
-along a curve. Profile panels are labelled by the letter of the marked state,
+**Figure conventions.** Branches are solid where stable (locally or
+globally) and dashed where unstable, in every figure. Profile panels are labelled by the letter of the marked state,
 with the details written inside. Figures are one column ($3.4 \times 3.0$ in)
 for single plots and two columns ($7.0 \times 3.0$ or $7.0 \times 5.2$ in)
 for multipanel figures.
@@ -508,6 +505,18 @@ in blue for those on the $n = 1$ branch.
 
 ![Fixed mass](exports/canonical.png)
 
+### Fixed-$N$ saddles
+
+A fixed-$N$ saddle is a stationary profile of the Helmholtz functional on
+the hyperplane of perturbations that preserve $N$, with at least one
+negative Hessian direction within that hyperplane. It is neither a stable
+equilibrium nor an arbitrary point on the curve: it separates the basins of
+two fixed-mass minima and gives the activation barrier between them. At
+$N = 14$, C has one such direction and is the saddle between the metastable
+uniform minimum B and the phase-separated minimum D. This constrained index
+can differ from the fixed-$\mu$ index because directions that change mass
+are excluded.
+
 ### The lettered states
 
 | State | $N$ | What it is | $F$ | $n_-$ at fixed $N$ |
@@ -556,6 +565,14 @@ bifurcation point: these states are the critical layers of the canonical
 problem. At the fold the minority layer has width
 $l = (L - N_{\rm fold})/2$ in the constant-density estimate, and
 $l/\sqrt{2\kappa} = 1.41$, $1.60$ and $1.77$ at $L = 20$, $40$ and $80$.
+
+More precisely, this finite-size fold is the turning point of the
+phase-separated branch in the prescribed mass: a stable layer state and a
+fixed-$N$ saddle coalesce there, the constrained Hessian has a zero
+eigenvalue, and neither non-uniform state exists at masses closer to the
+binodal. It is a finite-box effect of the interaction between the interface
+and the wall. As $L$ grows, the fold approaches $|N| = L$ in relative
+terms, while its minority-layer width grows only logarithmically.
 
 The fold position follows from the layer held by its image in the wall. A
 minority layer of width $l$ has $|\mu| = A\,e^{-2ql}$, with
