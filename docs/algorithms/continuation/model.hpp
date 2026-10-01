@@ -201,8 +201,7 @@ namespace utils {
     }
 
     inline auto bifurcation_count(double length, double kappa, double rho_bar) -> int {
-      return static_cast<int>(
-          std::floor(length / std::numbers::pi * std::sqrt((1.0 - 3.0 * rho_bar * rho_bar) / kappa))
+      return static_cast<int>(std::floor(length / std::numbers::pi * std::sqrt((1.0 - 3.0 * rho_bar * rho_bar) / kappa))
       );
     }
 

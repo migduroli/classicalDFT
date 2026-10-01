@@ -176,15 +176,13 @@ namespace plot {
   // subplots_adjust and are saved without tight_layout.
   inline void inset(const Bounds& parent, double x0, double y0, double width, double height) {
     PyObject* pyplot = py::import_module("matplotlib.pyplot");
-    Py_DECREF(
-        py::add_axes_rect(
-            pyplot,
-            parent[0] + x0 * parent[2],
-            parent[1] + y0 * parent[3],
-            width * parent[2],
-            height * parent[3]
-        )
-    );
+    Py_DECREF(py::add_axes_rect(
+        pyplot,
+        parent[0] + x0 * parent[2],
+        parent[1] + y0 * parent[3],
+        width * parent[2],
+        height * parent[3]
+    ));
     Py_DECREF(pyplot);
   }
 

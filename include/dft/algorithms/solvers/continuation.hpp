@@ -182,9 +182,8 @@ namespace dft::algorithms::continuation {
 
     // Trace a curve defined by R(x, lambda) = 0 using pseudo-arclength
     // continuation with adaptive step sizing.
-    [[nodiscard]] auto
-    trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {}) const
-        -> std::vector<CurvePoint>;
+    [[nodiscard]] auto trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {})
+        const -> std::vector<CurvePoint>;
 
     // The point of the curve R(x, lambda) = 0 where g(x, lambda) = 0, by
     // Newton on the bordered system [R; g] from the guess (x, lambda). The
@@ -192,9 +191,8 @@ namespace dft::algorithms::continuation {
     // be sampled at prescribed values of any observable (an amplitude, a
     // mass) instead of at arclength steps. The tangent is oriented with
     // dlambda/ds >= 0. Returns nullopt if Newton fails.
-    [[nodiscard]] auto
-    constrained_point(const arma::vec& x, double lambda, const Residual& R, const Constraint& g) const
-        -> std::optional<CurvePoint>;
+    [[nodiscard]] auto constrained_point(const arma::vec& x, double lambda, const Residual& R, const Constraint& g)
+        const -> std::optional<CurvePoint>;
 
     // Root of g between a and its successor b, where g changes sign. Each
     // trial point is a fresh step from a of length ds in (0, arclength(a, b)),
@@ -226,9 +224,8 @@ namespace dft::algorithms::continuation {
     // max(m_a, m_b) - 1, and each root is located. A crossing is a fold or a
     // bifurcation point; the caller tells them apart, for example with folds()
     // or from the eigenvector.
-    [[nodiscard]] auto
-    crossings(const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum) const
-        -> std::vector<Crossing> {
+    [[nodiscard]] auto crossings(const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum)
+        const -> std::vector<Crossing> {
       return detail::crossings(*this, curve, R, spectrum);
     }
 
@@ -519,9 +516,8 @@ namespace dft::algorithms::continuation {
     }
 
     // Trace a curve using matrix-free continuation with adaptive step sizing.
-    [[nodiscard]] auto
-    trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {}) const
-        -> std::vector<CurvePoint> {
+    [[nodiscard]] auto trace(CurvePoint start, const Residual& R, std::function<bool(const CurvePoint&)> stop = {})
+        const -> std::vector<CurvePoint> {
       std::vector<CurvePoint> curve;
       curve.push_back(start);
       double ds = initial_step;
@@ -580,9 +576,8 @@ namespace dft::algorithms::continuation {
     // max(m_a, m_b) - 1, and each root is located. A crossing is a fold or a
     // bifurcation point; the caller tells them apart, for example with folds()
     // or from the eigenvector.
-    [[nodiscard]] auto
-    crossings(const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum) const
-        -> std::vector<Crossing> {
+    [[nodiscard]] auto crossings(const std::vector<CurvePoint>& curve, const Residual& R, const Spectrum& spectrum)
+        const -> std::vector<Crossing> {
       return detail::crossings(*this, curve, R, spectrum);
     }
 
